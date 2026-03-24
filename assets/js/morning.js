@@ -27,10 +27,11 @@
         ${data.focus_recommendation ? `<div class="card mb-12"><div class="card-title">Focus</div><p style="font-size:13px;color:var(--text2)">${escHtml(data.focus_recommendation)}</p></div>` : ''}
         ${tasks.length ? `<div class="card mb-12"><div class="card-title">Tasks for today</div><ul class="task-list">${tasks.map(t => `<li>${escHtml(t)}</li>`).join('')}</ul></div>` : ''}
         ${news.length ? `<div class="card mb-12"><div class="card-title">News</div><ul class="task-list">${news.map(n => `<li>${escHtml(n)}</li>`).join('')}</ul></div>` : ''}
-        <div class="card"><div class="card-title">System</div>
+        <div class="card mb-12"><div class="card-title">System</div>
           <div class="stat-row"><span class="stat-label">Supabase status</span><span class="stat-val">✅ Connected</span></div>
           <div class="stat-row"><span class="stat-label">Requests processed</span><span class="stat-val">${processed.length}</span></div>
-        </div>`
+        </div>
+        ${renderDayPlan(data.excalidraw_board_url)}`
     } catch (e) {
       container.innerHTML = '<p class="error-state">Failed to load briefing.</p>'
     }
@@ -57,6 +58,24 @@
 
   function escHtml (s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  }
+
+  function renderDayPlan (url) {
+    const isExcalidraw = url && url.startsWith('https://excalidraw.com/')
+    if (!isExcalidraw) {
+      return `<div class="card"><div class="card-title">Day Plan</div><p class="text-muted text-sm">Day plan not available — run Morning Coffee to generate</p></div>`
+    }
+    const safeUrl = escHtml(url)
+    return `<div class="card">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        Day Plan
+        <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--accent)">Open in Excalidraw &#8594;</a>
+      </div>
+      <iframe src="${safeUrl}" style="width:100%;height:600px;border:none;border-radius:10px" allowfullscreen loading="lazy"></iframe>
+      <div style="margin-top:8px;text-align:right">
+        <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--accent)">Open full screen &#8594;</a>
+      </div>
+    </div>`
   }
 
   const triggerBtn = document.getElementById('trigger-morning-btn')
