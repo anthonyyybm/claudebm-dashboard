@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boosted Movers | Content Production</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='14' fill='%231a7a4a'/><text y='.9em' font-size='52' font-family='system-ui' font-weight='700' fill='white' x='12' y='68'>BM</text></svg>">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ─── Topbar ─────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo-mark">BM</div>
+    <div>
+      <span class="logo-text">Boosted Movers</span>
+      <span class="logo-sub">Content Production</span>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <button class="tab active" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="scripts">Scripts</button>
+    <button class="tab" data-tab="production">Production</button>
+    <button class="tab" data-tab="prompts">Prompts</button>
+    <button class="tab" data-tab="ideas">Ideas</button>
+    <button class="tab" data-tab="morning">Morning</button>
+    <button class="tab" data-tab="eod">EOD</button>
+  </nav>
+
+  <div class="topbar-right">
+    <div class="pulse-dot" title="Live"></div>
+    <div class="time-display" id="time-display">—</div>
+    <button class="dark-toggle" id="dark-toggle">🌙</button>
+  </div>
+</header>
+
+<!-- ─── Content ────────────────────────────────────────────── -->
+<main class="content">
+
+  <!-- OVERVIEW -->
+  <section class="tab-panel active" id="tab-overview">
+    <div class="metrics-grid">
+      <div class="metric-card metric" id="metric-scripts-card">
+        <div class="metric-label">Scripts Ready</div>
+        <div class="metric-val" id="metric-scripts-ready"><div class="skeleton h-big" style="width:40px"></div></div>
+        <div class="metric-sub">in pipeline</div>
+      </div>
+      <div class="metric-card metric" id="metric-reels-card">
+        <div class="metric-label">Reels Today</div>
+        <div class="metric-val" id="metric-reels-today"><div class="skeleton h-big" style="width:40px"></div></div>
+        <div class="metric-sub">target: 3</div>
+      </div>
+      <div class="metric-card metric" id="metric-ideas-card">
+        <div class="metric-label">Ideas Banked</div>
+        <div class="metric-val" id="metric-ideas"><div class="skeleton h-big" style="width:40px"></div></div>
+        <div class="metric-sub">status: New</div>
+      </div>
+      <div class="metric-card metric" id="metric-streak-card">
+        <div class="metric-label">Day Streak</div>
+        <div class="metric-val" id="metric-streak"><div class="skeleton h-big" style="width:40px"></div></div>
+        <div class="metric-sub" id="metric-streak-sub">days</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Script Bank — Last 8</div>
+        <div id="script-preview-list"><div class="skeleton"></div><div class="skeleton mt-8"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Shift Status</div>
+        <div class="stat-row">
+          <span class="stat-label">Reels progress</span>
+          <span class="stat-val" id="reel-progress-label">—</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-bar" id="reel-progress-bar" style="width:0%"></div></div>
+        <div class="stat-row">
+          <span class="stat-label">Shift end (PHT)</span>
+          <span class="stat-val">5:00 AM</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Auto-refresh</span>
+          <span class="stat-val text-muted" style="font-weight:400">every 60s</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Latest Morning Briefing</div>
+      <div id="briefing-preview"><div class="skeleton"></div></div>
+    </div>
+  </section>
+
+  <!-- SCRIPTS -->
+  <section class="tab-panel" id="tab-scripts">
+    <div class="filter-bar">
+      <button class="filter-btn active" data-scripts-filter="All">All</button>
+      <button class="filter-btn" data-scripts-filter="Draft">Draft</button>
+      <button class="filter-btn" data-scripts-filter="Ready">Ready</button>
+      <button class="filter-btn" data-scripts-filter="Used">Used</button>
+      <button class="filter-btn" data-scripts-filter="Flagged">Flagged</button>
+      <input class="input" id="scripts-search" type="text" placeholder="Search topic…" style="margin-left:auto;width:200px">
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Topic</th><th>Series</th><th>Status</th><th>Check</th>
+              <th title="Image prompt">Img</th>
+              <th title="Video P1">V1</th>
+              <th title="Video P2">V2</th>
+              <th title="CTA">CTA</th>
+              <th title="Captions">Cap</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="scripts-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRODUCTION -->
+  <section class="tab-panel" id="tab-production">
+    <div class="metrics-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px">
+      <div class="metric-card metric">
+        <div class="metric-label">Reels this week</div>
+        <div class="metric-val good" id="week-total-reels">—</div>
+      </div>
+      <div class="metric-card metric">
+        <div class="metric-label">Target days (3+ reels)</div>
+        <div class="metric-val" id="week-target-days">—</div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="flex-between mb-12">
+          <div class="card-title" id="production-month-title">—</div>
+        </div>
+        <div id="production-calendar"></div>
+        <div id="day-detail-panel"></div>
+        <div class="mt-12 flex gap-8 text-xs text-muted">
+          <span><span class="dot green" style="display:inline-block"></span> 3+ reels</span>
+          <span><span class="dot amber" style="display:inline-block"></span> 1–2 reels</span>
+          <span><span class="dot gray" style="display:inline-block"></span> 0 reels</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Last 7 Days — Reels</div>
+        <canvas id="weekly-chart" height="200"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROMPTS -->
+  <section class="tab-panel" id="tab-prompts">
+    <div class="flex-between mb-12">
+      <div style="font-size:13px;color:var(--text2)">Edit AI prompt templates used by skills</div>
+      <button class="btn" id="add-prompt-btn">+ Add Prompt</button>
+    </div>
+    <div id="add-prompt-form" style="display:none" class="card mb-12">
+      <div class="card-title">New Prompt</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <input class="input w-full" id="new-prompt-skill" placeholder="skill_name (e.g. granny-reel)">
+        <input class="input w-full" id="new-prompt-type" placeholder="prompt_type (e.g. system)">
+      </div>
+      <textarea class="textarea" id="new-prompt-template" rows="5" placeholder="Prompt template text…"></textarea>
+      <button class="btn mt-8" id="save-new-prompt-btn">Save New Prompt</button>
+    </div>
+    <div id="prompts-container"><div class="skeleton h-big"></div></div>
+  </section>
+
+  <!-- IDEAS -->
+  <section class="tab-panel" id="tab-ideas">
+    <div class="filter-bar">
+      <button class="filter-btn active" data-ideas-filter="All">All</button>
+      <button class="filter-btn" data-ideas-filter="New">New</button>
+      <button class="filter-btn" data-ideas-filter="Used">Used</button>
+      <button class="filter-btn" data-ideas-filter="Marketing Blind Spots">Marketing</button>
+      <button class="filter-btn" data-ideas-filter="Sales Behavior Problems">Sales</button>
+      <button class="filter-btn" data-ideas-filter="Customer Experience Gaps">Cx Gaps</button>
+    </div>
+    <div class="ideas-grid" id="ideas-grid">
+      <div class="skeleton h-big"></div>
+      <div class="skeleton h-big"></div>
+      <div class="skeleton h-big"></div>
+    </div>
+  </section>
+
+  <!-- MORNING COFFEE -->
+  <section class="tab-panel" id="tab-morning">
+    <div class="flex-between mb-12">
+      <div style="font-size:15px;font-weight:600">Morning Coffee Briefings</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn" id="trigger-morning-btn">▶ Run Morning Coffee</button>
+        <span id="morning-trigger-status" class="text-xs text-muted"></span>
+      </div>
+    </div>
+    <div id="morning-content"><div class="skeleton"></div></div>
+  </section>
+
+  <!-- EOD -->
+  <section class="tab-panel" id="tab-eod">
+    <div class="flex-between mb-12">
+      <div style="font-size:15px;font-weight:600">EOD Wrap Summaries</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn" id="trigger-eod-btn">▶ Run EOD Wrap</button>
+        <span id="eod-trigger-status" class="text-xs text-muted"></span>
+      </div>
+    </div>
+    <div id="eod-content"><div class="skeleton"></div></div>
+  </section>
+
+</main>
+
+<!-- ─── Scripts ───────────────────────────────────────────── -->
+<script src="assets/js/supabase.js"></script>
+<script>
+  // ─── Tab navigation ────────────────────────────────────────
+  const tabs = document.querySelectorAll('.tab')
+  const panels = document.querySelectorAll('.tab-panel')
+
+  function activateTab (name) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name))
+    panels.forEach(p => p.classList.toggle('active', p.id === `tab-${name}`))
+    sessionStorage.setItem('activeTab', name)
+  }
+
+  tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)))
+  window.goTab = activateTab
+
+  // Restore last tab
+  const lastTab = sessionStorage.getItem('activeTab')
+  if (lastTab) activateTab(lastTab)
+
+  // ─── Dark mode ─────────────────────────────────────────────
+  const toggleBtn = document.getElementById('dark-toggle')
+  function applyDark (on) {
+    document.body.classList.toggle('dark', on)
+    toggleBtn.textContent = on ? '☀️' : '🌙'
+    localStorage.setItem('darkMode', on)
+  }
+  applyDark(localStorage.getItem('darkMode') === 'true')
+  toggleBtn.addEventListener('click', () => applyDark(!document.body.classList.contains('dark')))
+
+  // ─── Live time display (PHT) ───────────────────────────────
+  function updateTime () {
+    const now = new Date()
+    const pht = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 8 * 3600000)
+    document.getElementById('time-display').textContent =
+      pht.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) + ' PHT'
+  }
+  updateTime()
+  setInterval(updateTime, 1000)
+</script>
+
+<!-- Load tab JS after Supabase client is ready -->
+<script src="assets/js/overview.js"></script>
+<script src="assets/js/scripts.js"></script>
+<script src="assets/js/production.js"></script>
+<script src="assets/js/prompts.js"></script>
+<script src="assets/js/ideas.js"></script>
+<script src="assets/js/morning.js"></script>
+<script src="assets/js/eod.js"></script>
+
+</body>
+</html>
