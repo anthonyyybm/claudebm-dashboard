@@ -34,6 +34,9 @@
   <div class="topbar-right">
     <div class="pulse-dot" title="Live"></div>
     <div class="time-display" id="time-display">—</div>
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
     <button class="dark-toggle" id="dark-toggle">🌙</button>
   </div>
 </header>
@@ -97,6 +100,13 @@
 
   <!-- SCRIPTS -->
   <section class="tab-panel" id="tab-scripts">
+    <div class="flex-between mb-12">
+      <div style="font-size:15px;font-weight:600">Script Pipeline</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn" id="batch-check-btn" onclick="window.checkAllDrafts()">Check All Drafts</button>
+        <span id="batch-check-status" class="text-xs text-muted"></span>
+      </div>
+    </div>
     <div class="filter-bar">
       <button class="filter-btn active" data-scripts-filter="All">All</button>
       <button class="filter-btn" data-scripts-filter="Draft">Draft</button>
@@ -137,22 +147,22 @@
         <div class="metric-val" id="week-target-days">—</div>
       </div>
     </div>
-    <div class="two-col">
-      <div class="card">
-        <div class="flex-between mb-12">
-          <div class="card-title" id="production-month-title">—</div>
-        </div>
-        <div id="production-calendar"></div>
-        <div id="day-detail-panel"></div>
-        <div class="mt-12 flex gap-8 text-xs text-muted">
-          <span><span class="dot green" style="display:inline-block"></span> 3+ reels</span>
-          <span><span class="dot amber" style="display:inline-block"></span> 1–2 reels</span>
-          <span><span class="dot gray" style="display:inline-block"></span> 0 reels</span>
-        </div>
+    <div class="card mb-12">
+      <div class="card-title">Last 7 Days — Reels</div>
+      <canvas id="weekly-chart" height="160"></canvas>
+    </div>
+    <div class="card">
+      <div class="flex-between mb-12">
+        <button id="cal-prev" class="btn btn-ghost" style="font-size:18px;line-height:1;padding:3px 12px">&#8249;</button>
+        <div class="card-title" style="margin-bottom:0" id="production-month-title">—</div>
+        <button id="cal-next" class="btn btn-ghost" style="font-size:18px;line-height:1;padding:3px 12px">&#8250;</button>
       </div>
-      <div class="card">
-        <div class="card-title">Last 7 Days — Reels</div>
-        <canvas id="weekly-chart" height="200"></canvas>
+      <div id="production-calendar"></div>
+      <div id="day-detail-panel"></div>
+      <div class="mt-12 flex gap-8 text-xs text-muted">
+        <span><span class="dot green" style="display:inline-block"></span> 3+ reels</span>
+        <span><span class="dot amber" style="display:inline-block"></span> 1–2 reels</span>
+        <span><span class="dot gray" style="display:inline-block"></span> 0 reels</span>
       </div>
     </div>
   </section>
@@ -233,6 +243,18 @@
 
   tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)))
   window.goTab = activateTab
+
+  // ─── Hamburger menu ─────────────────────────────────────────
+  const hamburger = document.getElementById('hamburger')
+  const navEl = document.querySelector('.nav')
+  hamburger.addEventListener('click', () => {
+    navEl.classList.toggle('open')
+    hamburger.classList.toggle('active')
+  })
+  tabs.forEach(t => t.addEventListener('click', () => {
+    navEl.classList.remove('open')
+    hamburger.classList.remove('active')
+  }))
 
   // Restore last tab
   const lastTab = sessionStorage.getItem('activeTab')

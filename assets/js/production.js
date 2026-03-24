@@ -1,6 +1,8 @@
-// Production tab — calendar, weekly bar chart
+// Production tab — calendar with navigation, weekly bar chart
 ;(function () {
   let chartInstance = null
+  let viewYear, viewMonth
+  let cachedData = []
 
   function todayStr () {
     const now = new Date()
@@ -9,63 +11,65 @@
     return pht.toISOString().split('T')[0]
   }
 
-  function currentYearMonth () {
+  function initView () {
     const [y, m] = todayStr().split('-')
-    return { year: parseInt(y), month: parseInt(m) }
+    viewYear = parseInt(y)
+    viewMonth = parseInt(m)
   }
 
   async function loadProductionData () {
-    const { year, month } = currentYearMonth()
-    const start = `${year}-${String(month).padStart(2,'0')}-01`
-    const end   = `${year}-${String(month).padStart(2,'0')}-31`
+    const start = `${viewYear}-${String(viewMonth).padStart(2,'0')}-01`
+    const end   = `${viewYear}-${String(viewMonth).padStart(2,'0')}-31`
     try {
       const { data, error } = await window.sb
         .from('production_log')
-        .select('log_date, reels_completed, scripts_generated')
+        .select('log_date, reels_completed, reels_target, scripts_generated, notes')
         .gte('log_date', start)
         .lte('log_date', end)
         .order('log_date')
       if (error) throw error
-      renderCalendar(data || [], year, month)
-      renderWeekChart(data || [])
-      renderWeekStats(data || [])
+      cachedData = data || []
+      renderCalendar(cachedData)
+      renderWeekChart(cachedData)
+      renderWeekStats(cachedData)
     } catch (e) {
       const cal = document.getElementById('production-calendar')
       if (cal) cal.innerHTML = '<p class="error-state">Failed to load production data.</p>'
     }
   }
 
-  function renderCalendar (data, year, month) {
+  function renderCalendar (data) {
     const cal = document.getElementById('production-calendar')
     if (!cal) return
     const map = {}
     data.forEach(r => { map[r.log_date] = r })
     const today = todayStr()
-    const firstDay = new Date(year, month - 1, 1).getDay()
-    const daysInMonth = new Date(year, month, 0).getDate()
-    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+    const firstDay = new Date(viewYear, viewMonth - 1, 1).getDay()
+    const daysInMonth = new Date(viewYear, viewMonth, 0).getDate()
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
-    let html = '<div class="cal-grid">'
-    html += days.map(d => `<div class="cal-day-name">${d}</div>`).join('')
-    for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>'
+    const title = document.getElementById('production-month-title')
+    if (title) title.textContent = new Date(viewYear, viewMonth - 1)
+      .toLocaleString('default', { month: 'long', year: 'numeric' })
+
+    let html = '<div class="calendar-grid">'
+    html += dayNames.map(d => `<div class="calendar-header">${d}</div>`).join('')
+    for (let i = 0; i < firstDay; i++) html += '<div class="calendar-cell empty"></div>'
     for (let d = 1; d <= daysInMonth; d++) {
-      const ds = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+      const ds = `${viewYear}-${String(viewMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`
       const row = map[ds]
       const reels = row?.reels_completed ?? 0
-      let cls = ''
-      if (reels >= 3) cls = 'has-reels-full'
-      else if (reels > 0) cls = 'has-reels-part'
-      const isToday = ds === today ? 'today' : ''
-      const dotColor = reels >= 3 ? 'var(--success)' : reels > 0 ? 'var(--amber)' : 'transparent'
-      html += `<div class="cal-day ${cls} ${isToday}" title="${ds}: ${reels} reels" onclick="window.showDayDetail('${ds}', ${reels})">
-        <span class="cal-day-num">${d}</span>
-        <div class="cal-day-dot" style="background:${dotColor}"></div>
+      const colorCls = reels >= 3 ? ' green' : reels > 0 ? ' amber' : ''
+      const todayCls = ds === today ? ' today' : ''
+      const hasDataCls = row ? ' has-data' : ''
+      const dotColor = reels >= 3 ? 'var(--success)' : reels > 0 ? 'var(--amber)' : 'var(--border)'
+      html += `<div class="calendar-cell${colorCls}${todayCls}${hasDataCls}" onclick="window.showDayDetail('${ds}')">
+        <span class="day-num">${d}</span>
+        <div class="calendar-dot" style="background:${dotColor}"></div>
+        ${reels > 0 ? `<span class="reel-count">${reels}</span>` : ''}
       </div>`
     }
     html += '</div>'
-
-    const title = document.getElementById('production-month-title')
-    if (title) title.textContent = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })
     cal.innerHTML = html
   }
 
@@ -130,14 +134,57 @@
     if (el2) el2.textContent = `${targetDays}/7`
   }
 
-  window.showDayDetail = function (date, reels) {
+  function escHtml (s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  }
+
+  window.showDayDetail = function (date) {
     const panel = document.getElementById('day-detail-panel')
     if (!panel) return
-    panel.innerHTML = `<div class="card animate-in mt-12">
-      <div class="card-title">${date}</div>
-      <div class="stat-row"><span class="stat-label">Reels completed</span><span class="stat-val ${reels>=3?'good':reels>0?'amber':''}">${reels}</span></div>
+    const row = cachedData.find(r => r.log_date === date)
+    if (!row) {
+      panel.innerHTML = `<div class="calendar-detail"><span class="text-muted text-sm">No data for ${date}</span></div>`
+      return
+    }
+    const reels = row.reels_completed ?? 0
+    const target = row.reels_target ?? 3
+    const reelColor = reels >= 3 ? 'var(--success)' : reels > 0 ? 'var(--amber)' : 'var(--text)'
+    panel.innerHTML = `<div class="calendar-detail">
+      <div class="stat-row"><span class="stat-label">Date</span><span class="stat-val">${date}</span></div>
+      <div class="stat-row">
+        <span class="stat-label">Reels completed</span>
+        <span class="stat-val" style="color:${reelColor}">${reels} / ${target}</span>
+      </div>
+      <div class="stat-row"><span class="stat-label">Scripts generated</span><span class="stat-val">${row.scripts_generated ?? 0}</span></div>
+      ${row.notes ? `<div class="stat-row" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <span class="stat-label">Notes</span>
+        <span style="font-size:12px;color:var(--text2);white-space:pre-wrap">${escHtml(row.notes)}</span>
+      </div>` : ''}
     </div>`
   }
+
+  function prevMonth () {
+    viewMonth--
+    if (viewMonth < 1) { viewMonth = 12; viewYear-- }
+    const p = document.getElementById('day-detail-panel')
+    if (p) p.innerHTML = ''
+    loadProductionData()
+  }
+
+  function nextMonth () {
+    viewMonth++
+    if (viewMonth > 12) { viewMonth = 1; viewYear++ }
+    const p = document.getElementById('day-detail-panel')
+    if (p) p.innerHTML = ''
+    loadProductionData()
+  }
+
+  initView()
+
+  const prevBtn = document.getElementById('cal-prev')
+  const nextBtn = document.getElementById('cal-next')
+  if (prevBtn) prevBtn.addEventListener('click', prevMonth)
+  if (nextBtn) nextBtn.addEventListener('click', nextMonth)
 
   loadProductionData()
   window.productionRefresh = loadProductionData
