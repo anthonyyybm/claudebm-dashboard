@@ -142,24 +142,38 @@
 
   <!-- PRODUCTION -->
   <section class="tab-panel" id="tab-production">
-    <div class="metrics-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px">
+    <p class="tab-purpose">Track your daily reel output and content consistency over time.</p>
+
+    <!-- Section 1 — This Week -->
+    <div class="metrics-grid metrics-3 mb-12">
       <div class="metric-card metric">
-        <div class="metric-label">Reels this week</div>
-        <div class="metric-val good" id="week-total-reels">—</div>
+        <div class="metric-label">Reels This Week</div>
+        <div class="metric-val good" id="prod-week-reels"><div class="skeleton h-big" style="width:40px"></div></div>
+        <div class="metric-sub">current week</div>
       </div>
       <div class="metric-card metric">
-        <div class="metric-label">Target days (3+ reels)</div>
-        <div class="metric-val" id="week-target-days">—</div>
+        <div class="metric-label">Target Days Hit</div>
+        <div class="metric-val" id="prod-week-target"><div class="skeleton h-big" style="width:40px"></div></div>
+        <div class="metric-sub">3+ reels / day</div>
+      </div>
+      <div class="metric-card metric">
+        <div class="metric-label">Scripts Generated</div>
+        <div class="metric-val" id="prod-week-scripts"><div class="skeleton h-big" style="width:40px"></div></div>
+        <div class="metric-sub">this week</div>
       </div>
     </div>
+
+    <!-- Section 2 — Weekly Chart -->
     <div class="card mb-12">
-      <div class="card-title">Last 7 Days — Reels</div>
-      <canvas id="weekly-chart" height="160"></canvas>
+      <div class="card-title">Reels completed — last 7 days</div>
+      <canvas id="weekly-chart" height="140"></canvas>
     </div>
-    <div class="card">
-      <div class="flex-between mb-12">
+
+    <!-- Section 3 — Content Calendar -->
+    <div class="card mb-12">
+      <div class="flex-between" style="margin-bottom:14px">
         <button id="cal-prev" class="btn btn-ghost" style="font-size:18px;line-height:1;padding:3px 12px">&#8249;</button>
-        <div class="card-title" style="margin-bottom:0" id="production-month-title">—</div>
+        <div style="font-size:14px;font-weight:600" id="production-month-title">—</div>
         <button id="cal-next" class="btn btn-ghost" style="font-size:18px;line-height:1;padding:3px 12px">&#8250;</button>
       </div>
       <div id="production-calendar"></div>
@@ -168,6 +182,20 @@
         <span><span class="dot green" style="display:inline-block"></span> 3+ reels</span>
         <span><span class="dot amber" style="display:inline-block"></span> 1–2 reels</span>
         <span><span class="dot gray" style="display:inline-block"></span> 0 reels</span>
+      </div>
+    </div>
+
+    <!-- Section 4 — Monthly Summary -->
+    <div class="metrics-grid" style="grid-template-columns:repeat(2,1fr)">
+      <div class="metric-card metric">
+        <div class="metric-label">Total Reels This Month</div>
+        <div class="metric-val good" id="prod-month-reels">—</div>
+        <div class="metric-sub" id="prod-month-label">—</div>
+      </div>
+      <div class="metric-card metric">
+        <div class="metric-label">Days Target Hit</div>
+        <div class="metric-val" id="prod-month-target" style="font-size:18px">—</div>
+        <div class="metric-sub">3+ reels / day</div>
       </div>
     </div>
   </section>
