@@ -147,6 +147,11 @@ input, textarea, select { font: inherit; }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
 
+.production-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; align-items: stretch; }
+.production-grid .card { margin-bottom: 0; display: flex; flex-direction: column; height: 100%; }
+.production-grid .card-title { flex-shrink: 0; }
+@media (max-width: 768px) { .production-grid { grid-template-columns: 1fr; } }
+
 /* ─── Badges ─────────────────────────────────────────────────── */
 .badge {
   display: inline-block;
@@ -331,7 +336,8 @@ tr:last-child td { border-bottom: none; }
 .cal-day-dot { width: 5px; height: 5px; border-radius: 50%; margin-top: 2px; }
 
 /* ─── Ideas grid ──────────────────────────────────────────────── */
-.ideas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.ideas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 768px) { .ideas-grid { grid-template-columns: 1fr; } }
 .idea-card {
   background: var(--surface);
   border: 1px solid var(--border);

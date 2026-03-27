@@ -163,25 +163,26 @@
       </div>
     </div>
 
-    <!-- Section 2 — Weekly Chart -->
-    <div class="card mb-12">
-      <div class="card-title">Reels completed — last 7 days</div>
-      <canvas id="weekly-chart" height="140"></canvas>
-    </div>
-
-    <!-- Section 3 — Content Calendar -->
-    <div class="card mb-12">
-      <div class="flex-between" style="margin-bottom:14px">
-        <button id="cal-prev" class="btn btn-ghost" style="font-size:18px;line-height:1;padding:3px 12px">&#8249;</button>
-        <div style="font-size:14px;font-weight:600" id="production-month-title">—</div>
-        <button id="cal-next" class="btn btn-ghost" style="font-size:18px;line-height:1;padding:3px 12px">&#8250;</button>
+    <!-- Section 2 & 3 — Weekly Chart and Content Calendar -->
+    <div class="production-grid">
+      <div class="card">
+        <div class="card-title">Reels completed — last 7 days</div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center"><canvas id="weekly-chart" height="140"></canvas></div>
       </div>
-      <div id="production-calendar"></div>
-      <div id="day-detail-panel"></div>
-      <div class="mt-12 flex gap-8 text-xs text-muted">
-        <span><span class="dot green" style="display:inline-block"></span> 3+ reels</span>
-        <span><span class="dot amber" style="display:inline-block"></span> 1–2 reels</span>
-        <span><span class="dot gray" style="display:inline-block"></span> 0 reels</span>
+
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:14px">
+          <button id="cal-prev" class="btn btn-ghost" style="font-size:18px;line-height:1;padding:3px 12px">&#8249;</button>
+          <div style="font-size:14px;font-weight:600" id="production-month-title">—</div>
+          <button id="cal-next" class="btn btn-ghost" style="font-size:18px;line-height:1;padding:3px 12px">&#8250;</button>
+        </div>
+        <div id="production-calendar"></div>
+        <div id="day-detail-panel"></div>
+        <div class="mt-12 flex gap-8 text-xs text-muted" style="margin-top:auto">
+          <span><span class="dot green" style="display:inline-block"></span> 3+ reels</span>
+          <span><span class="dot amber" style="display:inline-block"></span> 1–2 reels</span>
+          <span><span class="dot gray" style="display:inline-block"></span> 0 reels</span>
+        </div>
       </div>
     </div>
 
@@ -227,6 +228,7 @@
       <button class="filter-btn" data-ideas-filter="Marketing Blind Spots">Marketing</button>
       <button class="filter-btn" data-ideas-filter="Sales Behavior Problems">Sales</button>
       <button class="filter-btn" data-ideas-filter="Customer Experience Gaps">Cx Gaps</button>
+      <input class="input" id="ideas-search" type="text" placeholder="Search topic…" style="margin-left:auto;width:200px">
     </div>
     <div class="ideas-grid" id="ideas-grid">
       <div class="skeleton h-big"></div>
