@@ -237,45 +237,157 @@
     cal.innerHTML = html
   }
 
-  // ── Day detail panel ──────────────────────────────────────────
-  window.showDayDetail = function (date) {
-    const panel = document.getElementById('day-detail-panel')
-    if (!panel) return
+  // ── Day detail modal ──────────────────────────────────────────
+  window.showDayDetail = async function (date) {
+    const existing = document.getElementById('day-modal-overlay')
+    if (existing) existing.remove()
+
     const row = monthData.find(r => r.log_date === date)
     const [y, m, d] = date.split('-')
     const displayDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
       .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
+    let badgeClass = 'gray', badgeText = 'No Data'
+    if (row) {
+      const n = row.reels_completed ?? 0
+      const t = row.reels_target    ?? 3
+      if (n >= t)   { badgeClass = 'green'; badgeText = 'Target Hit' }
+      else if (n > 0) { badgeClass = 'amber'; badgeText = 'Partial' }
+    }
+
+    const overlay = document.createElement('div')
+    overlay.id = 'day-modal-overlay'
+    overlay.className = 'modal-overlay'
+    overlay.innerHTML = `<div class="modal-card" style="max-width:480px">
+      <div class="modal-header" style="flex-direction:column;gap:6px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;gap:10px">
+          <div class="modal-title">${displayDate}</div>
+          <button class="modal-close" id="day-modal-close">✕</button>
+        </div>
+        <span class="badge ${badgeClass}">${badgeText}</span>
+      </div>
+      <div class="modal-body" id="day-modal-body">
+        <div class="skeleton" style="height:80px;border-radius:6px"></div>
+      </div>
+      <div class="modal-footer">
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost" style="font-size:11px" onclick="window.goTab('scripts');document.getElementById('day-modal-overlay').remove()">Scripts →</button>
+          <button class="btn btn-ghost" style="font-size:11px" onclick="window.goTab('morning');document.getElementById('day-modal-overlay').remove()">Morning →</button>
+          <button class="btn btn-ghost" style="font-size:11px" onclick="window.goTab('eod');document.getElementById('day-modal-overlay').remove()">EOD →</button>
+        </div>
+        <button class="btn btn-ghost" style="font-size:11px" onclick="document.getElementById('day-modal-overlay').remove()">Close</button>
+      </div>
+    </div>`
+    document.body.appendChild(overlay)
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
+    document.getElementById('day-modal-close').addEventListener('click', () => overlay.remove())
+
     if (!row) {
-      panel.innerHTML = `<div class="calendar-detail">
-        <div style="font-size:13px;font-weight:600;margin-bottom:6px">${displayDate}</div>
-        <div class="text-sm text-muted">No data recorded for this day.</div>
-      </div>`
+      document.getElementById('day-modal-body').innerHTML = `
+        <div style="text-align:center;padding:28px 0">
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px;color:var(--text)">No data recorded for this day</div>
+          <div class="text-sm text-muted">This day has not been logged yet.</div>
+        </div>`
       return
     }
 
+    // Fetch morning briefing, EOD summary, and scripts used this day
+    let briefing = null, eod = null, scripts = []
+    try {
+      const [bRes, eRes, sRes] = await Promise.all([
+        window.sb.from('morning_briefings')
+          .select('briefing_date,focus_recommendation,raw_output')
+          .eq('briefing_date', date).maybeSingle(),
+        window.sb.from('eod_summaries')
+          .select('summary_date,raw_output')
+          .eq('summary_date', date).maybeSingle(),
+        window.sb.from('scripts')
+          .select('id,topic,used_at')
+          .not('used_at', 'is', null)
+          .gte('used_at', date + 'T00:00:00')
+          .lte('used_at', date + 'T23:59:59')
+      ])
+      if (!bRes.error) briefing = bRes.data
+      if (!eRes.error) eod     = eRes.data
+      if (!sRes.error) scripts = sRes.data || []
+    } catch {}
+
     const reels  = row.reels_completed ?? 0
     const target = row.reels_target    ?? 3
-    const reelColor = reels >= 3 ? 'var(--success)' : reels > 0 ? 'var(--amber)' : 'var(--text)'
-    panel.innerHTML = `<div class="calendar-detail">
-      <div style="font-size:13px;font-weight:600;margin-bottom:10px">${displayDate}</div>
+    const reelColor = reels >= target ? 'var(--success)' : reels > 0 ? 'var(--amber)' : 'var(--danger)'
+
+    let html = ''
+
+    // Production Summary section
+    html += `<div class="modal-section">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">Production Summary</div>
       <div class="stat-row">
         <span class="stat-label">Reels completed</span>
-        <span class="stat-val" style="color:${reelColor}">${reels} / ${target}</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Reels target</span>
-        <span class="stat-val">${target}</span>
+        <span class="stat-val" style="color:${reelColor}">${reels} of ${target}</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">Scripts generated</span>
         <span class="stat-val">${row.scripts_generated ?? 0}</span>
-      </div>
-      ${row.notes ? `<div class="stat-row" style="flex-direction:column;align-items:flex-start;gap:4px">
+      </div>`
+    if (row.tasks_completed != null) {
+      html += `<div class="stat-row"><span class="stat-label">Tasks completed</span><span class="stat-val">${row.tasks_completed}</span></div>`
+    }
+    if (row.tasks_rolled_over != null) {
+      html += `<div class="stat-row"><span class="stat-label">Tasks rolled over</span><span class="stat-val">${row.tasks_rolled_over}</span></div>`
+    }
+    if (row.notes) {
+      html += `<div class="stat-row" style="flex-direction:column;align-items:flex-start;gap:4px;border-bottom:none">
         <span class="stat-label">Notes</span>
         <span style="font-size:12px;color:var(--text2);white-space:pre-wrap">${escHtml(row.notes)}</span>
-      </div>` : ''}
-    </div>`
+      </div>`
+    }
+    html += '</div>'
+
+    // Morning Briefing section
+    if (briefing) {
+      const preview = briefing.focus_recommendation ||
+        (briefing.raw_output ? briefing.raw_output.substring(0, 200) + (briefing.raw_output.length > 200 ? '…' : '') : '')
+      html += `<div class="modal-section">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Morning Briefing</span>
+          <a href="#" style="font-size:11px;color:var(--accent)" onclick="event.preventDefault();window.goTab('morning');document.getElementById('day-modal-overlay').remove()">View full briefing →</a>
+        </div>
+        ${preview ? `<div style="font-size:12px;color:var(--text2)">${escHtml(preview)}</div>` : '<div class="text-sm text-muted">No preview available.</div>'}
+      </div>`
+    }
+
+    // EOD Summary section
+    if (eod) {
+      const raw     = eod.raw_output || ''
+      const preview = raw.substring(0, 200) + (raw.length > 200 ? '…' : '')
+      html += `<div class="modal-section">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">EOD Summary</span>
+          <a href="#" style="font-size:11px;color:var(--accent)" onclick="event.preventDefault();window.goTab('eod');document.getElementById('day-modal-overlay').remove()">View full EOD →</a>
+        </div>
+        ${preview ? `<div style="font-size:12px;color:var(--text2);white-space:pre-wrap">${escHtml(preview)}</div>` : '<div class="text-sm text-muted">No preview available.</div>'}
+      </div>`
+    }
+
+    // Scripts used today section
+    if (scripts.length > 0) {
+      html += `<div class="modal-section">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">Scripts Used Today</div>
+        <ul style="list-style:none;margin:0;padding:0">`
+      scripts.forEach(s => {
+        html += `<li style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <a href="#" style="color:var(--accent)" onclick="event.preventDefault();window.goTab('scripts');document.getElementById('day-modal-overlay').remove()">${escHtml(s.topic)}</a>
+        </li>`
+      })
+      html += `</ul>
+        <div style="margin-top:8px">
+          <a href="#" style="font-size:11px;color:var(--accent)" onclick="event.preventDefault();window.goTab('scripts');document.getElementById('day-modal-overlay').remove()">View all scripts →</a>
+        </div>
+      </div>`
+    }
+
+    document.getElementById('day-modal-body').innerHTML = html || '<div class="text-sm text-muted">No details available.</div>'
   }
 
   // ── Section 4 — Monthly summary ───────────────────────────────
@@ -307,8 +419,8 @@
   }
 
   function clearDetail () {
-    const p = document.getElementById('day-detail-panel')
-    if (p) p.innerHTML = ''
+    const modal = document.getElementById('day-modal-overlay')
+    if (modal) modal.remove()
   }
 
   // ── Utils ─────────────────────────────────────────────────────
