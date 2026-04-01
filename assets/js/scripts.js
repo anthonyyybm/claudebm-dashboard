@@ -158,7 +158,7 @@
         </td>
         <td class="script-topic" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(s.topic || '—')}</td>
         <td class="text-xs text-muted">${abbreviateSeries(s.series)}</td>
-        <td class="text-xs text-muted">${escHtml(s.content_type || '—')}</td>
+        <td>${formatBadge(s.content_type)}</td>
         <td><span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span></td>
         <td>${ccBadge(s.consistency_check)}</td>
         <td>${dot(s.image_prompt)}</td>
@@ -281,11 +281,11 @@
     badgesEl.innerHTML = `
       <span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span>
       <span class="badge gray">${abbreviateSeries(s.series)}</span>
-      <span class="badge accent">${escHtml(s.content_type || 'No format')}</span>
+      ${formatBadge(s.content_type)}
       ${ccBadge(s.consistency_check)}`
 
     bodyEl.innerHTML = [
-      modalField('Full Script', [s.hook, s.script_part1, s.script_part2, s.script_part3, s.script_part4].filter(Boolean).join('\n\n')),
+      modalField('Script', [s.hook, s.script_part1, s.script_part2].filter(Boolean).join('\n\n'), null, 'detail-text-mono'),
       modalField('Image Prompt',        s.image_prompt,       'image_prompt'),
       modalField('Video Prompt P1',     s.video_prompt_p1,    'video_prompt_p1'),
       modalField('Video Prompt P2',     s.video_prompt_p2,    'video_prompt_p2'),
@@ -322,10 +322,11 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') window.closeScriptModal() })
 
   // ── Modal field ───────────────────────────────────────────────
-  function modalField (label, val, fieldKey) {
+  function modalField (label, val, fieldKey, extraClass) {
     if (!val) return ''
     const uid    = 'mf' + Math.random().toString(36).slice(2, 9)
     const editId = 'eb' + uid
+    const cls    = extraClass ? `detail-text ${extraClass}` : 'detail-text'
     return `<div class="modal-section">
       <div class="modal-section-header">
         <div class="detail-label">${label}</div>
@@ -334,7 +335,7 @@
           ${fieldKey ? `<button class="copy-btn" id="${editId}" onclick="window.editField('${uid}','${fieldKey}','${editId}')">Edit</button>` : ''}
         </div>
       </div>
-      <div class="detail-text" id="${uid}" data-original="${escAttr(val)}">${escHtml(val)}</div>
+      <div class="${cls}" id="${uid}" data-original="${escAttr(val)}">${escHtml(val)}</div>
     </div>`
   }
 
@@ -554,6 +555,14 @@
       </div>
       <span id="check-status-${s.id}" class="text-xs text-muted"></span>
     </div>`
+  }
+
+  function formatBadge (type) {
+    if (!type) return '<span class="badge gray">—</span>'
+    if (type === 'Granny First')        return `<span class="badge purple">${escHtml(type)}</span>`
+    if (type === 'Mistake First')       return `<span class="badge blue">${escHtml(type)}</span>`
+    if (type === 'Creative Commercial') return `<span class="badge coral">${escHtml(type)}</span>`
+    return `<span class="badge gray">${escHtml(type)}</span>`
   }
 
   function dot (val) { return `<span class="dot ${val ? 'accent' : 'gray'}"></span>` }
