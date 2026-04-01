@@ -23,6 +23,7 @@
           <li><span class="badge green">Live</span> Research and content ideas</li>
           <li><span class="badge green">Live</span> Consistency checker</li>
           <li><span class="badge amber">In Progress</span> Excalidraw day planning</li>
+          <li><span class="badge amber">In Progress</span> Analytics and performance tracking</li>
         </ul>
       </div>
 
@@ -45,15 +46,15 @@
         <div class="about-steps">
           <div class="about-step">
             <div class="about-step-num">1</div>
-            <div class="about-step-text"><strong>Claude Code</strong> generates scripts overnight</div>
+            <div class="about-step-text"><strong>Claude Code generates scripts overnight</strong><br>Scripts are written during off-hours and saved to Supabase, ready when your shift starts.</div>
           </div>
           <div class="about-step">
             <div class="about-step-num">2</div>
-            <div class="about-step-text"><strong>Dashboard</strong> shows what is ready to produce</div>
+            <div class="about-step-text"><strong>Dashboard shows what is ready to produce</strong><br>See your script bank, production log, and daily targets at a glance.</div>
           </div>
           <div class="about-step">
             <div class="about-step-num">3</div>
-            <div class="about-step-text"><strong>You</strong> produce reels and track completion</div>
+            <div class="about-step-text"><strong>You produce reels and track completion</strong><br>Mark scripts as used, log completed reels, and close out your shift with EOD wrap.</div>
           </div>
         </div>
       </div>
@@ -61,6 +62,7 @@
       <!-- SECTION 5 -->
       <div class="about-data-note">
         Data stored in Supabase. Updated automatically by Claude Code skills running on schedule via GitHub Actions.
+        Analytics imported weekly from TikTok and Instagram CSV exports.
       </div>
     `
   }
