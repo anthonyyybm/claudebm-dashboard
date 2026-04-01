@@ -81,7 +81,7 @@
   async function loadScripts () {
     const table = document.getElementById('scripts-table-body')
     if (!table) return
-    table.innerHTML = '<tr><td colspan="11"><div class="skeleton"></div></td></tr>'
+    table.innerHTML = '<tr><td colspan="14"><div class="skeleton"></div></td></tr>'
     try {
       const { data, error } = await window.sb
         .from('scripts')
@@ -94,7 +94,7 @@
       updateBulkBar()
       renderTable()
     } catch {
-      table.innerHTML = '<tr><td colspan="11" class="error-state">Failed to load scripts.</td></tr>'
+      table.innerHTML = '<tr><td colspan="14" class="error-state">Failed to load scripts.</td></tr>'
     }
   }
 
@@ -144,7 +144,7 @@
     }
 
     if (page.length === 0) {
-      table.innerHTML = '<tr><td colspan="11" class="text-muted text-sm" style="padding:16px">No scripts match this filter.</td></tr>'
+      table.innerHTML = '<tr><td colspan="14" class="text-muted text-sm" style="padding:16px">No scripts match this filter.</td></tr>'
       renderPagination(0, 0)
       return
     }
@@ -158,6 +158,7 @@
         </td>
         <td class="script-topic" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(s.topic || '—')}</td>
         <td class="text-xs text-muted">${abbreviateSeries(s.series)}</td>
+        <td class="text-xs text-muted">${escHtml(s.content_type || '—')}</td>
         <td><span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span></td>
         <td>${ccBadge(s.consistency_check)}</td>
         <td>${dot(s.image_prompt)}</td>
@@ -280,12 +281,11 @@
     badgesEl.innerHTML = `
       <span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span>
       <span class="badge gray">${abbreviateSeries(s.series)}</span>
+      <span class="badge accent">${escHtml(s.content_type || 'No format')}</span>
       ${ccBadge(s.consistency_check)}`
 
     bodyEl.innerHTML = [
-      modalField('Hook',                s.hook,               'hook'),
-      modalField('Script Part 1',       s.script_part1,       'script_part1'),
-      modalField('Script Part 2',       s.script_part2,       'script_part2'),
+      modalField('Full Script', [s.hook, s.script_part1, s.script_part2, s.script_part3, s.script_part4].filter(Boolean).join('\n\n')),
       modalField('Image Prompt',        s.image_prompt,       'image_prompt'),
       modalField('Video Prompt P1',     s.video_prompt_p1,    'video_prompt_p1'),
       modalField('Video Prompt P2',     s.video_prompt_p2,    'video_prompt_p2'),
@@ -331,7 +331,7 @@
         <div class="detail-label">${label}</div>
         <div style="display:flex;gap:4px">
           <button class="copy-btn" onclick="window.copyField('${uid}',this)">Copy</button>
-          <button class="copy-btn" id="${editId}" onclick="window.editField('${uid}','${fieldKey}','${editId}')">Edit</button>
+          ${fieldKey ? `<button class="copy-btn" id="${editId}" onclick="window.editField('${uid}','${fieldKey}','${editId}')">Edit</button>` : ''}
         </div>
       </div>
       <div class="detail-text" id="${uid}" data-original="${escAttr(val)}">${escHtml(val)}</div>
