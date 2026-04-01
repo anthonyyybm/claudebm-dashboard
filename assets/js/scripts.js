@@ -286,7 +286,7 @@
 
     bodyEl.innerHTML = [
       modalField('Script', [s.hook, s.script_part1, s.script_part2].filter(Boolean).join('\n\n'), null, 'detail-text-mono'),
-      modalField('Image Prompt',        s.image_prompt,       'image_prompt'),
+      renderImagePromptField(s.image_prompt, id),
       modalField('Video Prompt P1',     s.video_prompt_p1,    'video_prompt_p1'),
       modalField('Video Prompt P2',     s.video_prompt_p2,    'video_prompt_p2'),
       s.video_prompt_p3 ? modalField('Video Prompt P3', s.video_prompt_p3, 'video_prompt_p3') : '',
@@ -320,6 +320,74 @@
   }
 
   document.addEventListener('keydown', e => { if (e.key === 'Escape') window.closeScriptModal() })
+
+  // ── Image prompt — split START/END FRAME into separate cards ─
+  function renderImagePromptField (val, scriptId) {
+    if (!val) return ''
+    const endIdx = val.search(/\[END FRAME/i)
+    if (endIdx === -1) return modalField('Image Prompt', val, 'image_prompt')
+
+    const startContent = val.substring(0, endIdx).trim()
+    const endContent   = val.substring(endIdx).trim()
+    const uid1 = 'mf' + Math.random().toString(36).slice(2, 9)
+    const uid2 = 'mf' + Math.random().toString(36).slice(2, 9)
+
+    return `<div class="modal-section">
+      <div class="modal-section-header">
+        <div class="detail-label">Image Prompt — Start Frame</div>
+        <div style="display:flex;gap:4px">
+          <button class="copy-btn" onclick="window.copyField('${uid1}',this)">Copy</button>
+        </div>
+      </div>
+      <div class="detail-text" id="${uid1}">${escHtml(startContent)}</div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-header">
+        <div class="detail-label">Image Prompt — End Frame</div>
+        <div style="display:flex;gap:4px">
+          <button class="copy-btn" onclick="window.copyField('${uid2}',this)">Copy</button>
+          <button class="copy-btn" onclick="window.editFullImagePrompt('${scriptId}')">Edit Full</button>
+        </div>
+      </div>
+      <div class="detail-text" id="${uid2}">${escHtml(endContent)}</div>
+    </div>`
+  }
+
+  // ── Edit full image_prompt (for dual-frame scripts) ───────────
+  window.editFullImagePrompt = function (scriptId) {
+    const s = allScripts.find(x => x.id === scriptId)
+    if (!s) return
+    const bodyEl = document.getElementById('modal-body')
+    if (!bodyEl) return
+
+    bodyEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">
+      <div class="detail-label">Edit Full Image Prompt</div>
+      <textarea id="full-img-ta" class="field-textarea" style="min-height:420px">${escHtml(s.image_prompt || '')}</textarea>
+      <div class="edit-actions">
+        <button class="btn btn-ghost" style="font-size:11px;padding:3px 10px" id="full-img-cancel">Cancel</button>
+        <button class="btn" style="font-size:11px;padding:3px 10px" id="full-img-save">Save</button>
+      </div>
+    </div>`
+
+    document.getElementById('full-img-cancel').addEventListener('click', () => window.openScriptModal(scriptId))
+    document.getElementById('full-img-save').addEventListener('click', async () => {
+      const saveBtn = document.getElementById('full-img-save')
+      const ta = document.getElementById('full-img-ta')
+      if (!ta || !saveBtn) return
+      saveBtn.disabled = true; saveBtn.textContent = 'Saving…'
+      const newVal = ta.value.trim()
+      try {
+        const { error } = await window.sb.from('scripts').update({ image_prompt: newVal }).eq('id', scriptId)
+        if (error) throw error
+        s.image_prompt = newVal
+        showToast('Saved', 'success')
+        window.openScriptModal(scriptId)
+      } catch (err) {
+        saveBtn.disabled = false; saveBtn.textContent = 'Save'
+        showToast('Save failed: ' + (err.message || 'unknown error'), 'error')
+      }
+    })
+  }
 
   // ── Modal field ───────────────────────────────────────────────
   function modalField (label, val, fieldKey, extraClass) {
