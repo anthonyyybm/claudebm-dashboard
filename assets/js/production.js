@@ -47,7 +47,7 @@
         .select('log_date, reels_completed, scripts_generated')
         .gte('log_date', start)
         .lte('log_date', end)
-        .order('log_date')
+        .order('log_date', { ascending: true })
       if (error) throw error
       recentData = data || []
     } catch {
@@ -59,7 +59,7 @@
 
   async function loadMonthData () {
     const start = `${viewYear}-${pad(viewMonth)}-01`
-    const end   = `${viewYear}-${pad(viewMonth)}-31`
+    const end   = `${viewYear}-${pad(viewMonth)}-${pad(new Date(viewYear, viewMonth, 0).getDate())}`
     const cal = document.getElementById('production-calendar')
     if (cal) cal.innerHTML = '<div class="skeleton" style="height:200px;border-radius:6px"></div>'
     try {
@@ -68,7 +68,7 @@
         .select('log_date, reels_completed, reels_target, scripts_generated, notes')
         .gte('log_date', start)
         .lte('log_date', end)
-        .order('log_date')
+        .order('log_date', { ascending: true })
       if (error) throw error
       monthData = data || []
     } catch {
