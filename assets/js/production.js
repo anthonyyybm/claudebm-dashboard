@@ -237,7 +237,7 @@
     cal.innerHTML = html
   }
 
-  // ── Day detail modal ──────────────────────────────────────────
+  // ── Day plan modal ────────────────────────────────────────────
   window.showDayDetail = async function (date) {
     const existing = document.getElementById('day-modal-overlay')
     if (existing) existing.remove()
@@ -247,18 +247,25 @@
     const displayDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
       .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
-    let badgeClass = 'gray', badgeText = 'No Data'
+    const today  = todayPHT()
+    const isPast = date < today
+    const isFuture = date > today
+
+    let badgeClass = 'gray', badgeText = 'Not Logged'
     if (row) {
       const n = row.reels_completed ?? 0
       const t = row.reels_target    ?? 3
       if (n >= t)   { badgeClass = 'green'; badgeText = 'Target Hit' }
       else if (n > 0) { badgeClass = 'amber'; badgeText = 'Partial' }
+      else            { badgeClass = 'gray';  badgeText = '0 Reels' }
+    } else if (isFuture) {
+      badgeClass = 'accent'; badgeText = 'Upcoming'
     }
 
     const overlay = document.createElement('div')
     overlay.id = 'day-modal-overlay'
     overlay.className = 'modal-overlay'
-    overlay.innerHTML = `<div class="modal-card" style="max-width:480px">
+    overlay.innerHTML = `<div class="modal-card" style="max-width:520px">
       <div class="modal-header" style="flex-direction:column;gap:6px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;gap:10px">
           <div class="modal-title">${displayDate}</div>
@@ -267,7 +274,8 @@
         <span class="badge ${badgeClass}">${badgeText}</span>
       </div>
       <div class="modal-body" id="day-modal-body">
-        <div class="skeleton" style="height:80px;border-radius:6px"></div>
+        <div class="skeleton" style="height:120px;border-radius:6px"></div>
+        <div class="skeleton mt-8" style="height:80px;border-radius:6px"></div>
       </div>
       <div class="modal-footer">
         <div style="display:flex;gap:6px">
@@ -279,23 +287,13 @@
       </div>
     </div>`
     document.body.appendChild(overlay)
-
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
     document.getElementById('day-modal-close').addEventListener('click', () => overlay.remove())
 
-    if (!row) {
-      document.getElementById('day-modal-body').innerHTML = `
-        <div style="text-align:center;padding:28px 0">
-          <div style="font-size:14px;font-weight:600;margin-bottom:6px;color:var(--text)">No data recorded for this day</div>
-          <div class="text-sm text-muted">This day has not been logged yet.</div>
-        </div>`
-      return
-    }
-
-    // Fetch morning briefing, EOD summary, and scripts used this day
-    let briefing = null, eod = null, scripts = []
+    // ── Fetch all data in parallel ─────────────────────────────
+    let briefing = null, eod = null, planned = [], used = [], ideas = []
     try {
-      const [bRes, eRes, sRes] = await Promise.all([
+      const [bRes, eRes, pRes, uRes, iRes] = await Promise.all([
         window.sb.from('morning_briefings')
           .select('briefing_date,focus_recommendation,raw_output')
           .eq('briefing_date', date).maybeSingle(),
@@ -303,91 +301,156 @@
           .select('summary_date,raw_output')
           .eq('summary_date', date).maybeSingle(),
         window.sb.from('scripts')
-          .select('id,topic,used_at')
+          .select('id,topic,series,status')
+          .eq('planned_date', date)
+          .order('plan_order', { ascending: true, nullsFirst: false }),
+        window.sb.from('scripts')
+          .select('id,topic,series,status')
           .not('used_at', 'is', null)
           .gte('used_at', date + 'T00:00:00')
-          .lte('used_at', date + 'T23:59:59')
+          .lte('used_at', date + 'T23:59:59'),
+        window.sb.from('content_ideas')
+          .select('id,topic,angle,category')
+          .eq('status', 'New')
+          .order('created_at', { ascending: false })
+          .limit(5)
       ])
       if (!bRes.error) briefing = bRes.data
-      if (!eRes.error) eod     = eRes.data
-      if (!sRes.error) scripts = sRes.data || []
+      if (!eRes.error) eod      = eRes.data
+      if (!pRes.error) planned  = pRes.data || []
+      if (!uRes.error) used     = uRes.data || []
+      if (!iRes.error) ideas    = iRes.data || []
     } catch {}
 
-    const reels  = row.reels_completed ?? 0
-    const target = row.reels_target    ?? 3
-    const reelColor = reels >= target ? 'var(--success)' : reels > 0 ? 'var(--amber)' : 'var(--danger)'
-
+    // ── Build modal body ───────────────────────────────────────
     let html = ''
 
-    // Production Summary section
-    html += `<div class="modal-section">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">Production Summary</div>
-      <div class="stat-row">
-        <span class="stat-label">Reels completed</span>
-        <span class="stat-val" style="color:${reelColor}">${reels} of ${target}</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Scripts generated</span>
-        <span class="stat-val">${row.scripts_generated ?? 0}</span>
-      </div>`
-    if (row.tasks_completed != null) {
-      html += `<div class="stat-row"><span class="stat-label">Tasks completed</span><span class="stat-val">${row.tasks_completed}</span></div>`
-    }
-    if (row.tasks_rolled_over != null) {
-      html += `<div class="stat-row"><span class="stat-label">Tasks rolled over</span><span class="stat-val">${row.tasks_rolled_over}</span></div>`
-    }
-    if (row.notes) {
-      html += `<div class="stat-row" style="flex-direction:column;align-items:flex-start;gap:4px;border-bottom:none">
-        <span class="stat-label">Notes</span>
-        <span style="font-size:12px;color:var(--text2);white-space:pre-wrap">${escHtml(row.notes)}</span>
-      </div>`
-    }
-    html += '</div>'
-
-    // Morning Briefing section
-    if (briefing) {
-      const preview = briefing.focus_recommendation ||
-        (briefing.raw_output ? briefing.raw_output.substring(0, 200) + (briefing.raw_output.length > 200 ? '…' : '') : '')
-      html += `<div class="modal-section">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Morning Briefing</span>
-          <a href="#" style="font-size:11px;color:var(--accent)" onclick="event.preventDefault();window.goTab('morning');document.getElementById('day-modal-overlay').remove()">View full briefing →</a>
+    // 1. Morning Focus (if exists) — full-width accent card at top
+    if (briefing?.focus_recommendation) {
+      html += `<div class="day-plan-section" style="padding-top:0">
+        <div class="day-plan-heading">
+          <span>Today's Focus</span>
+          <a href="#" style="font-size:11px;color:var(--accent);text-transform:none;letter-spacing:0;font-weight:400"
+             onclick="event.preventDefault();window.goTab('morning');document.getElementById('day-modal-overlay').remove()">Full briefing →</a>
         </div>
-        ${preview ? `<div style="font-size:12px;color:var(--text2)">${escHtml(preview)}</div>` : '<div class="text-sm text-muted">No preview available.</div>'}
+        <div class="day-plan-focus">${escHtml(briefing.focus_recommendation)}</div>
       </div>`
     }
 
-    // EOD Summary section
+    // 2. Scripts — planned vs used, two columns
+    html += `<div class="day-plan-section">
+      <div class="day-plan-heading">
+        <span>Scripts</span>
+        <a href="#" style="font-size:11px;color:var(--accent);text-transform:none;letter-spacing:0;font-weight:400"
+           onclick="event.preventDefault();window.goTab('scripts');document.getElementById('day-modal-overlay').remove()">View all →</a>
+      </div>
+      <div class="day-plan-scripts-cols">`
+
+    // Planned column
+    html += `<div>
+      <div class="day-plan-col-title">Planned (${planned.length})</div>`
+    if (planned.length > 0) {
+      html += `<div class="day-plan-list">`
+      planned.forEach(s => {
+        const dotColor = s.status === 'Ready' ? 'var(--success)' : s.status === 'Flagged' ? 'var(--danger)' : 'var(--amber)'
+        const badgeCls = s.status === 'Ready' ? 'green' : s.status === 'Flagged' ? 'red' : 'amber'
+        html += `<div class="day-plan-script-row">
+          <div class="day-plan-dot" style="background:${dotColor}"></div>
+          <div style="flex:1;min-width:0;overflow:hidden">
+            <div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(s.topic)}</div>
+            ${s.series ? `<div style="font-size:10px;color:var(--text3)">${escHtml(s.series)}</div>` : ''}
+          </div>
+          <span class="badge ${badgeCls}" style="flex-shrink:0;font-size:9px">${s.status}</span>
+        </div>`
+      })
+      html += `</div>`
+    } else {
+      html += `<div class="day-plan-empty">No scripts planned.<br>
+        <span style="font-size:10px">Set <code style="font-size:10px;background:var(--surface2);padding:1px 4px;border-radius:3px">planned_date</code> on a script to schedule it here.</span>
+      </div>`
+    }
+    html += `</div>`
+
+    // Used column
+    html += `<div>
+      <div class="day-plan-col-title">Used (${used.length})</div>`
+    if (used.length > 0) {
+      html += `<div class="day-plan-list">`
+      used.forEach(s => {
+        html += `<div class="day-plan-script-row">
+          <div style="color:var(--success);font-size:14px;line-height:1;flex-shrink:0">✓</div>
+          <div style="flex:1;min-width:0;overflow:hidden">
+            <div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(s.topic)}</div>
+            ${s.series ? `<div style="font-size:10px;color:var(--text3)">${escHtml(s.series)}</div>` : ''}
+          </div>
+        </div>`
+      })
+      html += `</div>`
+    } else {
+      html += `<div class="day-plan-empty">${isPast ? 'None recorded.' : 'None yet.'}</div>`
+    }
+    html += `</div>`
+
+    html += `</div></div>` // close cols + section
+
+    // 3. Production stats
+    if (row) {
+      const reels  = row.reels_completed ?? 0
+      const target = row.reels_target    ?? 3
+      const reelColor = reels >= target ? 'var(--success)' : reels > 0 ? 'var(--amber)' : 'var(--danger)'
+      html += `<div class="day-plan-section">
+        <div class="day-plan-heading"><span>Production</span></div>
+        <div class="day-plan-stat-grid">
+          <div class="day-plan-stat">
+            <div class="day-plan-stat-val" style="color:${reelColor}">${reels}/${target}</div>
+            <div class="day-plan-stat-label">Reels</div>
+          </div>
+          <div class="day-plan-stat">
+            <div class="day-plan-stat-val">${row.scripts_generated ?? 0}</div>
+            <div class="day-plan-stat-label">Scripts Generated</div>
+          </div>
+        </div>
+        ${row.notes ? `<div class="day-plan-notes">${escHtml(row.notes)}</div>` : ''}
+      </div>`
+    } else if (!isFuture) {
+      html += `<div class="day-plan-section">
+        <div class="day-plan-heading"><span>Production</span></div>
+        <div class="day-plan-empty">Not logged for this day.</div>
+      </div>`
+    }
+
+    // 4. Ideas bank
+    if (ideas.length > 0) {
+      html += `<div class="day-plan-section">
+        <div class="day-plan-heading">
+          <span>Ideas Bank <span class="day-plan-count">(New)</span></span>
+          <a href="#" style="font-size:11px;color:var(--accent);text-transform:none;letter-spacing:0;font-weight:400"
+             onclick="event.preventDefault();window.goTab('ideas');document.getElementById('day-modal-overlay').remove()">View all →</a>
+        </div>`
+      ideas.forEach(idea => {
+        html += `<div class="day-plan-idea-card">
+          <div class="day-plan-idea-topic">${escHtml(idea.topic)}</div>
+          ${idea.angle ? `<div class="day-plan-idea-angle">${escHtml(idea.angle)}</div>` : ''}
+        </div>`
+      })
+      html += `</div>`
+    }
+
+    // 5. EOD summary (bottom, muted — past days only)
     if (eod) {
       const raw     = eod.raw_output || ''
-      const preview = raw.substring(0, 200) + (raw.length > 200 ? '…' : '')
-      html += `<div class="modal-section">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">EOD Summary</span>
-          <a href="#" style="font-size:11px;color:var(--accent)" onclick="event.preventDefault();window.goTab('eod');document.getElementById('day-modal-overlay').remove()">View full EOD →</a>
+      const preview = raw.substring(0, 220) + (raw.length > 220 ? '…' : '')
+      html += `<div class="day-plan-section">
+        <div class="day-plan-heading">
+          <span>EOD Summary</span>
+          <a href="#" style="font-size:11px;color:var(--accent);text-transform:none;letter-spacing:0;font-weight:400"
+             onclick="event.preventDefault();window.goTab('eod');document.getElementById('day-modal-overlay').remove()">View full →</a>
         </div>
-        ${preview ? `<div style="font-size:12px;color:var(--text2);white-space:pre-wrap">${escHtml(preview)}</div>` : '<div class="text-sm text-muted">No preview available.</div>'}
+        <div class="day-plan-preview">${escHtml(preview)}</div>
       </div>`
     }
 
-    // Scripts used today section
-    if (scripts.length > 0) {
-      html += `<div class="modal-section">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">Scripts Used Today</div>
-        <ul style="list-style:none;margin:0;padding:0">`
-      scripts.forEach(s => {
-        html += `<li style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
-          <a href="#" style="color:var(--accent)" onclick="event.preventDefault();window.goTab('scripts');document.getElementById('day-modal-overlay').remove()">${escHtml(s.topic)}</a>
-        </li>`
-      })
-      html += `</ul>
-        <div style="margin-top:8px">
-          <a href="#" style="font-size:11px;color:var(--accent)" onclick="event.preventDefault();window.goTab('scripts');document.getElementById('day-modal-overlay').remove()">View all scripts →</a>
-        </div>
-      </div>`
-    }
-
-    document.getElementById('day-modal-body').innerHTML = html || '<div class="text-sm text-muted">No details available.</div>'
+    document.getElementById('day-modal-body').innerHTML = html
   }
 
   // ── Section 4 — Monthly summary ───────────────────────────────
