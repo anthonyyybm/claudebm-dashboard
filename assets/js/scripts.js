@@ -163,6 +163,8 @@
         <td>${dot(s.image_prompt)}</td>
         <td>${dot(s.video_prompt_p1)}</td>
         <td>${dot(s.video_prompt_p2)}</td>
+        <td>${dot(s.video_prompt_p3)}</td>
+        <td>${dot(s.video_prompt_p4)}</td>
         <td>${dot(s.cta_prompt)}</td>
         <td>${dot(s.caption_tiktok)}</td>
         <td class="text-xs text-muted">${s.created_at ? s.created_at.slice(0, 10) : '—'}</td>
@@ -287,6 +289,8 @@
       modalField('Image Prompt',        s.image_prompt,       'image_prompt'),
       modalField('Video Prompt P1',     s.video_prompt_p1,    'video_prompt_p1'),
       modalField('Video Prompt P2',     s.video_prompt_p2,    'video_prompt_p2'),
+      s.video_prompt_p3 ? modalField('Video Prompt P3', s.video_prompt_p3, 'video_prompt_p3') : '',
+      s.video_prompt_p4 ? modalField('Video Prompt P4', s.video_prompt_p4, 'video_prompt_p4') : '',
       s.cta_prompt ? modalField('CTA Prompt', s.cta_prompt,   'cta_prompt') : '',
       modalField('Caption — TikTok',    s.caption_tiktok,     'caption_tiktok'),
       modalField('Caption — Instagram', s.caption_instagram,  'caption_instagram'),
