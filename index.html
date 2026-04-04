@@ -23,7 +23,8 @@
 
   <nav class="nav">
     <button class="tab active" data-tab="overview">Overview</button>
-    <button class="tab" data-tab="scripts">Scripts</button>
+    <button class="tab" data-tab="scripts">Reels</button>
+    <button class="tab" data-tab="youtube">YouTube</button>
     <button class="tab" data-tab="production">Production</button>
     <button class="tab" data-tab="prompts">Prompts</button>
     <button class="tab" data-tab="ideas">Ideas</button>
@@ -70,6 +71,28 @@
       </div>
     </div>
 
+    <div class="yt-overview-label">YouTube — coming soon</div>
+    <div class="metrics-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:8px">
+      <div class="metric-card metric coming-soon">
+        <div class="metric-label">Videos this week <span class="badge-cs">Coming soon</span></div>
+        <div class="metric-val">--</div>
+        <div class="metric-sub">youtube</div>
+      </div>
+      <div class="metric-card metric coming-soon">
+        <div class="metric-label">Thumbnails ready <span class="badge-cs">Coming soon</span></div>
+        <div class="metric-val">--</div>
+        <div class="metric-sub">in progress</div>
+      </div>
+    </div>
+    <div class="upcoming-features mb-12">
+      <div class="upcoming-features-title">Upcoming features</div>
+      <ul class="upcoming-list">
+        <li>YouTube title + description generator</li>
+        <li>Thumbnail image prompt generator</li>
+        <li>YouTube performance tracking</li>
+      </ul>
+    </div>
+
     <div class="two-col">
       <div class="card">
         <div class="card-title">Script Bank — Last 8</div>
@@ -104,6 +127,7 @@
     <div class="flex-between mb-12">
       <div style="font-size:15px;font-weight:600">Script Pipeline</div>
       <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn" id="generate-batch-btn" onclick="window.generateNewBatch()">Generate New Batch</button>
         <button class="btn" id="batch-check-btn" onclick="window.checkAllDrafts()">Check All Drafts</button>
         <span id="batch-check-status" class="text-xs text-muted"></span>
       </div>
@@ -114,6 +138,14 @@
       <button class="filter-btn" data-scripts-filter="Ready">Ready</button>
       <button class="filter-btn" data-scripts-filter="Used">Used</button>
       <button class="filter-btn" data-scripts-filter="Flagged">Flagged</button>
+      <select class="input sort-select" id="scripts-sort" title="Sort by">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="series">Series A-Z</option>
+        <option value="content_type">Content type</option>
+        <option value="status">Status</option>
+        <option value="relevance">Relevance</option>
+      </select>
       <input class="input" id="scripts-search" type="text" placeholder="Search topic…" style="margin-left:auto;width:200px">
     </div>
     <div class="card">
@@ -269,6 +301,29 @@
     <div id="eod-content"><div class="skeleton"></div></div>
   </section>
 
+  <!-- YOUTUBE -->
+  <section class="tab-panel" id="tab-youtube">
+    <div style="margin-bottom:20px">
+      <div style="font-size:20px;font-weight:700;margin-bottom:6px">YouTube Content</div>
+      <div style="font-size:14px;color:var(--text2);max-width:560px;line-height:1.6">Title, description, thumbnail, and image prompt generation for long-form YouTube videos.</div>
+    </div>
+    <div class="yt-cards-grid">
+      <div class="yt-soon-card">
+        <div class="yt-soon-title">Title Generator</div>
+        <div class="yt-soon-desc">Generate SEO-optimized YouTube titles from transcripts</div>
+      </div>
+      <div class="yt-soon-card">
+        <div class="yt-soon-title">Description Generator</div>
+        <div class="yt-soon-desc">Full YouTube descriptions with timestamps and CTAs</div>
+      </div>
+      <div class="yt-soon-card">
+        <div class="yt-soon-title">Thumbnail Prompt Generator</div>
+        <div class="yt-soon-desc">AI image prompts for thumbnail creation</div>
+      </div>
+    </div>
+    <div class="yt-soon-note">These features are in development. The workflow will integrate with your existing script and production pipeline.</div>
+  </section>
+
   <!-- ABOUT -->
   <section class="tab-panel" id="tab-about">
     <div id="about-content"></div>
@@ -331,7 +386,7 @@
 
 <!-- Load tab JS after Supabase client is ready -->
 <script src="assets/js/overview.js?v=20260402"></script>
-<script src="assets/js/scripts.js?v=20260401d"></script>
+<script src="assets/js/scripts.js?v=20260404"></script>
 <script src="assets/js/production.js?v=20260402"></script>
 <script src="assets/js/prompts.js?v=20260402"></script>
 <script src="assets/js/ideas.js?v=20260401b"></script>

@@ -37,6 +37,8 @@
           <li>Newsletter automation</li>
           <li>Weekly performance reports</li>
           <li>AI Playbook publishing</li>
+          <li>YouTube content management (titles, descriptions, thumbnails)</li>
+          <li>YouTube performance tracking</li>
         </ul>
       </div>
 

@@ -5,6 +5,7 @@
   let searchQuery = ''
   let currentPage = 1
   let pageSize = 10
+  let sortOrder = 'newest'
   let selectedIds = new Set()
 
   const STATUS_COLOR = { Ready: 'green', Draft: 'amber', Used: 'gray', Flagged: 'red' }
@@ -111,6 +112,28 @@
         (s.topic || '').toLowerCase().includes(q) ||
         (s.series || '').toLowerCase().includes(q)
       )
+    }
+    rows = [...rows]
+    switch (sortOrder) {
+      case 'oldest':
+        rows.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+        break
+      case 'series':
+        rows.sort((a, b) => (a.series || '').localeCompare(b.series || ''))
+        break
+      case 'content_type':
+        rows.sort((a, b) => (a.content_type || '').localeCompare(b.content_type || ''))
+        break
+      case 'status': {
+        const ord = { Draft: 0, Ready: 1, Used: 2 }
+        rows.sort((a, b) => (ord[a.status] ?? 3) - (ord[b.status] ?? 3))
+        break
+      }
+      case 'relevance':
+        rows.sort((a, b) => (a.consistency_check === 'Passed' ? 0 : 1) - (b.consistency_check === 'Passed' ? 0 : 1))
+        break
+      default:
+        rows.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
     }
     return rows
   }
@@ -703,6 +726,25 @@
     }
   }
 
+  // ── Generate new batch ────────────────────────────────────────
+  window.generateNewBatch = async function () {
+    const btn = document.getElementById('generate-batch-btn')
+    if (btn) btn.disabled = true
+    try {
+      await window.sb.from('requests').insert({
+        type: 'generate-scripts', status: 'pending',
+        payload: { reason: 'manual-request', forced: true },
+        created_at: new Date().toISOString()
+      })
+      showToast('Batch generation queued — Claude Code will process this shortly', 'info')
+    } catch (err) {
+      showToast('Failed to queue: ' + (err.message || 'unknown error'), 'error')
+      if (btn) btn.disabled = false
+      return
+    }
+    setTimeout(() => { if (btn) btn.disabled = false }, 5000)
+  }
+
   // ── Filters + search ──────────────────────────────────────────
   document.querySelectorAll('[data-scripts-filter]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -718,6 +760,16 @@
   if (searchEl) {
     searchEl.addEventListener('input', e => {
       searchQuery = e.target.value.trim()
+      currentPage = 1
+      renderTable()
+    })
+  }
+
+  const sortEl = document.getElementById('scripts-sort')
+  if (sortEl) {
+    sortEl.addEventListener('change', e => {
+      sortOrder = e.target.value
+      sortEl.classList.toggle('sort-active', sortOrder !== 'newest')
       currentPage = 1
       renderTable()
     })
