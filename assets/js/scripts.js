@@ -309,12 +309,11 @@
 
     bodyEl.innerHTML = [
       modalField('Script', [s.hook, s.script_part1, s.script_part2].filter(Boolean).join('\n\n'), null, 'detail-text-mono'),
-      renderImagePromptField(s.image_prompt, id),
-      modalField('Video Prompt P1',     s.video_prompt_p1,    'video_prompt_p1'),
-      modalField('Video Prompt P2',     s.video_prompt_p2,    'video_prompt_p2'),
-      s.video_prompt_p3 ? modalField('Video Prompt P3', s.video_prompt_p3, 'video_prompt_p3') : '',
-      s.video_prompt_p4 ? modalField('Video Prompt P4', s.video_prompt_p4, 'video_prompt_p4') : '',
+      renderImagePromptsField(s, id),
+      renderVideoPromptsField(s),
       s.cta_prompt ? modalField('CTA Prompt', s.cta_prompt,   'cta_prompt') : '',
+      s.platform_notes ? renderPlatformNotesField(s.platform_notes) : '',
+      s.reaction_reference ? renderReactionReferenceField(s.reaction_reference) : '',
       modalField('Caption — TikTok',    s.caption_tiktok,     'caption_tiktok'),
       modalField('Caption — Instagram', s.caption_instagram,  'caption_instagram'),
       consistencySection(s)
@@ -373,6 +372,91 @@
         </div>
       </div>
       <div class="detail-text" id="${uid2}">${escHtml(endContent)}</div>
+    </div>`
+  }
+
+  // ── Image prompts — consolidated (image_prompts) with fallback ─
+  function renderImagePromptsField (s, scriptId) {
+    // Use consolidated image_prompts if available
+    if (s.image_prompts && s.image_prompts.trim()) {
+      const parts = s.image_prompts.split(/\n---IMAGE BREAK---\n/)
+      if (parts.length <= 1) {
+        // Single image — use existing split-frame logic
+        return renderImagePromptField(s.image_prompts, scriptId)
+      }
+      // Multiple images — show each with its own copy button
+      return parts.map((part, i) => {
+        const uid = 'mf' + Math.random().toString(36).slice(2, 9)
+        return `<div class="modal-section">
+          <div class="modal-section-header">
+            <div class="detail-label">Image ${i + 1}</div>
+            <div style="display:flex;gap:4px">
+              <button class="copy-btn" onclick="window.copyField('${uid}',this)">Copy</button>
+            </div>
+          </div>
+          <div class="detail-text" id="${uid}">${escHtml(part.trim())}</div>
+        </div>`
+      }).join('')
+    }
+    // Fallback to legacy image_prompt
+    return renderImagePromptField(s.image_prompt, scriptId)
+  }
+
+  // ── Video prompts — consolidated (video_prompts) with fallback ─
+  function renderVideoPromptsField (s) {
+    // Use consolidated video_prompts if available
+    if (s.video_prompts && s.video_prompts.trim()) {
+      const parts = s.video_prompts.split(/\n---VIDEO BREAK---\n/)
+      const labels = ['Video P1', 'Video P2', 'Video P3', 'Video P4']
+      return parts.map((part, i) => {
+        const label = labels[i] || `Video P${i + 1}`
+        const fieldKey = ['video_prompt_p1', 'video_prompt_p2', 'video_prompt_p3', 'video_prompt_p4'][i] || null
+        return modalField(label, part.trim(), fieldKey)
+      }).join('')
+    }
+    // Fallback to legacy columns
+    return [
+      modalField('Video Prompt P1', s.video_prompt_p1, 'video_prompt_p1'),
+      modalField('Video Prompt P2', s.video_prompt_p2, 'video_prompt_p2'),
+      s.video_prompt_p3 ? modalField('Video Prompt P3', s.video_prompt_p3, 'video_prompt_p3') : '',
+      s.video_prompt_p4 ? modalField('Video Prompt P4', s.video_prompt_p4, 'video_prompt_p4') : ''
+    ].join('')
+  }
+
+  // ── Platform notes — TikTok + Instagram split display ────────
+  function renderPlatformNotesField (val) {
+    if (!val) return ''
+    const tiktokMatch = val.match(/TikTok:\s*([\s\S]*?)(?=\n\nInstagram:|$)/i)
+    const instagramMatch = val.match(/Instagram:\s*([\s\S]*?)$/i)
+    const tiktokNote = tiktokMatch ? tiktokMatch[1].trim() : null
+    const instagramNote = instagramMatch ? instagramMatch[1].trim() : null
+    const uid = 'mf' + Math.random().toString(36).slice(2, 9)
+    return `<div class="modal-section">
+      <div class="modal-section-header">
+        <div class="detail-label">Platform Notes</div>
+        <button class="copy-btn" onclick="window.copyField('${uid}',this)">Copy All</button>
+      </div>
+      <div id="${uid}" style="display:none">${escHtml(val)}</div>
+      ${tiktokNote ? `<div style="margin-bottom:6px"><span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">TikTok</span><div class="detail-text" style="margin-top:4px">${escHtml(tiktokNote)}</div></div>` : ''}
+      ${instagramNote ? `<div><span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Instagram</span><div class="detail-text" style="margin-top:4px">${escHtml(instagramNote)}</div></div>` : ''}
+    </div>`
+  }
+
+  // ── Reaction reference — clickable link if URL ────────────────
+  function renderReactionReferenceField (val) {
+    if (!val) return ''
+    const uid = 'mf' + Math.random().toString(36).slice(2, 9)
+    const urlMatch = val.match(/https?:\/\/[^\s)]+/)
+    const displayVal = urlMatch
+      ? val.replace(urlMatch[0], `<a href="${escAttr(urlMatch[0])}" target="_blank" rel="noopener" style="color:var(--accent)">${escHtml(urlMatch[0])}</a>`)
+      : escHtml(val)
+    return `<div class="modal-section">
+      <div class="modal-section-header">
+        <div class="detail-label">Reference</div>
+        <button class="copy-btn" onclick="window.copyField('${uid}',this)">Copy</button>
+      </div>
+      <div id="${uid}" style="display:none">${escHtml(val)}</div>
+      <div class="detail-text" style="font-size:12px">${displayVal}</div>
     </div>`
   }
 
@@ -651,8 +735,12 @@
   function formatBadge (type) {
     if (!type) return '<span class="badge gray">—</span>'
     if (type === 'Granny First')        return `<span class="badge purple">${escHtml(type)}</span>`
-    if (type === 'Mistake First')       return `<span class="badge blue">${escHtml(type)}</span>`
+    if (type === 'Granny Watches')      return `<span class="badge blue">${escHtml(type)}</span>`
     if (type === 'Creative Commercial') return `<span class="badge coral">${escHtml(type)}</span>`
+    if (type === 'Granny Reacts')       return `<span class="badge amber">${escHtml(type)}</span>`
+    if (type === 'Walking Scene')       return `<span class="badge green">${escHtml(type)}</span>`
+    if (type === 'Natural Interaction') return `<span class="badge teal">${escHtml(type)}</span>`
+    if (type === 'Mistake First')       return `<span class="badge blue">${escHtml(type)}</span>`
     return `<span class="badge gray">${escHtml(type)}</span>`
   }
 
