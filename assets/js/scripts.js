@@ -313,7 +313,7 @@
       renderVideoPromptsField(s),
       s.cta_prompt ? modalField('CTA Prompt', s.cta_prompt,   'cta_prompt') : '',
       s.platform_notes ? renderPlatformNotesField(s.platform_notes) : '',
-      s.reaction_reference ? renderReactionReferenceField(s.reaction_reference) : '',
+      s.content_type === 'Granny Reacts' ? renderGrannyReactsSection(s) : '',
       modalField('Caption — TikTok',    s.caption_tiktok,     'caption_tiktok'),
       modalField('Caption — Instagram', s.caption_instagram,  'caption_instagram'),
       consistencySection(s)
@@ -458,6 +458,64 @@
       <div id="${uid}" style="display:none">${escHtml(val)}</div>
       <div class="detail-text" style="font-size:12px">${displayVal}</div>
     </div>`
+  }
+
+  // ── Granny Reacts — text card + source reference + CapCut guide ─
+  function renderGrannyReactsSection (s) {
+    const parts = []
+
+    // Text card — extract [TEXT CARD] section from video_prompts
+    let textCard = null
+    if (s.video_prompts) {
+      const tcMatch = s.video_prompts.match(/\[TEXT CARD\]([\s\S]*?)(?=\n---VIDEO BREAK---|$)/)
+      if (tcMatch) textCard = tcMatch[1].trim()
+    }
+    if (!textCard && s.hook) textCard = s.hook
+
+    if (textCard) {
+      const uid = 'mf' + Math.random().toString(36).slice(2, 9)
+      parts.push(`<div class="modal-section">
+        <div class="modal-section-header">
+          <div class="detail-label">Text Card (0–3s)</div>
+          <button class="copy-btn" onclick="window.copyField('${uid}',this)">Copy</button>
+        </div>
+        <div class="detail-text detail-text-mono" id="${uid}">${escHtml(textCard)}</div>
+      </div>`)
+    }
+
+    // Source reference with clickable link
+    if (s.reaction_reference) {
+      const uid = 'mf' + Math.random().toString(36).slice(2, 9)
+      const urlMatch = s.reaction_reference.match(/https?:\/\/[^\s)]+/)
+      const displayVal = urlMatch
+        ? s.reaction_reference.replace(urlMatch[0], `<a href="${escAttr(urlMatch[0])}" target="_blank" rel="noopener" style="color:var(--accent)">${escHtml(urlMatch[0])}</a>`)
+        : escHtml(s.reaction_reference)
+      parts.push(`<div class="modal-section">
+        <div class="modal-section-header">
+          <div class="detail-label">Source Reference</div>
+          <button class="copy-btn" onclick="window.copyField('${uid}',this)">Copy</button>
+        </div>
+        <div id="${uid}" style="display:none">${escHtml(s.reaction_reference)}</div>
+        <div class="detail-text" style="font-size:12px">${displayVal}</div>
+      </div>`)
+    }
+
+    // CapCut edit guide — parse from video_prompts [CTA] section
+    let capcut = null
+    if (s.video_prompts) {
+      const ccMatch = s.video_prompts.match(/CapCut assembly:([^\n]+)/)
+      if (ccMatch) capcut = 'CapCut assembly:' + ccMatch[1].trim()
+    }
+    if (capcut) {
+      parts.push(`<div class="modal-section">
+        <div class="modal-section-header">
+          <div class="detail-label">CapCut Assembly Guide</div>
+        </div>
+        <div class="detail-text" style="font-size:12px;font-family:monospace;color:var(--text2)">${escHtml(capcut)}</div>
+      </div>`)
+    }
+
+    return parts.join('')
   }
 
   // ── Edit full image_prompt (for dual-frame scripts) ───────────
