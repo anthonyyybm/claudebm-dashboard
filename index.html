@@ -132,46 +132,94 @@
         <span id="batch-check-status" class="text-xs text-muted"></span>
       </div>
     </div>
-    <div class="filter-bar">
-      <button class="filter-btn active" data-scripts-filter="All">All</button>
-      <button class="filter-btn" data-scripts-filter="Draft">Draft</button>
-      <button class="filter-btn" data-scripts-filter="Ready">Ready</button>
-      <button class="filter-btn" data-scripts-filter="Used">Used</button>
-      <button class="filter-btn" data-scripts-filter="Flagged">Flagged</button>
-      <select class="input sort-select" id="scripts-sort" title="Sort by">
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-        <option value="series">Series A-Z</option>
-        <option value="content_type">Content type</option>
-        <option value="status">Status</option>
-        <option value="relevance">Relevance</option>
-      </select>
-      <input class="input" id="scripts-search" type="text" placeholder="Search topic…" style="margin-left:auto;width:200px">
+
+    <!-- Secondary sub-tab bar -->
+    <div class="sub-tab-bar">
+      <button class="sub-tab active" data-sub-tab="all">All</button>
+      <button class="sub-tab" data-sub-tab="granny-first">Granny First</button>
+      <button class="sub-tab" data-sub-tab="granny-watches">Granny Watches</button>
+      <button class="sub-tab" data-sub-tab="walking-scene">Walking Scene</button>
+      <button class="sub-tab" data-sub-tab="natural-interaction">Natural Interaction</button>
+      <button class="sub-tab" data-sub-tab="creative-commercial">Creative Commercial</button>
+      <button class="sub-tab" data-sub-tab="granny-reacts">Granny Reacts</button>
     </div>
-    <div class="card">
+
+    <!-- ALL -->
+    <div class="sub-tab-panel active" id="sub-tab-all">
+      <div class="filter-bar">
+        <button class="filter-btn active" data-scripts-filter="All">All</button>
+        <button class="filter-btn" data-scripts-filter="Draft">Draft</button>
+        <button class="filter-btn" data-scripts-filter="Ready">Ready</button>
+        <button class="filter-btn" data-scripts-filter="Used">Used</button>
+        <button class="filter-btn" data-scripts-filter="Flagged">Flagged</button>
+        <select class="input sort-select" id="scripts-sort" title="Sort by">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="series">Series A-Z</option>
+          <option value="content_type">Content type</option>
+          <option value="status">Status</option>
+          <option value="relevance">Relevance</option>
+        </select>
+        <input class="input" id="scripts-search" type="text" placeholder="Search topic…" style="margin-left:auto;width:200px">
+      </div>
+      <div class="card">
+        <div class="flex-between mb-12">
+          <div id="scripts-count" class="text-xs text-muted"></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:30px;padding:8px 4px 8px 10px"><input type="checkbox" id="select-all-check" class="row-check" title="Select all" onclick="window.toggleSelectAll()"></th>
+                <th>Topic</th><th>Series</th><th>Format</th><th>Status</th><th>Check</th>
+                <th title="Image prompt">Img</th>
+                <th title="Video P1">V1</th>
+                <th title="Video P2">V2</th>
+                <th title="Video P3">V3</th>
+                <th title="Video P4">V4</th>
+                <th title="CTA">CTA</th>
+                <th title="Captions">Cap</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="scripts-table-body"></tbody>
+          </table>
+        </div>
+        <div id="scripts-pagination"></div>
+      </div>
+    </div>
+
+    <!-- GRANNY FIRST -->
+    <div class="sub-tab-panel" id="sub-tab-granny-first">
+      <div id="type-panel-granny-first"></div>
+    </div>
+
+    <!-- GRANNY WATCHES -->
+    <div class="sub-tab-panel" id="sub-tab-granny-watches">
+      <div id="type-panel-granny-watches"></div>
+    </div>
+
+    <!-- WALKING SCENE -->
+    <div class="sub-tab-panel" id="sub-tab-walking-scene">
+      <div id="type-panel-walking-scene"></div>
+    </div>
+
+    <!-- NATURAL INTERACTION -->
+    <div class="sub-tab-panel" id="sub-tab-natural-interaction">
+      <div id="type-panel-natural-interaction"></div>
+    </div>
+
+    <!-- CREATIVE COMMERCIAL -->
+    <div class="sub-tab-panel" id="sub-tab-creative-commercial">
       <div class="flex-between mb-12">
-        <div id="scripts-count" class="text-xs text-muted"></div>
+        <span class="text-xs text-muted" id="cc-count"></span>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th style="width:30px;padding:8px 4px 8px 10px"><input type="checkbox" id="select-all-check" class="row-check" title="Select all" onclick="window.toggleSelectAll()"></th>
-              <th>Topic</th><th>Series</th><th>Format</th><th>Status</th><th>Check</th>
-              <th title="Image prompt">Img</th>
-              <th title="Video P1">V1</th>
-              <th title="Video P2">V2</th>
-              <th title="Video P3">V3</th>
-              <th title="Video P4">V4</th>
-              <th title="CTA">CTA</th>
-              <th title="Captions">Cap</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody id="scripts-table-body"></tbody>
-        </table>
-      </div>
-      <div id="scripts-pagination"></div>
+      <div id="commercial-cards-container"></div>
+    </div>
+
+    <!-- GRANNY REACTS -->
+    <div class="sub-tab-panel" id="sub-tab-granny-reacts">
+      <div id="granny-reacts-container"></div>
     </div>
   </section>
 

@@ -423,22 +423,36 @@
     ].join('')
   }
 
-  // ── Platform notes — TikTok + Instagram split display ────────
+  // ── Platform notes — up to 3 platforms, new or legacy format ──
   function renderPlatformNotesField (val) {
     if (!val) return ''
-    const tiktokMatch = val.match(/TikTok:\s*([\s\S]*?)(?=\n\nInstagram:|$)/i)
-    const instagramMatch = val.match(/Instagram:\s*([\s\S]*?)$/i)
-    const tiktokNote = tiktokMatch ? tiktokMatch[1].trim() : null
-    const instagramNote = instagramMatch ? instagramMatch[1].trim() : null
     const uid = 'mf' + Math.random().toString(36).slice(2, 9)
+    let platforms = []
+
+    if (val.includes('---PLATFORM BREAK---')) {
+      // New format: sections separated by ---PLATFORM BREAK---
+      const sections = val.split(/\n?---PLATFORM BREAK---\n?/)
+      const labels = ['TikTok', 'Instagram', 'YouTube Shorts']
+      platforms = sections.map((s, i) => ({ label: labels[i] || `Platform ${i + 1}`, content: s.trim() })).filter(p => p.content)
+    } else {
+      // Legacy format: TikTok: ... Instagram: ... labels
+      const tiktokMatch = val.match(/TikTok:\s*([\s\S]*?)(?=\n\nInstagram:|$)/i)
+      const instagramMatch = val.match(/Instagram:\s*([\s\S]*?)$/i)
+      if (tiktokMatch) platforms.push({ label: 'TikTok', content: tiktokMatch[1].trim() })
+      if (instagramMatch) platforms.push({ label: 'Instagram', content: instagramMatch[1].trim() })
+      if (!platforms.length) platforms.push({ label: 'Platform Notes', content: val.trim() })
+    }
+
     return `<div class="modal-section">
       <div class="modal-section-header">
         <div class="detail-label">Platform Notes</div>
         <button class="copy-btn" onclick="window.copyField('${uid}',this)">Copy All</button>
       </div>
       <div id="${uid}" style="display:none">${escHtml(val)}</div>
-      ${tiktokNote ? `<div style="margin-bottom:6px"><span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">TikTok</span><div class="detail-text" style="margin-top:4px">${escHtml(tiktokNote)}</div></div>` : ''}
-      ${instagramNote ? `<div><span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Instagram</span><div class="detail-text" style="margin-top:4px">${escHtml(instagramNote)}</div></div>` : ''}
+      ${platforms.map((p, i) => `<div style="${i < platforms.length - 1 ? 'margin-bottom:8px' : ''}">
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${escHtml(p.label)}</span>
+        <div class="detail-text" style="margin-top:4px;font-size:11px">${escHtml(p.content)}</div>
+      </div>`).join('')}
     </div>`
   }
 
@@ -500,18 +514,23 @@
       </div>`)
     }
 
-    // CapCut edit guide — parse from video_prompts [CTA] section
+    // CapCut edit guide — parse from video_prompts (multi-line)
     let capcut = null
     if (s.video_prompts) {
-      const ccMatch = s.video_prompts.match(/CapCut assembly:([^\n]+)/)
-      if (ccMatch) capcut = 'CapCut assembly:' + ccMatch[1].trim()
+      const ccIdx = s.video_prompts.indexOf('CapCut assembly:')
+      if (ccIdx !== -1) {
+        capcut = s.video_prompts.slice(ccIdx).trim()
+        // Stop at next double-newline that begins a bracketed label
+        const stop = capcut.search(/\n\n\[/)
+        if (stop !== -1) capcut = capcut.slice(0, stop).trim()
+      }
     }
     if (capcut) {
       parts.push(`<div class="modal-section">
         <div class="modal-section-header">
           <div class="detail-label">CapCut Assembly Guide</div>
         </div>
-        <div class="detail-text" style="font-size:12px;font-family:monospace;color:var(--text2)">${escHtml(capcut)}</div>
+        <div style="font-size:11px;font-family:ui-monospace,monospace;color:var(--text2);white-space:pre-wrap;line-height:1.7;padding:2px 0">${escHtml(capcut)}</div>
       </div>`)
     }
 
@@ -919,6 +938,306 @@
       currentPage = 1
       renderTable()
     })
+  }
+
+  // ── Sub-tab switching ─────────────────────────────────────────
+  const subTabBtns  = document.querySelectorAll('[data-sub-tab]')
+  const subPanels   = document.querySelectorAll('.sub-tab-panel')
+
+  function activateSubTab (name) {
+    subTabBtns.forEach(b => b.classList.toggle('active', b.dataset.subTab === name))
+    subPanels.forEach(p  => p.classList.toggle('active',  p.id === `sub-tab-${name}`))
+    sessionStorage.setItem('activeSubTab', name)
+    switch (name) {
+      case 'granny-first':          renderTypePanel('Granny First',        'granny-first');        break
+      case 'granny-watches':        renderTypePanel('Granny Watches',      'granny-watches');      break
+      case 'walking-scene':         renderTypePanel('Walking Scene',       'walking-scene');       break
+      case 'natural-interaction':   renderTypePanel('Natural Interaction', 'natural-interaction'); break
+      case 'creative-commercial':   renderCommercialCards();  break
+      case 'granny-reacts':         renderGrannyReactsTab(); break
+    }
+  }
+
+  subTabBtns.forEach(b => b.addEventListener('click', () => activateSubTab(b.dataset.subTab)))
+
+  // ── Type panel (pre-filtered table for a single content type) ─
+  function renderTypePanel (type, slug) {
+    const container = document.getElementById(`type-panel-${slug}`)
+    if (!container) return
+    const rows = allScripts
+      .filter(s => s.content_type === type)
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+
+    if (!rows.length) {
+      container.innerHTML = `<div class="gr-empty">No ${type} scripts yet — generate a batch to populate this tab</div>`
+      return
+    }
+
+    container.innerHTML = `
+      <div class="type-panel-header">
+        <span class="type-panel-count">${rows.length} script${rows.length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Topic</th><th>Series</th><th>Status</th><th>Check</th>
+                <th title="Image">Img</th>
+                <th title="V1">V1</th><th title="V2">V2</th>
+                <th title="V3">V3</th><th title="CTA">CTA</th>
+                <th title="Captions">Cap</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(s => `
+                <tr style="cursor:pointer" onclick="window.openScriptModal('${s.id}')">
+                  <td class="script-topic" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(s.topic || '—')}</td>
+                  <td class="text-xs text-muted">${abbreviateSeries(s.series)}</td>
+                  <td><span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span></td>
+                  <td>${ccBadge(s.consistency_check)}</td>
+                  <td>${dot(s.image_prompt || s.image_prompts)}</td>
+                  <td>${dot(s.video_prompt_p1)}</td>
+                  <td>${dot(s.video_prompt_p2)}</td>
+                  <td>${dot(s.video_prompt_p3)}</td>
+                  <td>${dot(s.cta_prompt)}</td>
+                  <td>${dot(s.caption_tiktok)}</td>
+                  <td class="text-xs text-muted">${s.created_at ? s.created_at.slice(0, 10) : '—'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`
+  }
+
+  // ── Creative Commercial cards ─────────────────────────────────
+  function renderCommercialCards () {
+    const container = document.getElementById('commercial-cards-container')
+    const countEl   = document.getElementById('cc-count')
+    if (!container) return
+    const rows = allScripts
+      .filter(s => s.content_type === 'Creative Commercial')
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+
+    if (countEl) countEl.textContent = `${rows.length} script${rows.length === 1 ? '' : 's'}`
+
+    if (!rows.length) {
+      container.innerHTML = `<div class="gr-empty">No Creative Commercial scripts yet</div>`
+      return
+    }
+
+    container.innerHTML = `<div class="cc-cards-grid">
+      ${rows.map(s => {
+        const hook    = (s.hook || '').slice(0, 80)
+        const imgPrev = ((s.image_prompts || s.image_prompt || '').replace(/\[START FRAME\]/gi, '').trim()).slice(0, 50)
+        return `<div class="cc-card" onclick="window.openScriptModal('${s.id}')">
+          <div class="cc-card-hook">${escHtml(hook)}${(s.hook || '').length > 80 ? '…' : ''}</div>
+          <div class="cc-card-meta">
+            <span class="badge coral">${escHtml(s.series || 'Commercial')}</span>
+            <span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span>
+            ${ccBadge(s.consistency_check)}
+          </div>
+          ${imgPrev ? `<div class="cc-card-preview">${escHtml(imgPrev)}…</div>` : ''}
+          <div class="text-xs text-muted" style="margin-top:8px">${s.created_at ? s.created_at.slice(0, 10) : '—'}</div>
+        </div>`
+      }).join('')}
+    </div>`
+  }
+
+  // ── Granny Reacts tab — 3 sections ───────────────────────────
+  function renderGrannyReactsTab () {
+    const container = document.getElementById('granny-reacts-container')
+    if (!container) return
+    const scripts = allScripts
+      .filter(s => s.content_type === 'Granny Reacts')
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+
+    // Parse influencer from topic ("Hormozi — Quote" → "Hormozi")
+    function parseInfluencer (topic) {
+      if (!topic) return '—'
+      const parts = topic.split(' — ')
+      return parts.length > 1 ? parts[0].trim() : topic.slice(0, 20)
+    }
+    function parseQuote (topic) {
+      if (!topic) return '—'
+      const idx = topic.indexOf(' — ')
+      return idx !== -1 ? topic.slice(idx + 3) : topic
+    }
+
+    // Section 1 — Source Videos
+    const sourcesHtml = scripts.length
+      ? `<div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Influencer</th><th>Quote</th><th>Reference</th>
+                <th>Status</th><th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${scripts.map(s => {
+                const ref = s.reaction_reference || ''
+                const refDisplay = ref.length > 55 ? ref.slice(0, 55) + '…' : ref
+                return `<tr style="cursor:pointer" onclick="window.openScriptModal('${s.id}')">
+                  <td class="text-xs" style="white-space:nowrap">${escHtml(parseInfluencer(s.topic))}</td>
+                  <td class="script-topic" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(parseQuote(s.topic))}</td>
+                  <td class="text-xs text-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(refDisplay) || '—'}</td>
+                  <td><span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span></td>
+                  <td class="text-xs text-muted">${s.created_at ? s.created_at.slice(0, 10) : '—'}</td>
+                </tr>`
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`
+      : `<div class="text-muted text-sm" style="padding:16px;text-align:center">No Granny Reacts scripts yet</div>`
+
+    // Section 3 — Generated Scripts cards
+    const cardsHtml = scripts.length
+      ? `<div class="gr-cards-grid">${scripts.map(renderGRCard).join('')}</div>`
+      : `<div class="gr-empty">No scripts yet — generate one from a transcript above</div>`
+
+    container.innerHTML = `
+      <!-- SECTION 1 — Source Videos -->
+      <div class="gr-section">
+        <div class="gr-section-header">
+          <div class="gr-section-title">Source Videos</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn" onclick="window.researchReactionSources()">Research Videos</button>
+            <span id="gr-research-status" class="text-xs text-muted"></span>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">${sourcesHtml}</div>
+        <div class="gr-submit-note">Research Videos queues a request — Claude Code will find the best clips to react to</div>
+      </div>
+
+      <!-- SECTION 2 — Transcript Input -->
+      <div class="gr-section">
+        <div class="gr-section-header">
+          <div class="gr-section-title">Generate from Transcript</div>
+        </div>
+        <div class="card">
+          <div class="gr-form-grid">
+            <input class="input w-full" id="gr-influencer" placeholder="Influencer name (e.g. Alex Hormozi)">
+            <input class="input w-full" id="gr-title" placeholder="Video title">
+            <input class="input w-full" id="gr-url" placeholder="Video URL (optional)">
+            <input class="input w-full" id="gr-timestamp" placeholder="Best timestamp (e.g. 15:43 — 16:03)">
+          </div>
+          <textarea class="textarea" id="gr-quote" rows="2" placeholder="Quote to react to…" style="margin-top:8px"></textarea>
+          <textarea class="textarea" id="gr-transcript" rows="10" placeholder="Paste full transcript here…" style="margin-top:8px"></textarea>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+            <button class="btn" onclick="window.submitReactionTranscript()">Generate Reaction Prompts</button>
+            <span id="gr-submit-status" class="text-xs text-muted"></span>
+          </div>
+        </div>
+        <div class="gr-submit-note">Submitting queues a request — Claude Code will generate the full prompt package</div>
+      </div>
+
+      <!-- SECTION 3 — Generated Scripts -->
+      <div class="gr-section">
+        <div class="gr-section-header">
+          <div class="gr-section-title">Generated Scripts</div>
+          <span class="gr-section-count">${scripts.length} script${scripts.length === 1 ? '' : 's'}</span>
+        </div>
+        ${cardsHtml}
+      </div>`
+  }
+
+  // ── Granny Reacts individual card ─────────────────────────────
+  function renderGRCard (s) {
+    const hook = (s.hook || '').slice(0, 100)
+    // Extract CapCut guide from video_prompts
+    let capcutPreview = ''
+    if (s.video_prompts) {
+      const ccIdx = s.video_prompts.indexOf('CapCut assembly:')
+      if (ccIdx !== -1) {
+        let cc = s.video_prompts.slice(ccIdx).trim()
+        const stop = cc.search(/\n\n\[/)
+        if (stop !== -1) cc = cc.slice(0, stop).trim()
+        capcutPreview = cc.slice(0, 200)
+      }
+    }
+    const ref = s.reaction_reference || ''
+
+    return `<div class="gr-script-card" onclick="window.openScriptModal('${s.id}')">
+      <div class="gr-card-topic">${escHtml(s.topic || '—')}</div>
+      <div class="gr-card-meta">
+        <span class="badge amber">Granny Reacts</span>
+        <span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span>
+        ${ccBadge(s.consistency_check)}
+      </div>
+      ${hook ? `<div class="gr-card-hook">${escHtml(hook)}${(s.hook || '').length > 100 ? '…' : ''}</div>` : ''}
+      ${ref ? `<div class="gr-card-ref" title="${escAttr(ref)}">${escHtml(ref.length > 60 ? ref.slice(0, 60) + '…' : ref)}</div>` : ''}
+      ${capcutPreview ? `<div class="gr-capcut">${escHtml(capcutPreview)}</div>` : ''}
+      <div class="text-xs text-muted" style="margin-top:8px">${s.created_at ? s.created_at.slice(0, 10) : '—'}</div>
+    </div>`
+  }
+
+  // ── Request: research reaction sources ────────────────────────
+  window.researchReactionSources = async function () {
+    const btn = document.querySelector('#granny-reacts-container button[onclick="window.researchReactionSources()"]')
+    const statusEl = document.getElementById('gr-research-status')
+    if (btn) btn.disabled = true
+    try {
+      await window.sb.from('requests').insert({
+        type: 'research-reaction-sources', status: 'pending',
+        created_at: new Date().toISOString()
+      })
+      if (statusEl) statusEl.textContent = 'Queued — Claude Code will find the best videos to react to'
+      if (btn) { btn.textContent = 'Queued ✓'; setTimeout(() => { btn.textContent = 'Research Videos'; btn.disabled = false }, 5000) }
+    } catch (err) {
+      if (btn) btn.disabled = false
+      if (statusEl) statusEl.textContent = 'Failed to queue'
+    }
+  }
+
+  // ── Request: generate reaction from transcript ────────────────
+  window.submitReactionTranscript = async function () {
+    const influencer = (document.getElementById('gr-influencer') || {}).value || ''
+    const title      = (document.getElementById('gr-title')      || {}).value || ''
+    const url        = (document.getElementById('gr-url')        || {}).value || ''
+    const timestamp  = (document.getElementById('gr-timestamp')  || {}).value || ''
+    const quote      = (document.getElementById('gr-quote')      || {}).value || ''
+    const transcript = (document.getElementById('gr-transcript') || {}).value || ''
+    const statusEl   = document.getElementById('gr-submit-status')
+
+    if (!influencer || !quote || !transcript) {
+      if (statusEl) statusEl.textContent = 'Influencer, quote, and transcript are required'
+      return
+    }
+
+    const submitBtn = document.querySelector('#granny-reacts-container button[onclick="window.submitReactionTranscript()"]')
+    if (submitBtn) submitBtn.disabled = true
+    if (statusEl) statusEl.textContent = 'Submitting…'
+
+    try {
+      await window.sb.from('requests').insert({
+        type: 'generate-reaction', status: 'pending',
+        payload: { influencer, title, url, timestamp, quote, transcript },
+        created_at: new Date().toISOString()
+      })
+      if (statusEl) statusEl.textContent = 'Queued — Claude Code will generate the prompt package'
+      if (submitBtn) { submitBtn.textContent = 'Queued ✓'; setTimeout(() => { submitBtn.textContent = 'Generate Reaction Prompts'; submitBtn.disabled = false }, 8000) }
+    } catch (err) {
+      if (submitBtn) submitBtn.disabled = false
+      if (statusEl) statusEl.textContent = 'Failed: ' + (err.message || 'unknown error')
+    }
+  }
+
+  // ── Restore last sub-tab + re-render sub-tabs after data loads ─
+  const _origLoadScripts = loadScripts
+  loadScripts = async function () {
+    await _origLoadScripts()
+    // After data loads, re-render whichever sub-tab is active
+    const activeSubTab = sessionStorage.getItem('activeSubTab') || 'all'
+    if (activeSubTab !== 'all') activateSubTab(activeSubTab)
+  }
+
+  // Restore active sub-tab on page load
+  const savedSubTab = sessionStorage.getItem('activeSubTab')
+  if (savedSubTab && savedSubTab !== 'all') {
+    // Defer until data is loaded — will be called by the overridden loadScripts above
+    activateSubTab(savedSubTab)
   }
 
   loadScripts()
