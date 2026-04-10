@@ -901,48 +901,23 @@
     }
   }
 
-  // ── Script Feedback ───────────────────────────────────────────
-  async function loadScriptFeedback (id) {
+  // ── Script Feedback (command-copy approach) ───────────────────
+  function loadScriptFeedback (id) {
     const section = document.getElementById('script-feedback-section')
     if (!section) return
     const inner = section.querySelector('.feedback-inner')
     if (!inner) return
-    try {
-      const { data, error } = await window.sb
-        .from('feedback')
-        .select('*')
-        .eq('script_id', id)
-        .maybeSingle()
-      if (error) throw error
-      renderFeedbackInner(inner, id, data)
-    } catch (e) {
-      inner.innerHTML = '<span class="text-xs text-muted">Could not load feedback.</span>'
-    }
-  }
-
-  function renderFeedbackInner (inner, id, existing) {
-    if (existing) {
-      const goodCls = existing.rating === 'good' ? 'selected-good' : ''
-      const badCls  = existing.rating === 'bad'  ? 'selected-bad'  : ''
-      inner.innerHTML = `
-        <div class="feedback-btns">
-          <button class="feedback-btn ${goodCls}" disabled>👍 Good</button>
-          <button class="feedback-btn ${badCls}" disabled>👎 Bad</button>
-        </div>
-        ${existing.note ? `<div class="feedback-note-existing">"${escHtml(existing.note)}"</div>` : ''}
-        <div style="margin-top:6px"><a href="#" class="text-xs" style="color:var(--accent)" onclick="window.enableFeedbackUpdate('${escAttr(id)}');return false">Update</a></div>`
-    } else {
-      inner.innerHTML = `
-        <div class="feedback-btns">
-          <button class="feedback-btn" id="fb-good-${escAttr(id)}" onclick="window.selectRating('${escAttr(id)}','good')">👍 Good</button>
-          <button class="feedback-btn" id="fb-bad-${escAttr(id)}" onclick="window.selectRating('${escAttr(id)}','bad')">👎 Bad</button>
-        </div>
-        <div id="fb-form-${escAttr(id)}" style="display:none">
-          <textarea class="textarea" id="fb-note-${escAttr(id)}" rows="2" placeholder="Add a note (optional)" style="margin-top:8px;font-size:12px"></textarea>
-          <button class="btn" style="margin-top:6px;width:100%" onclick="window.submitScriptFeedback('${escAttr(id)}')">Submit Feedback</button>
-        </div>
-        <div id="fb-msg-${escAttr(id)}"></div>`
-    }
+    const shortId = String(id).slice(0, 8)
+    inner.innerHTML = `
+      <div class="feedback-btns">
+        <button class="feedback-btn" id="fb-good-${escAttr(id)}" onclick="window.selectRating('${escAttr(id)}','good')">👍 Good</button>
+        <button class="feedback-btn" id="fb-bad-${escAttr(id)}"  onclick="window.selectRating('${escAttr(id)}','bad')">👎 Bad</button>
+      </div>
+      <div id="fb-form-${escAttr(id)}" style="display:none">
+        <textarea class="textarea" id="fb-note-${escAttr(id)}" rows="2" placeholder="Add a note (optional)" style="margin-top:8px;font-size:12px"></textarea>
+        <button class="btn" style="margin-top:6px;width:100%" onclick="window.generateFeedbackCmd('${escAttr(id)}','${escAttr(shortId)}')">Generate Command</button>
+      </div>
+      <div id="fb-cmd-${escAttr(id)}"></div>`
   }
 
   window._feedbackRating = {}
@@ -963,55 +938,36 @@
     if (form) form.style.display = ''
   }
 
-  window.submitScriptFeedback = async function (id) {
-    const rating = window._feedbackRating[id]
+  window.generateFeedbackCmd = function (id, shortId) {
+    const rating  = window._feedbackRating[id]
     if (!rating) return
-    const noteEl = document.getElementById(`fb-note-${id}`)
-    const msgEl  = document.getElementById(`fb-msg-${id}`)
-    const note   = noteEl ? noteEl.value.trim() || null : null
-    try {
-      const { error } = await window.sb.from('feedback').insert({
-        script_id: id,
-        rating,
-        note,
-        processed: false
-      })
-      if (error) throw error
-      delete window._feedbackRating[id]
-      const section = document.getElementById('script-feedback-section')
-      const inner = section ? section.querySelector('.feedback-inner') : null
-      if (inner) {
-        const goodCls = rating === 'good' ? 'selected-good' : ''
-        const badCls  = rating === 'bad'  ? 'selected-bad'  : ''
-        inner.innerHTML = `
-          <div class="feedback-btns">
-            <button class="feedback-btn ${goodCls}" disabled>👍 Good</button>
-            <button class="feedback-btn ${badCls}" disabled>👎 Bad</button>
-          </div>
-          ${note ? `<div class="feedback-note-existing">"${escHtml(note)}"</div>` : ''}
-          <div class="feedback-success" style="margin-top:6px">✓ Feedback saved — will be processed next session</div>
-          <div style="margin-top:4px"><a href="#" class="text-xs" style="color:var(--accent)" onclick="window.enableFeedbackUpdate('${escAttr(id)}');return false">Update</a></div>`
-      }
-    } catch (err) {
-      if (msgEl) msgEl.innerHTML = `<div class="feedback-error">Error: ${escHtml(err.message || 'Insert failed')}</div>`
-    }
+    const noteEl  = document.getElementById(`fb-note-${id}`)
+    const cmdBox  = document.getElementById(`fb-cmd-${id}`)
+    if (!cmdBox) return
+    const note    = noteEl ? noteEl.value.trim() : ''
+    const cmd     = note
+      ? `/feedback ${rating} ${shortId} "${note}"`
+      : `/feedback ${rating} ${shortId}`
+    const borderColor = rating === 'good' ? 'var(--success)' : 'var(--danger)'
+    const uid = 'fbcmd' + Math.random().toString(36).slice(2, 7)
+    cmdBox.innerHTML = `
+      <div style="margin-top:10px;border:1.5px solid ${borderColor};border-radius:8px;padding:10px 12px">
+        <div class="cmd-code-row" style="margin-bottom:6px">
+          <span class="cmd-code" id="${uid}">${escHtml(cmd)}</span>
+          <button class="cmd-copy-btn" onclick="window.copyFeedbackCmd('${uid}',this)">Copy</button>
+        </div>
+        <div class="cmd-desc" style="font-size:11px;color:var(--text3)">Paste this into Claude Code to process feedback</div>
+      </div>`
   }
 
-  window.enableFeedbackUpdate = function (id) {
-    const section = document.getElementById('script-feedback-section')
-    if (!section) return
-    const inner = section.querySelector('.feedback-inner')
-    if (!inner) return
-    inner.innerHTML = `
-      <div class="feedback-btns">
-        <button class="feedback-btn" id="fb-good-${escAttr(id)}" onclick="window.selectRating('${escAttr(id)}','good')">👍 Good</button>
-        <button class="feedback-btn" id="fb-bad-${escAttr(id)}" onclick="window.selectRating('${escAttr(id)}','bad')">👎 Bad</button>
-      </div>
-      <div id="fb-form-${escAttr(id)}" style="display:none">
-        <textarea class="textarea" id="fb-note-${escAttr(id)}" rows="2" placeholder="Add a note (optional)" style="margin-top:8px;font-size:12px"></textarea>
-        <button class="btn" style="margin-top:6px;width:100%" onclick="window.submitScriptFeedback('${escAttr(id)}')">Submit Feedback</button>
-      </div>
-      <div id="fb-msg-${escAttr(id)}"></div>`
+  window.copyFeedbackCmd = function (uid, btn) {
+    const el = document.getElementById(uid)
+    if (!el) return
+    navigator.clipboard.writeText(el.textContent).then(() => {
+      btn.textContent = 'Copied!'
+      btn.classList.add('copied')
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied') }, 2000)
+    }).catch(() => {})
   }
 
   // ── Generate new batch ────────────────────────────────────────
