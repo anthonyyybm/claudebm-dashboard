@@ -20,6 +20,7 @@
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="modal-badges"></div>
         <div id="modal-script-id" style="font-family:ui-monospace,monospace;font-size:10px;color:var(--text3);margin-top:4px"></div>
       </div>
+      <button class="copy-btn" id="modal-copy-all-btn" onclick="window.copyAllScript()" style="font-size:11px;padding:3px 10px;align-self:flex-start;flex-shrink:0">Copy All</button>
       <button class="modal-close" onclick="window.closeScriptModal()">&#x2715;</button>
     </div>
     <div class="modal-body" id="modal-body"></div>
@@ -349,6 +350,69 @@
     if (overlay) overlay.style.display = 'none'
     document.body.style.overflow = ''
     window._currentModalId = null
+  }
+
+  window.copyAllScript = function () {
+    const id = window._currentModalId
+    const s  = allScripts.find(x => x.id === id)
+    if (!s) return
+
+    const sep   = '\n' + '─'.repeat(60) + '\n'
+    const parts = []
+
+    // Topic
+    if (s.topic) parts.push(`TOPIC: ${s.topic}`)
+
+    // Script
+    const scriptText = [s.hook, s.script_part1, s.script_part2].filter(Boolean).join('\n\n')
+    if (scriptText) parts.push(`SCRIPT:\n${scriptText}`)
+
+    // Image prompts
+    if (s.image_prompts && s.image_prompts.trim()) {
+      const imgs = s.image_prompts.split(/\n---IMAGE BREAK---\n/)
+      if (imgs.length === 1) {
+        parts.push(`IMAGE PROMPT:\n${s.image_prompts.trim()}`)
+      } else {
+        imgs.forEach((p, i) => {
+          if (p.trim()) parts.push(`IMAGE ${i + 1}:\n${p.trim()}`)
+        })
+      }
+    } else if (s.image_prompt && s.image_prompt.trim()) {
+      parts.push(`IMAGE PROMPT:\n${s.image_prompt.trim()}`)
+    }
+
+    // Video prompts
+    if (s.video_prompts && s.video_prompts.trim()) {
+      const vids   = s.video_prompts.split(/\n---VIDEO BREAK---\n/)
+      const labels = ['VIDEO PROMPT P1', 'VIDEO PROMPT P2', 'VIDEO PROMPT P3', 'VIDEO PROMPT P4']
+      vids.forEach((p, i) => {
+        if (p.trim()) parts.push(`${labels[i] || `VIDEO PROMPT P${i + 1}`}:\n${p.trim()}`)
+      })
+    } else {
+      if (s.video_prompt_p1) parts.push(`VIDEO PROMPT P1:\n${s.video_prompt_p1}`)
+      if (s.video_prompt_p2) parts.push(`VIDEO PROMPT P2:\n${s.video_prompt_p2}`)
+      if (s.video_prompt_p3) parts.push(`VIDEO PROMPT P3:\n${s.video_prompt_p3}`)
+      if (s.video_prompt_p4) parts.push(`VIDEO PROMPT P4:\n${s.video_prompt_p4}`)
+    }
+
+    // CTA
+    if (s.cta_prompt) parts.push(`CTA PROMPT:\n${s.cta_prompt}`)
+
+    // Platform notes
+    if (s.platform_notes) parts.push(`PLATFORM NOTES:\n${s.platform_notes}`)
+
+    // Captions
+    if (s.caption_tiktok)    parts.push(`CAPTION — TIKTOK:\n${s.caption_tiktok}`)
+    if (s.caption_instagram) parts.push(`CAPTION — INSTAGRAM:\n${s.caption_instagram}`)
+
+    const text = parts.join(sep)
+    const btn  = document.getElementById('modal-copy-all-btn')
+    navigator.clipboard.writeText(text).then(() => {
+      if (btn) { btn.textContent = 'Copied!'; btn.classList.add('copied') }
+      setTimeout(() => {
+        if (btn) { btn.textContent = 'Copy All'; btn.classList.remove('copied') }
+      }, 2000)
+    }).catch(() => {})
   }
 
   document.addEventListener('keydown', e => { if (e.key === 'Escape') window.closeScriptModal() })
