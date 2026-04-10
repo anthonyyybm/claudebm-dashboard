@@ -18,11 +18,12 @@
       <div style="flex:1;min-width:0">
         <div class="modal-title" id="modal-title"></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="modal-badges"></div>
+        <div id="modal-script-id" style="font-family:ui-monospace,monospace;font-size:10px;color:var(--text3);margin-top:4px"></div>
       </div>
       <button class="modal-close" onclick="window.closeScriptModal()">&#x2715;</button>
     </div>
     <div class="modal-body" id="modal-body"></div>
-    <div class="modal-footer" id="modal-footer"></div>
+    <div class="modal-footer" id="modal-footer" style="flex-direction:column;align-items:stretch;gap:0;padding:12px 18px"></div>
   </div>
 </div>`)
 
@@ -301,6 +302,8 @@
     const footerEl = document.getElementById('modal-footer')
 
     titleEl.textContent = s.topic || '—'
+    const scriptIdEl = document.getElementById('modal-script-id')
+    if (scriptIdEl) scriptIdEl.textContent = `ID: ${String(s.id).slice(0, 8)}…`
     badgesEl.innerHTML = `
       <span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span>
       <span class="badge gray">${abbreviateSeries(s.series)}</span>
@@ -320,18 +323,25 @@
     ].join('')
 
     footerEl.innerHTML = `
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        ${s.status !== 'Ready' ? `<button class="btn" onclick="window.markReady('${s.id}')">Mark Ready</button>` : ''}
-        ${s.status !== 'Used'  ? `<button class="btn btn-ghost" onclick="window.markUsed('${s.id}')">Mark Used</button>` : ''}
-        <button class="btn btn-ghost" style="font-size:11px" onclick="window.regenerateSingle('${s.id}')">&#x21bb; Regenerate Prompts</button>
+      <div class="modal-footer-inner">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          ${s.status !== 'Ready' ? `<button class="btn" onclick="window.markReady('${s.id}')">Mark Ready</button>` : ''}
+          ${s.status !== 'Used'  ? `<button class="btn btn-ghost" onclick="window.markUsed('${s.id}')">Mark Used</button>` : ''}
+          <button class="btn btn-ghost" style="font-size:11px" onclick="window.regenerateSingle('${s.id}')">&#x21bb; Regenerate Prompts</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="text-xs text-muted">${s.created_at ? s.created_at.slice(0, 10) : ''}</div>
+          <button class="btn btn-danger" onclick="window.deleteScript('${s.id}')">Delete</button>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="text-xs text-muted">${s.created_at ? s.created_at.slice(0, 10) : ''}</div>
-        <button class="btn btn-danger" onclick="window.deleteScript('${s.id}')">Delete</button>
+      <div id="script-feedback-section" class="feedback-section">
+        <div class="feedback-label">Feedback</div>
+        <div class="feedback-inner"><span class="text-xs text-muted">Loading…</span></div>
       </div>`
 
     overlay.style.display = 'flex'
     document.body.style.overflow = 'hidden'
+    loadScriptFeedback(s.id)
   }
 
   window.closeScriptModal = function () {
@@ -889,6 +899,119 @@
       if (btn) btn.disabled = false
       if (statusEl) statusEl.textContent = 'Failed to queue'
     }
+  }
+
+  // ── Script Feedback ───────────────────────────────────────────
+  async function loadScriptFeedback (id) {
+    const section = document.getElementById('script-feedback-section')
+    if (!section) return
+    const inner = section.querySelector('.feedback-inner')
+    if (!inner) return
+    try {
+      const { data, error } = await window.sb
+        .from('feedback')
+        .select('*')
+        .eq('script_id', id)
+        .maybeSingle()
+      if (error) throw error
+      renderFeedbackInner(inner, id, data)
+    } catch (e) {
+      inner.innerHTML = '<span class="text-xs text-muted">Could not load feedback.</span>'
+    }
+  }
+
+  function renderFeedbackInner (inner, id, existing) {
+    if (existing) {
+      const goodCls = existing.rating === 'good' ? 'selected-good' : ''
+      const badCls  = existing.rating === 'bad'  ? 'selected-bad'  : ''
+      inner.innerHTML = `
+        <div class="feedback-btns">
+          <button class="feedback-btn ${goodCls}" disabled>👍 Good</button>
+          <button class="feedback-btn ${badCls}" disabled>👎 Bad</button>
+        </div>
+        ${existing.note ? `<div class="feedback-note-existing">"${escHtml(existing.note)}"</div>` : ''}
+        <div style="margin-top:6px"><a href="#" class="text-xs" style="color:var(--accent)" onclick="window.enableFeedbackUpdate('${escAttr(id)}');return false">Update</a></div>`
+    } else {
+      inner.innerHTML = `
+        <div class="feedback-btns">
+          <button class="feedback-btn" id="fb-good-${escAttr(id)}" onclick="window.selectRating('${escAttr(id)}','good')">👍 Good</button>
+          <button class="feedback-btn" id="fb-bad-${escAttr(id)}" onclick="window.selectRating('${escAttr(id)}','bad')">👎 Bad</button>
+        </div>
+        <div id="fb-form-${escAttr(id)}" style="display:none">
+          <textarea class="textarea" id="fb-note-${escAttr(id)}" rows="2" placeholder="Add a note (optional)" style="margin-top:8px;font-size:12px"></textarea>
+          <button class="btn" style="margin-top:6px;width:100%" onclick="window.submitScriptFeedback('${escAttr(id)}')">Submit Feedback</button>
+        </div>
+        <div id="fb-msg-${escAttr(id)}"></div>`
+    }
+  }
+
+  window._feedbackRating = {}
+
+  window.selectRating = function (id, rating) {
+    window._feedbackRating[id] = rating
+    const goodBtn = document.getElementById(`fb-good-${id}`)
+    const badBtn  = document.getElementById(`fb-bad-${id}`)
+    const form    = document.getElementById(`fb-form-${id}`)
+    if (goodBtn) {
+      goodBtn.classList.toggle('selected-good', rating === 'good')
+      goodBtn.classList.remove('selected-bad')
+    }
+    if (badBtn) {
+      badBtn.classList.toggle('selected-bad', rating === 'bad')
+      badBtn.classList.remove('selected-good')
+    }
+    if (form) form.style.display = ''
+  }
+
+  window.submitScriptFeedback = async function (id) {
+    const rating = window._feedbackRating[id]
+    if (!rating) return
+    const noteEl = document.getElementById(`fb-note-${id}`)
+    const msgEl  = document.getElementById(`fb-msg-${id}`)
+    const note   = noteEl ? noteEl.value.trim() || null : null
+    try {
+      const { error } = await window.sb.from('feedback').insert({
+        script_id: id,
+        rating,
+        note,
+        processed: false
+      })
+      if (error) throw error
+      delete window._feedbackRating[id]
+      const section = document.getElementById('script-feedback-section')
+      const inner = section ? section.querySelector('.feedback-inner') : null
+      if (inner) {
+        const goodCls = rating === 'good' ? 'selected-good' : ''
+        const badCls  = rating === 'bad'  ? 'selected-bad'  : ''
+        inner.innerHTML = `
+          <div class="feedback-btns">
+            <button class="feedback-btn ${goodCls}" disabled>👍 Good</button>
+            <button class="feedback-btn ${badCls}" disabled>👎 Bad</button>
+          </div>
+          ${note ? `<div class="feedback-note-existing">"${escHtml(note)}"</div>` : ''}
+          <div class="feedback-success" style="margin-top:6px">✓ Feedback saved — will be processed next session</div>
+          <div style="margin-top:4px"><a href="#" class="text-xs" style="color:var(--accent)" onclick="window.enableFeedbackUpdate('${escAttr(id)}');return false">Update</a></div>`
+      }
+    } catch (err) {
+      if (msgEl) msgEl.innerHTML = `<div class="feedback-error">Error: ${escHtml(err.message || 'Insert failed')}</div>`
+    }
+  }
+
+  window.enableFeedbackUpdate = function (id) {
+    const section = document.getElementById('script-feedback-section')
+    if (!section) return
+    const inner = section.querySelector('.feedback-inner')
+    if (!inner) return
+    inner.innerHTML = `
+      <div class="feedback-btns">
+        <button class="feedback-btn" id="fb-good-${escAttr(id)}" onclick="window.selectRating('${escAttr(id)}','good')">👍 Good</button>
+        <button class="feedback-btn" id="fb-bad-${escAttr(id)}" onclick="window.selectRating('${escAttr(id)}','bad')">👎 Bad</button>
+      </div>
+      <div id="fb-form-${escAttr(id)}" style="display:none">
+        <textarea class="textarea" id="fb-note-${escAttr(id)}" rows="2" placeholder="Add a note (optional)" style="margin-top:8px;font-size:12px"></textarea>
+        <button class="btn" style="margin-top:6px;width:100%" onclick="window.submitScriptFeedback('${escAttr(id)}')">Submit Feedback</button>
+      </div>
+      <div id="fb-msg-${escAttr(id)}"></div>`
   }
 
   // ── Generate new batch ────────────────────────────────────────

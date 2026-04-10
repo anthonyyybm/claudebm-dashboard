@@ -116,6 +116,79 @@
       </div>
     </div>
 
+    <div class="card mb-12" id="quick-commands-card">
+      <div class="card-title">Quick Commands</div>
+      <div class="cmd-subtitle">Copy and paste into Claude Code</div>
+
+      <!-- Row 1 — Scripts -->
+      <div class="cmd-grid" style="margin-bottom:8px">
+        <div class="cmd-block">
+          <div class="cmd-label">Generate New Batch</div>
+          <div class="cmd-code-row">
+            <span class="cmd-code">/granny-reel</span>
+            <button class="cmd-copy-btn" onclick="window.copyCmd(this,'/granny-reel')">Copy</button>
+          </div>
+          <div class="cmd-desc"><span>Generates 21 new scripts and saves to Supabase</span><span class="token-badge token-high">~High</span></div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-label">Run Research</div>
+          <div class="cmd-code-row">
+            <span class="cmd-code">/research angles &amp;&amp; /research trends</span>
+            <button class="cmd-copy-btn" onclick="window.copyCmd(this,'/research angles && /research trends')">Copy</button>
+          </div>
+          <div class="cmd-desc"><span>Finds new content angles and trending topics</span><span class="token-badge token-medium">~Medium</span></div>
+        </div>
+      </div>
+
+      <!-- Row 2 — Daily workflow -->
+      <div class="cmd-grid" style="margin-bottom:8px">
+        <div class="cmd-block">
+          <div class="cmd-label">Morning Coffee</div>
+          <div class="cmd-code-row">
+            <span class="cmd-code">/morning-coffee skip-news</span>
+            <button class="cmd-copy-btn" onclick="window.copyCmd(this,'/morning-coffee skip-news')">Copy</button>
+          </div>
+          <div class="cmd-desc"><span>Daily briefing without news search</span><span class="token-badge token-low">~Low</span></div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-label">EOD Wrap</div>
+          <div class="cmd-code-row">
+            <span class="cmd-code">/eod-wrap</span>
+            <button class="cmd-copy-btn" onclick="window.copyCmd(this,'/eod-wrap')">Copy</button>
+          </div>
+          <div class="cmd-desc"><span>End of shift summary and production log</span><span class="token-badge token-low">~Low</span></div>
+        </div>
+      </div>
+
+      <!-- Row 3 — Maintenance -->
+      <div class="cmd-grid">
+        <div class="cmd-block">
+          <div class="cmd-label">Consistency Check</div>
+          <div class="cmd-code-row">
+            <span class="cmd-code">/consistency-checker batch</span>
+            <button class="cmd-copy-btn" onclick="window.copyCmd(this,'/consistency-checker batch')">Copy</button>
+          </div>
+          <div class="cmd-desc"><span>Check all Draft scripts against Granny rules</span><span class="token-badge token-medium">~Medium</span></div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-label">Process Feedback</div>
+          <div class="cmd-code-row">
+            <span class="cmd-code">/feedback process</span>
+            <button class="cmd-copy-btn" onclick="window.copyCmd(this,'/feedback process')">Copy</button>
+          </div>
+          <div class="cmd-desc"><span>Apply feedback rules to CLAUDE.md and skills</span><span class="token-badge token-low">~Low</span></div>
+        </div>
+        <div class="cmd-block">
+          <div class="cmd-label">Analyze Goals</div>
+          <div class="cmd-code-row">
+            <span class="cmd-code">/analyze-goals</span>
+            <button class="cmd-copy-btn" onclick="window.copyCmd(this,'/analyze-goals')">Copy</button>
+          </div>
+          <div class="cmd-desc"><span>Check progress toward April 30 targets</span><span class="token-badge token-low">~Low</span></div>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-title">Latest Morning Briefing</div>
       <div id="briefing-preview"><div class="skeleton"></div></div>
@@ -421,6 +494,15 @@
   applyDark(localStorage.getItem('darkMode') === 'true')
   toggleBtn.addEventListener('click', () => applyDark(!document.body.classList.contains('dark')))
 
+  // ─── Quick command copy ─────────────────────────────────────
+  window.copyCmd = function (btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!'
+      btn.classList.add('copied')
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied') }, 2000)
+    }).catch(() => {})
+  }
+
   // ─── Live time display (PHT) ───────────────────────────────
   function updateTime () {
     const now = new Date()
@@ -433,8 +515,8 @@
 </script>
 
 <!-- Load tab JS after Supabase client is ready -->
-<script src="assets/js/overview.js?v=20260402"></script>
-<script src="assets/js/scripts.js?v=20260404"></script>
+<script src="assets/js/overview.js?v=20260411"></script>
+<script src="assets/js/scripts.js?v=20260411"></script>
 <script src="assets/js/production.js?v=20260402"></script>
 <script src="assets/js/prompts.js?v=20260402"></script>
 <script src="assets/js/ideas.js?v=20260401b"></script>

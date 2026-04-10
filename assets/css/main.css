@@ -1146,3 +1146,133 @@ tr:last-child td { border-bottom: none; }
   border-radius: var(--radius);
   background: var(--surface2);
 }
+
+/* ─── Quick Commands panel ───────────────────────────────────── */
+.cmd-subtitle {
+  font-size: 11px;
+  color: var(--text3);
+  margin-bottom: 12px;
+}
+.cmd-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (max-width: 700px) { .cmd-grid { grid-template-columns: 1fr; } }
+.cmd-block {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  transition: background .15s;
+}
+.cmd-block:hover { background: var(--surface2); }
+.cmd-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);
+  margin-bottom: 6px;
+}
+.cmd-code-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+}
+.cmd-code {
+  flex: 1;
+  font-family: ui-monospace, 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmd-copy-btn {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  background: var(--surface);
+  transition: all .15s;
+  cursor: pointer;
+}
+.cmd-copy-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cmd-copy-btn.copied { background: var(--success); border-color: var(--success); color: #fff; }
+.cmd-desc {
+  font-size: 11px;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.token-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.token-low    { background: var(--success-light); color: var(--success); }
+.token-medium { background: var(--amber-light);   color: var(--amber); }
+.token-high   { background: var(--danger-light);  color: var(--danger); }
+
+/* ─── Script modal — feedback section ────────────────────────── */
+.modal-footer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.feedback-section {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 10px;
+  width: 100%;
+}
+.feedback-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text3);
+  margin-bottom: 8px;
+}
+.feedback-btns {
+  display: flex;
+  gap: 8px;
+}
+.feedback-btn {
+  flex: 1;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .15s;
+}
+.feedback-btn:hover:not(:disabled) { background: var(--surface2); }
+.feedback-btn.selected-good { border-color: var(--success); background: var(--success-light); color: var(--success); }
+.feedback-btn.selected-bad  { border-color: var(--danger);  background: var(--danger-light);  color: var(--danger); }
+.feedback-btn:disabled { opacity: .7; cursor: not-allowed; }
+.feedback-success { font-size: 12px; color: var(--success); margin-top: 6px; }
+.feedback-error   { font-size: 12px; color: var(--danger);  margin-top: 6px; }
+.feedback-note-existing {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 6px;
+  font-style: italic;
+}
+@media (max-width: 480px) {
+  .feedback-btns { flex-direction: column; }
+  .feedback-btn { width: 100%; }
+}
