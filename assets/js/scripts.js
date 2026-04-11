@@ -530,24 +530,6 @@
     </div>`
   }
 
-  // ── Reaction reference — clickable link if URL ────────────────
-  function renderReactionReferenceField (val) {
-    if (!val) return ''
-    const uid = 'mf' + Math.random().toString(36).slice(2, 9)
-    const urlMatch = val.match(/https?:\/\/[^\s)]+/)
-    const displayVal = urlMatch
-      ? val.replace(urlMatch[0], `<a href="${escAttr(urlMatch[0])}" target="_blank" rel="noopener" style="color:var(--accent)">${escHtml(urlMatch[0])}</a>`)
-      : escHtml(val)
-    return `<div class="modal-section">
-      <div class="modal-section-header">
-        <div class="detail-label">Reference</div>
-        <button class="copy-btn" onclick="window.copyField('${uid}',this)">Copy</button>
-      </div>
-      <div id="${uid}" style="display:none">${escHtml(val)}</div>
-      <div class="detail-text" style="font-size:12px">${displayVal}</div>
-    </div>`
-  }
-
   // ── Granny Reacts — text card + source reference + CapCut guide ─
   function renderGrannyReactsSection (s) {
     const parts = []
@@ -564,7 +546,7 @@
       const uid = 'mf' + Math.random().toString(36).slice(2, 9)
       parts.push(`<div class="modal-section">
         <div class="modal-section-header">
-          <div class="detail-label">Text Card (0–3s)</div>
+          <div class="detail-label">Text Card 3s</div>
           <button class="copy-btn" onclick="window.copyField('${uid}',this)">Copy</button>
         </div>
         <div class="detail-text detail-text-mono" id="${uid}">${escHtml(textCard)}</div>
@@ -600,11 +582,13 @@
       }
     }
     if (capcut) {
+      const uid = 'mf' + Math.random().toString(36).slice(2, 9)
       parts.push(`<div class="modal-section">
         <div class="modal-section-header">
-          <div class="detail-label">CapCut Assembly Guide</div>
+          <div class="detail-label">CapCut Edit Guide</div>
+          <button class="copy-btn" onclick="window.copyField('${uid}',this)">Copy</button>
         </div>
-        <div style="font-size:11px;font-family:ui-monospace,monospace;color:var(--text2);white-space:pre-wrap;line-height:1.7;padding:2px 0">${escHtml(capcut)}</div>
+        <div class="detail-text detail-text-mono" id="${uid}" style="font-size:11px;line-height:1.7">${escHtml(capcut)}</div>
       </div>`)
     }
 
@@ -1173,12 +1157,13 @@
     container.innerHTML = `<div class="cc-cards-grid">
       ${rows.map(s => {
         const hook    = (s.hook || '').slice(0, 80)
-        const imgPrev = ((s.image_prompts || s.image_prompt || '').replace(/\[START FRAME\]/gi, '').trim()).slice(0, 50)
+        const imgPrev = ((s.image_prompts || s.image_prompt || '').replace(/\[START FRAME[^\]]*\]/gi, '').trim()).slice(0, 60)
         return `<div class="cc-card" onclick="window.openScriptModal('${s.id}')">
           <div class="cc-card-hook">${escHtml(hook)}${(s.hook || '').length > 80 ? '…' : ''}</div>
           <div class="cc-card-meta">
             <span class="badge coral">${escHtml(s.series || 'Commercial')}</span>
             <span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span>
+            ${formatBadge(s.content_type)}
             ${ccBadge(s.consistency_check)}
           </div>
           ${imgPrev ? `<div class="cc-card-preview">${escHtml(imgPrev)}…</div>` : ''}
@@ -1192,11 +1177,10 @@
   function renderGrannyReactsTab () {
     const container = document.getElementById('granny-reacts-container')
     if (!container) return
-    const scripts = allScripts
+    const reactScripts = allScripts
       .filter(s => s.content_type === 'Granny Reacts')
       .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
 
-    // Parse influencer from topic ("Hormozi — Quote" → "Hormozi")
     function parseInfluencer (topic) {
       if (!topic) return '—'
       const parts = topic.split(' — ')
@@ -1208,26 +1192,27 @@
       return idx !== -1 ? topic.slice(idx + 3) : topic
     }
 
-    // Section 1 — Source Videos
-    const sourcesHtml = scripts.length
+    // Section 1 — Source Videos table
+    const sourcesHtml = reactScripts.length
       ? `<div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Influencer</th><th>Quote</th><th>Reference</th>
-                <th>Status</th><th>Date</th>
+                <th>Influencer</th><th>Quote preview</th><th>Reference / Link</th><th>Status</th>
               </tr>
             </thead>
             <tbody>
-              ${scripts.map(s => {
+              ${reactScripts.map(s => {
                 const ref = s.reaction_reference || ''
-                const refDisplay = ref.length > 55 ? ref.slice(0, 55) + '…' : ref
+                const urlMatch = ref.match(/https?:\/\/[^\s)]+/)
+                const linkHtml = urlMatch
+                  ? `<a href="${escAttr(urlMatch[0])}" target="_blank" rel="noopener" style="color:var(--accent)" onclick="event.stopPropagation()">${escHtml(ref.length > 50 ? ref.slice(0, 50) + '…' : ref)}</a>`
+                  : escHtml(ref.length > 50 ? ref.slice(0, 50) + '…' : ref || '—')
                 return `<tr style="cursor:pointer" onclick="window.openScriptModal('${s.id}')">
-                  <td class="text-xs" style="white-space:nowrap">${escHtml(parseInfluencer(s.topic))}</td>
-                  <td class="script-topic" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(parseQuote(s.topic))}</td>
-                  <td class="text-xs text-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(refDisplay) || '—'}</td>
+                  <td class="text-xs" style="white-space:nowrap;font-weight:600">${escHtml(parseInfluencer(s.topic))}</td>
+                  <td class="text-xs" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${escHtml(parseQuote(s.topic))}</td>
+                  <td class="text-xs" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${linkHtml}</td>
                   <td><span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span></td>
-                  <td class="text-xs text-muted">${s.created_at ? s.created_at.slice(0, 10) : '—'}</td>
                 </tr>`
               }).join('')}
             </tbody>
@@ -1235,9 +1220,39 @@
         </div>`
       : `<div class="text-muted text-sm" style="padding:16px;text-align:center">No Granny Reacts scripts yet</div>`
 
-    // Section 3 — Generated Scripts cards
-    const cardsHtml = scripts.length
-      ? `<div class="gr-cards-grid">${scripts.map(renderGRCard).join('')}</div>`
+    // Section 3 — Generated Scripts as table
+    const tableHtml = reactScripts.length
+      ? `<div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Quote / Topic</th><th>Influencer</th><th>Series</th><th>Status</th><th>Check</th>
+                  <th title="Image">Img</th>
+                  <th title="V1">V1</th><th title="V2">V2</th><th title="V3">V3</th><th title="CTA">CTA</th>
+                  <th title="Captions">Cap</th><th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${reactScripts.map(s => `
+                  <tr style="cursor:pointer" onclick="window.openScriptModal('${s.id}')">
+                    <td class="script-topic" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(parseQuote(s.topic) || '—')}</td>
+                    <td class="text-xs" style="white-space:nowrap">${escHtml(parseInfluencer(s.topic))}</td>
+                    <td class="text-xs text-muted">${abbreviateSeries(s.series)}</td>
+                    <td><span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span></td>
+                    <td>${ccBadge(s.consistency_check)}</td>
+                    <td>${dot(s.image_prompt || s.image_prompts)}</td>
+                    <td>${dot(s.video_prompt_p1)}</td>
+                    <td>${dot(s.video_prompt_p2)}</td>
+                    <td>${dot(s.video_prompt_p3)}</td>
+                    <td>${dot(s.cta_prompt)}</td>
+                    <td>${dot(s.caption_tiktok)}</td>
+                    <td class="text-xs text-muted">${s.created_at ? s.created_at.slice(0, 10) : '—'}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`
       : `<div class="gr-empty">No scripts yet — generate one from a transcript above</div>`
 
     container.innerHTML = `
@@ -1246,15 +1261,14 @@
         <div class="gr-section-header">
           <div class="gr-section-title">Source Videos</div>
           <div style="display:flex;align-items:center;gap:8px">
-            <button class="btn" onclick="window.researchReactionSources()">Research Videos</button>
-            <span id="gr-research-status" class="text-xs text-muted"></span>
+            <button class="btn" id="gr-find-btn" onclick="window.copyReactionSourcesCmd(this)">Find Videos</button>
           </div>
         </div>
         <div class="card" style="padding:0;overflow:hidden">${sourcesHtml}</div>
-        <div class="gr-submit-note">Research Videos queues a request — Claude Code will find the best clips to react to</div>
+        <div class="gr-submit-note">Run in Claude Code to find best videos</div>
       </div>
 
-      <!-- SECTION 2 — Transcript Input -->
+      <!-- SECTION 2 — Generate from Transcript -->
       <div class="gr-section">
         <div class="gr-section-header">
           <div class="gr-section-title">Generate from Transcript</div>
@@ -1264,107 +1278,67 @@
             <input class="input w-full" id="gr-influencer" placeholder="Influencer name (e.g. Alex Hormozi)">
             <input class="input w-full" id="gr-title" placeholder="Video title">
             <input class="input w-full" id="gr-url" placeholder="Video URL (optional)">
-            <input class="input w-full" id="gr-timestamp" placeholder="Best timestamp (e.g. 15:43 — 16:03)">
+            <input class="input w-full" id="gr-timestamp" placeholder="Best timestamp (e.g. 15:43-16:03)">
           </div>
           <textarea class="textarea" id="gr-quote" rows="2" placeholder="Quote to react to…" style="margin-top:8px"></textarea>
-          <textarea class="textarea" id="gr-transcript" rows="10" placeholder="Paste full transcript here…" style="margin-top:8px"></textarea>
+          <textarea class="textarea" id="gr-transcript" rows="8" placeholder="Paste full transcript here…" style="margin-top:8px"></textarea>
           <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
-            <button class="btn" onclick="window.submitReactionTranscript()">Generate Reaction Prompts</button>
+            <button class="btn" onclick="window.generateReactCmd()">Generate Command</button>
             <span id="gr-submit-status" class="text-xs text-muted"></span>
           </div>
+          <div id="gr-cmd-output"></div>
+          <div class="gr-submit-note" style="margin-top:8px">Paste into Claude Code to generate prompts</div>
         </div>
-        <div class="gr-submit-note">Submitting queues a request — Claude Code will generate the full prompt package</div>
       </div>
 
       <!-- SECTION 3 — Generated Scripts -->
       <div class="gr-section">
         <div class="gr-section-header">
           <div class="gr-section-title">Generated Scripts</div>
-          <span class="gr-section-count">${scripts.length} script${scripts.length === 1 ? '' : 's'}</span>
+          <span class="gr-section-count">${reactScripts.length} script${reactScripts.length === 1 ? '' : 's'}</span>
         </div>
-        ${cardsHtml}
+        ${tableHtml}
       </div>`
   }
 
-  // ── Granny Reacts individual card ─────────────────────────────
-  function renderGRCard (s) {
-    const hook = (s.hook || '').slice(0, 100)
-    // Extract CapCut guide from video_prompts
-    let capcutPreview = ''
-    if (s.video_prompts) {
-      const ccIdx = s.video_prompts.indexOf('CapCut assembly:')
-      if (ccIdx !== -1) {
-        let cc = s.video_prompts.slice(ccIdx).trim()
-        const stop = cc.search(/\n\n\[/)
-        if (stop !== -1) cc = cc.slice(0, stop).trim()
-        capcutPreview = cc.slice(0, 200)
-      }
-    }
-    const ref = s.reaction_reference || ''
-
-    return `<div class="gr-script-card" onclick="window.openScriptModal('${s.id}')">
-      <div class="gr-card-topic">${escHtml(s.topic || '—')}</div>
-      <div class="gr-card-meta">
-        <span class="badge amber">Granny Reacts</span>
-        <span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span>
-        ${ccBadge(s.consistency_check)}
-      </div>
-      ${hook ? `<div class="gr-card-hook">${escHtml(hook)}${(s.hook || '').length > 100 ? '…' : ''}</div>` : ''}
-      ${ref ? `<div class="gr-card-ref" title="${escAttr(ref)}">${escHtml(ref.length > 60 ? ref.slice(0, 60) + '…' : ref)}</div>` : ''}
-      ${capcutPreview ? `<div class="gr-capcut">${escHtml(capcutPreview)}</div>` : ''}
-      <div class="text-xs text-muted" style="margin-top:8px">${s.created_at ? s.created_at.slice(0, 10) : '—'}</div>
-    </div>`
+  // ── Copy: /research reaction-sources command ──────────────────
+  window.copyReactionSourcesCmd = function (btn) {
+    const cmd = '/research reaction-sources'
+    navigator.clipboard.writeText(cmd).then(() => {
+      btn.textContent = 'Copied!'
+      btn.classList.add('copied')
+      setTimeout(() => { btn.textContent = 'Find Videos'; btn.classList.remove('copied') }, 2000)
+    }).catch(() => {})
   }
 
-  // ── Request: research reaction sources ────────────────────────
-  window.researchReactionSources = async function () {
-    const btn = document.querySelector('#granny-reacts-container button[onclick="window.researchReactionSources()"]')
-    const statusEl = document.getElementById('gr-research-status')
-    if (btn) btn.disabled = true
-    try {
-      await window.sb.from('requests').insert({
-        type: 'research-reaction-sources', status: 'pending',
-        created_at: new Date().toISOString()
-      })
-      if (statusEl) statusEl.textContent = 'Queued — Claude Code will find the best videos to react to'
-      if (btn) { btn.textContent = 'Queued ✓'; setTimeout(() => { btn.textContent = 'Research Videos'; btn.disabled = false }, 5000) }
-    } catch (err) {
-      if (btn) btn.disabled = false
-      if (statusEl) statusEl.textContent = 'Failed to queue'
-    }
-  }
-
-  // ── Request: generate reaction from transcript ────────────────
-  window.submitReactionTranscript = async function () {
+  // ── Generate: copyable /granny-reel react command ─────────────
+  window.generateReactCmd = function () {
     const influencer = (document.getElementById('gr-influencer') || {}).value || ''
-    const title      = (document.getElementById('gr-title')      || {}).value || ''
-    const url        = (document.getElementById('gr-url')        || {}).value || ''
     const timestamp  = (document.getElementById('gr-timestamp')  || {}).value || ''
     const quote      = (document.getElementById('gr-quote')      || {}).value || ''
     const transcript = (document.getElementById('gr-transcript') || {}).value || ''
     const statusEl   = document.getElementById('gr-submit-status')
+    const outputEl   = document.getElementById('gr-cmd-output')
 
-    if (!influencer || !quote || !transcript) {
-      if (statusEl) statusEl.textContent = 'Influencer, quote, and transcript are required'
+    if (!influencer || !quote) {
+      if (statusEl) statusEl.textContent = 'Influencer and quote are required'
       return
     }
+    if (statusEl) statusEl.textContent = ''
 
-    const submitBtn = document.querySelector('#granny-reacts-container button[onclick="window.submitReactionTranscript()"]')
-    if (submitBtn) submitBtn.disabled = true
-    if (statusEl) statusEl.textContent = 'Submitting…'
+    const transcriptPreview = transcript.slice(0, 100).replace(/"/g, '\\"')
+    const suffix = transcript.length > 100 ? '...' : ''
+    const cmd = `/granny-reel react "${influencer}" "${timestamp}" "${quote}" --transcript "${transcriptPreview}${suffix}"`
 
-    try {
-      await window.sb.from('requests').insert({
-        type: 'generate-reaction', status: 'pending',
-        payload: { influencer, title, url, timestamp, quote, transcript },
-        created_at: new Date().toISOString()
-      })
-      if (statusEl) statusEl.textContent = 'Queued — Claude Code will generate the prompt package'
-      if (submitBtn) { submitBtn.textContent = 'Queued ✓'; setTimeout(() => { submitBtn.textContent = 'Generate Reaction Prompts'; submitBtn.disabled = false }, 8000) }
-    } catch (err) {
-      if (submitBtn) submitBtn.disabled = false
-      if (statusEl) statusEl.textContent = 'Failed: ' + (err.message || 'unknown error')
-    }
+    if (!outputEl) return
+    const uid = 'gr-react-' + Math.random().toString(36).slice(2, 7)
+    outputEl.innerHTML = `
+      <div style="margin-top:12px;border:1.5px solid var(--accent);border-radius:8px;padding:10px 12px">
+        <div class="cmd-code-row" style="margin-bottom:4px;overflow:hidden">
+          <span class="cmd-code" id="${uid}" style="white-space:normal;word-break:break-all;font-size:11px">${escHtml(cmd)}</span>
+          <button class="cmd-copy-btn" onclick="window.copyField('${uid}',this)" style="flex-shrink:0">Copy</button>
+        </div>
+      </div>`
   }
 
   // ── Restore last sub-tab + re-render sub-tabs after data loads ─
