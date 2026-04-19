@@ -28,9 +28,8 @@
     <button class="tab" data-tab="production">Production</button>
     <button class="tab" data-tab="prompts">Prompts</button>
     <button class="tab" data-tab="ideas">Ideas</button>
-    <button class="tab" data-tab="morning">Morning</button>
-    <button class="tab" data-tab="eod">EOD</button>
     <button class="tab" data-tab="about">About</button>
+    <button class="tab" onclick="window.location.href='analytics/index.html'" style="color:var(--accent-text);background:var(--accent-light);font-weight:600">Analytics ↗</button>
   </nav>
 
   <div class="topbar-right">
@@ -140,27 +139,7 @@
         </div>
       </div>
 
-      <!-- Row 2 — Daily workflow -->
-      <div class="cmd-grid" style="margin-bottom:8px">
-        <div class="cmd-block">
-          <div class="cmd-label">Morning Coffee</div>
-          <div class="cmd-code-row">
-            <span class="cmd-code">/morning-coffee skip-news</span>
-            <button class="cmd-copy-btn" onclick="window.copyCmd(this,'/morning-coffee skip-news')">Copy</button>
-          </div>
-          <div class="cmd-desc"><span>Daily briefing without news search</span><span class="token-badge token-low">~Low</span></div>
-        </div>
-        <div class="cmd-block">
-          <div class="cmd-label">EOD Wrap</div>
-          <div class="cmd-code-row">
-            <span class="cmd-code">/eod-wrap</span>
-            <button class="cmd-copy-btn" onclick="window.copyCmd(this,'/eod-wrap')">Copy</button>
-          </div>
-          <div class="cmd-desc"><span>End of shift summary and production log</span><span class="token-badge token-low">~Low</span></div>
-        </div>
-      </div>
-
-      <!-- Row 3 — Maintenance -->
+      <!-- Row 2 — Maintenance -->
       <div class="cmd-grid">
         <div class="cmd-block">
           <div class="cmd-label">Consistency Check</div>
@@ -189,9 +168,20 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">Latest Morning Briefing</div>
-      <div id="briefing-preview"><div class="skeleton"></div></div>
+    <div class="card" id="social-media-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-title" style="margin-bottom:0">Social Media</div>
+        <a href="analytics/index.html" style="font-size:11px;font-weight:500;color:var(--accent)">View Full Report →</a>
+      </div>
+      <div id="social-summary-rows">
+        <div class="skeleton"></div>
+        <div class="skeleton mt-8"></div>
+        <div class="skeleton mt-8"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+        <span class="text-xs text-muted">Updated April 15, 2026</span>
+        <a href="analytics/index.html" style="font-size:11px;color:var(--text3)">Configure →</a>
+      </div>
     </div>
   </section>
 
@@ -398,30 +388,6 @@
     </div>
   </section>
 
-  <!-- MORNING COFFEE -->
-  <section class="tab-panel" id="tab-morning">
-    <div class="flex-between mb-12">
-      <div style="font-size:15px;font-weight:600">Morning Coffee Briefings</div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="btn" id="trigger-morning-btn">▶ Run Morning Coffee</button>
-        <span id="morning-trigger-status" class="text-xs text-muted"></span>
-      </div>
-    </div>
-    <div id="morning-content"><div class="skeleton"></div></div>
-  </section>
-
-  <!-- EOD -->
-  <section class="tab-panel" id="tab-eod">
-    <div class="flex-between mb-12">
-      <div style="font-size:15px;font-weight:600">EOD Wrap Summaries</div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="btn" id="trigger-eod-btn">▶ Run EOD Wrap</button>
-        <span id="eod-trigger-status" class="text-xs text-muted"></span>
-      </div>
-    </div>
-    <div id="eod-content"><div class="skeleton"></div></div>
-  </section>
-
   <!-- YOUTUBE -->
   <section class="tab-panel" id="tab-youtube">
     <div style="margin-bottom:20px">
@@ -514,14 +480,33 @@
   setInterval(updateTime, 1000)
 </script>
 
+<!-- Social Media summary card ─────────────────────────────── -->
+<script>
+;(function () {
+  const rows = [
+    { name: 'Instagram', color: '#E1306C', a: '1,362 followers', b: '580 avg views', c: '3.3% eng' },
+    { name: 'YouTube',   color: '#FF0000', a: '122 subscribers', b: '385 avg views', c: '2.7% eng' },
+    { name: 'TikTok',    color: '#00C2A8', a: '34 followers',    b: '750 avg views', c: '4.6% eng' }
+  ]
+  const el = document.getElementById('social-summary-rows')
+  if (!el) return
+  el.innerHTML = rows.map((r, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 0;${i < rows.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+      <span style="width:8px;height:8px;border-radius:50%;background:${r.color};display:inline-block;flex-shrink:0"></span>
+      <span style="font-size:13px;font-weight:500;color:var(--text);flex:1;min-width:0">${r.name}</span>
+      <span style="font-size:11px;color:var(--text3)">${r.a}</span>
+      <span style="font-size:11px;color:var(--text3)">${r.b}</span>
+      <span style="font-size:11px;color:var(--text3);font-weight:600">${r.c}</span>
+    </div>`).join('')
+})()
+</script>
+
 <!-- Load tab JS after Supabase client is ready -->
 <script src="assets/js/overview.js?v=20260411"></script>
 <script src="assets/js/scripts.js?v=20260411d"></script>
 <script src="assets/js/production.js?v=20260402"></script>
 <script src="assets/js/prompts.js?v=20260402"></script>
 <script src="assets/js/ideas.js?v=20260401b"></script>
-<script src="assets/js/morning.js?v=20260402"></script>
-<script src="assets/js/eod.js?v=20260402"></script>
 <script src="assets/js/about.js?v=20260401b"></script>
 
 </body>

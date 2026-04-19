@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Social Media Analytics | Boosted Movers</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='14' fill='%231a7a4a'/><text y='.9em' font-size='52' font-family='system-ui' font-weight='700' fill='white' x='12' y='68'>BM</text></svg>">
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <style>
+    /* ─── Analytics-specific ─────────────────────────────────── */
+    .a-metric {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .a-metric:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,.1); }
+    .a-chg-pos { font-size: 11px; font-weight: 600; color: var(--success); margin-top: 3px; }
+    .a-chg-neg { font-size: 11px; font-weight: 600; color: var(--danger);  margin-top: 3px; }
+    .a-chg-nil { font-size: 11px; color: var(--text3); margin-top: 3px; }
+    .platform-section { padding-bottom: 28px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+    .platform-section:last-child { border-bottom: none; padding-bottom: 0; }
+    .platform-badge {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .5px; flex-shrink: 0;
+    }
+    .goals-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+    .goals-row { margin-bottom: 12px; }
+    .goals-row:last-child { margin-bottom: 0; }
+    .goals-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; gap: 12px; }
+    .goals-label { font-size: 13px; color: var(--text); }
+    .goals-progress { font-size: 12px; font-weight: 600; color: var(--text2); white-space: nowrap; }
+    .ag3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 8px; }
+    .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); }
+    @media (max-width: 900px) { .ag3 { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 480px) { .ag3 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<!-- ─── Topbar ──────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo-mark">BM</div>
+    <div>
+      <span class="logo-text">Boosted Movers</span>
+      <span class="logo-sub">Content Production</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <a href="../index.html" class="btn btn-ghost" style="text-decoration:none;font-size:12px">← Dashboard</a>
+    <div class="time-display" id="time-display">—</div>
+    <button class="dark-toggle" id="dark-toggle">🌙</button>
+  </div>
+</header>
+
+<!-- ─── Content ─────────────────────────────────────────────── -->
+<main class="content">
+  <div id="analytics-root"></div>
+</main>
+
+<script>
+// ─── DATA LAYER — update this object when connecting real APIs ──
+const analyticsData = {
+  week_label: "W3 April",
+  last_updated: "April 15, 2026",
+  platforms: {
+    instagram: {
+      followers: 1362,
+      followers_change: 2.0,
+      avg_views: 580,
+      avg_views_change: 11.5,
+      posts_this_week: 3,
+      posts_change: -25.0,
+      engagement_rate: 3.3,
+      engagement_change: 6.5,
+      weekly_data: {
+        followers: [1280, 1295, 1310, 1325, 1340, 1352, 1362],
+        views: [420, 380, 510, 490, 530, 560, 580]
+      },
+      goals: [
+        { label: "3 reels with 1,000+ views", current: 1, target: 3 }
+      ]
+    },
+    youtube: {
+      subscribers: 122,
+      subscribers_change: 6.1,
+      avg_views: 385,
+      avg_views_change: 13.2,
+      videos_this_week: 2,
+      videos_change: -33.3,
+      engagement_rate: 2.7,
+      engagement_change: 8.0,
+      weekly_data: {
+        subscribers: [98, 103, 108, 112, 116, 119, 122],
+        views: [290, 310, 340, 355, 360, 372, 385]
+      },
+      goals: [
+        { label: "3 videos with 1,000+ views", current: 0, target: 3 }
+      ]
+    },
+    tiktok: {
+      followers: 34,
+      followers_change: 9.7,
+      avg_views: 750,
+      avg_views_change: 8.7,
+      videos_this_week: 4,
+      videos_change: -20.0,
+      engagement_rate: 4.6,
+      engagement_change: 4.5,
+      weekly_data: {
+        followers: [22, 24, 27, 29, 31, 33, 34],
+        views: [580, 610, 650, 690, 710, 730, 750]
+      },
+      goals: [
+        { label: "50 followers", current: 34, target: 50 }
+      ]
+    }
+  }
+}
+
+// ─── PLATFORM CONFIG ────────────────────────────────────────────
+const PLATFORMS = {
+  instagram: { name: 'Instagram', abbr: 'IG', color: '#E1306C' },
+  youtube:   { name: 'YouTube',   abbr: 'YT', color: '#FF0000' },
+  tiktok:    { name: 'TikTok',    abbr: 'TT', color: '#00C2A8' }
+}
+
+// ─── HELPERS ────────────────────────────────────────────────────
+function fmtNum(n) {
+  if (n === null || n === undefined) return '—'
+  if (typeof n !== 'number') return String(n)
+  if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'K'
+  return String(n)
+}
+
+function changeEl(v) {
+  if (v === null || v === undefined) return '<div class="a-chg-nil">vs last week</div>'
+  const pos = v >= 0
+  return `<div class="${pos ? 'a-chg-pos' : 'a-chg-neg'}">${pos ? '↑' : '↓'} ${pos ? '+' : ''}${Math.abs(v).toFixed(1)}%</div>`
+}
+
+function sparklineSVG(data, color) {
+  if (!data || data.length < 2) return '<div style="width:80px;height:40px"></div>'
+  const W = 80, H = 40, P = 3
+  const lo = Math.min(...data), hi = Math.max(...data), rng = hi - lo || 1
+  const pts = data.map((v, i) => [
+    P + (i / (data.length - 1)) * (W - P * 2),
+    H - P - ((v - lo) / rng) * (H - P * 2)
+  ])
+  let line = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+  for (let i = 1; i < pts.length; i++) {
+    const cx = ((pts[i - 1][0] + pts[i][0]) / 2).toFixed(1)
+    line += ` C${cx},${pts[i-1][1].toFixed(1)} ${cx},${pts[i][1].toFixed(1)} ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`
+  }
+  const area = `${line} L${pts[pts.length-1][0].toFixed(1)},${H} L${pts[0][0].toFixed(1)},${H}Z`
+  return `<svg width="80" height="40" viewBox="0 0 80 40" aria-hidden="true" style="display:block">
+    <path d="${area}" fill="${color}" fill-opacity="0.18"/>
+    <path d="${line}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`
+}
+
+// ─── COMPONENTS ─────────────────────────────────────────────────
+function metricCard(label, value, change, sparkData, color) {
+  const spark = sparkData ? sparklineSVG(sparkData, color) : '<div style="width:80px;height:40px"></div>'
+  const display = typeof value === 'string' ? value : fmtNum(value)
+  return `<div class="a-metric">
+    <div class="metric-label">${label}</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px">
+      <div>
+        <div class="metric-val">${display}</div>
+        ${changeEl(change)}
+      </div>
+      <div style="flex-shrink:0;margin-left:8px;align-self:flex-end">${spark}</div>
+    </div>
+  </div>`
+}
+
+function goalsCard(goals, color) {
+  return `<div class="goals-card">
+    <div class="card-title">APRIL GOALS</div>
+    ${goals.map(g => {
+      const pct = Math.min(100, Math.round((g.current / g.target) * 100))
+      return `<div class="goals-row">
+        <div class="goals-meta">
+          <span class="goals-label">${g.label}</span>
+          <span class="goals-progress">${g.current}/${g.target} (${pct}%)</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-bar" style="width:${pct}%;background:${color}"></div>
+        </div>
+      </div>`
+    }).join('')}
+  </div>`
+}
+
+function platformBlock(key) {
+  const cfg = PLATFORMS[key]
+  const d   = analyticsData.platforms[key]
+  const c   = cfg.color
+  const isYT = key === 'youtube'
+  const isIG = key === 'instagram'
+
+  const fLabel = isYT ? 'SUBSCRIBERS' : 'FOLLOWERS'
+  const fVal   = isYT ? d.subscribers   : d.followers
+  const fChg   = isYT ? d.subscribers_change : d.followers_change
+  const fData  = isYT ? d.weekly_data.subscribers : d.weekly_data.followers
+
+  const pLabel = isIG ? 'REELS POSTED' : 'VIDEOS POSTED'
+  const pVal   = isYT ? d.videos_this_week : (isIG ? d.posts_this_week  : d.videos_this_week)
+  const pChg   = isYT ? d.videos_change   : (isIG ? d.posts_change      : d.videos_change)
+
+  return `<div class="platform-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+      <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+    </div>
+
+    <div class="ag3">
+      ${metricCard(fLabel, fVal, fChg, fData, c)}
+      ${metricCard('AVG VIEWS', d.avg_views, d.avg_views_change, d.weekly_data.views, c)}
+      ${metricCard(pLabel, pVal, pChg, null, c)}
+    </div>
+
+    <div class="ag3" style="margin-bottom:14px">
+      ${metricCard('ENGAGEMENT RATE', d.engagement_rate + '%', d.engagement_change, null, c)}
+    </div>
+
+    ${goalsCard(d.goals, c)}
+  </div>`
+}
+
+// ─── RENDER ─────────────────────────────────────────────────────
+function renderAnalytics() {
+  const d  = analyticsData
+  const ig = d.platforms.instagram
+  const yt = d.platforms.youtube
+  const tt = d.platforms.tiktok
+
+  const totalFollowers = ig.followers + yt.subscribers + tt.followers
+  const totalPosts     = ig.posts_this_week + yt.videos_this_week + tt.videos_this_week
+  const bestPlatform   = [
+    { name: 'Instagram', eng: ig.engagement_rate },
+    { name: 'YouTube',   eng: yt.engagement_rate },
+    { name: 'TikTok',    eng: tt.engagement_rate }
+  ].reduce((a, b) => b.eng > a.eng ? b : a)
+
+  const summaryCfg = [
+    { label: 'TOTAL FOLLOWERS',    value: totalFollowers.toLocaleString(), sub: 'all platforms combined',  bc: 'var(--accent)' },
+    { label: 'CONTENT PUBLISHED',  value: String(totalPosts),              sub: 'posts this week',         bc: '#1d4ed8' },
+    { label: 'BEST PLATFORM',      value: bestPlatform.name,               sub: bestPlatform.eng + '% engagement', bc: '#00C2A8' },
+    { label: 'WEEK',               value: d.week_label,                    sub: 'current review period',   bc: 'var(--amber)' }
+  ]
+
+  document.getElementById('analytics-root').innerHTML = `
+    <div style="margin-bottom:18px">
+      <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:3px">Social Media Analytics</div>
+      <div style="font-size:13px;color:var(--text2)">Weekly Review — ${d.week_label} &nbsp;·&nbsp; Updated ${d.last_updated}</div>
+    </div>
+
+    <div class="metrics-grid" style="margin-bottom:28px">
+      ${summaryCfg.map(c => `
+        <div class="summary-card" style="border-left:3px solid ${c.bc}">
+          <div class="metric-label">${c.label}</div>
+          <div class="metric-val" style="margin-top:4px">${c.value}</div>
+          <div class="metric-sub">${c.sub}</div>
+        </div>`).join('')}
+    </div>
+
+    ${['instagram', 'youtube', 'tiktok'].map(platformBlock).join('')}
+  `
+}
+
+renderAnalytics()
+
+// ─── DARK MODE ──────────────────────────────────────────────────
+const toggleBtn = document.getElementById('dark-toggle')
+function applyDark(on) {
+  document.body.classList.toggle('dark', on)
+  toggleBtn.textContent = on ? '☀️' : '🌙'
+  localStorage.setItem('darkMode', on)
+}
+applyDark(localStorage.getItem('darkMode') === 'true')
+toggleBtn.addEventListener('click', () => applyDark(!document.body.classList.contains('dark')))
+
+// ─── LIVE TIME ──────────────────────────────────────────────────
+function tick() {
+  const now = new Date()
+  const pht = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 8 * 3600000)
+  document.getElementById('time-display').textContent =
+    pht.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) + ' PHT'
+}
+tick()
+setInterval(tick, 1000)
+</script>
+</body>
+</html>
