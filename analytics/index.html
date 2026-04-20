@@ -6,6 +6,7 @@
   <title>Social Media Analytics | Boosted Movers</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='14' fill='%231a7a4a'/><text y='.9em' font-size='52' font-family='system-ui' font-weight='700' fill='white' x='12' y='68'>BM</text></svg>">
   <link rel="stylesheet" href="../assets/css/main.css">
+  <script src="../assets/js/analytics-api.js"></script>
   <style>
     /* ─── Analytics-specific ─────────────────────────────────── */
     .a-metric {
@@ -37,6 +38,206 @@
     .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); }
     @media (max-width: 900px) { .ag3 { grid-template-columns: repeat(2,1fr); } }
     @media (max-width: 480px) { .ag3 { grid-template-columns: 1fr; } }
+
+    /* ─── Skeleton shimmer override for analytics ── */
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+      height: 2rem;
+      width: 60%;
+    }
+    body.dark .skeleton {
+      background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+      background-size: 200% 100%;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ─── Fade-in for loaded values ── */
+    .metric-fade-in { animation: fadeIn .4s ease; }
+
+    /* ─── Header row with refresh ── */
+    .analytics-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .analytics-header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .last-refreshed {
+      font-size: 11px;
+      color: var(--text3);
+    }
+    .refresh-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      background: var(--surface);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .refresh-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent-text); }
+    .refresh-btn.spinning .refresh-icon { display: inline-block; animation: spin .8s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* ─── Data source badge ── */
+    .data-badge-cached {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 600;
+      background: var(--amber-light);
+      color: var(--amber);
+      border: 1px solid var(--amber);
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .data-badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 600;
+      background: var(--success-light);
+      color: var(--success);
+      border: 1px solid var(--success);
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    /* ─── Instagram coming soon ── */
+    .platform-section.coming-soon-section {
+      position: relative;
+    }
+    .coming-soon-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.45);
+      border-radius: var(--radius);
+      pointer-events: none;
+      z-index: 1;
+    }
+    body.dark .coming-soon-overlay {
+      background: rgba(15,20,16,0.45);
+    }
+    .coming-soon-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 600;
+      background: var(--amber-light);
+      color: var(--amber);
+      border: 1px solid var(--amber);
+      margin-left: 8px;
+    }
+    .coming-soon-checklist {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      padding: 4px 0;
+      color: var(--text3);
+    }
+    .check-item.done { color: var(--success); }
+    .check-item.pending { color: var(--text3); }
+
+    /* ─── TikTok CSV link ── */
+    .tiktok-csv-note {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 4px;
+    }
+    .tiktok-csv-link {
+      font-size: 11px;
+      color: var(--accent);
+      text-decoration: underline;
+      margin-top: 2px;
+      display: inline-block;
+    }
+
+    /* ─── Social media top card ── */
+    .social-top-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+    .social-top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .social-top-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .social-platforms-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 600px) { .social-platforms-row { grid-template-columns: 1fr; } }
+    .social-platform-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .social-platform-cell.coming-soon-cell {
+      opacity: 0.55;
+      filter: grayscale(0.2);
+    }
+    .social-cell-badge {
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 9px; font-weight: 700;
+      letter-spacing: .4px; flex-shrink: 0;
+    }
+    .social-cell-info { min-width: 0; }
+    .social-cell-name { font-size: 11px; color: var(--text3); margin-bottom: 2px; }
+    .social-cell-val { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1; }
+    .social-cell-sub { font-size: 10px; color: var(--text3); margin-top: 1px; }
   </style>
 </head>
 <body>
@@ -63,7 +264,7 @@
 </main>
 
 <script>
-// ─── DATA LAYER — update this object when connecting real APIs ──
+// ─── DATA LAYER ─────────────────────────────────────────────────
 const analyticsData = {
   week_label: "W3 April",
   last_updated: "April 15, 2026",
@@ -122,6 +323,11 @@ const analyticsData = {
   }
 }
 
+// ─── STATE ──────────────────────────────────────────────────────
+let ytDataStatus = 'default'   // 'default' | 'live' | 'cached'
+let ttDataStatus = 'default'   // 'default' | 'live' | 'cached'
+let lastRefreshedTime = null
+
 // ─── PLATFORM CONFIG ────────────────────────────────────────────
 const PLATFORMS = {
   instagram: { name: 'Instagram', abbr: 'IG', color: '#E1306C' },
@@ -163,18 +369,23 @@ function sparklineSVG(data, color) {
   </svg>`
 }
 
+function skeletonVal() {
+  return '<div class="skeleton" style="height:1.6rem;width:55%;margin:6px 0 4px"></div>'
+}
+
 // ─── COMPONENTS ─────────────────────────────────────────────────
-function metricCard(label, value, change, sparkData, color) {
+function metricCard(label, value, change, sparkData, color, isLoading) {
   const spark = sparkData ? sparklineSVG(sparkData, color) : '<div style="width:80px;height:40px"></div>'
-  const display = typeof value === 'string' ? value : fmtNum(value)
-  return `<div class="a-metric">
+  const display = isLoading ? skeletonVal() : (typeof value === 'string' ? value : fmtNum(value))
+  const chg = isLoading ? '<div class="a-chg-nil">loading…</div>' : changeEl(change)
+  return `<div class="a-metric${isLoading ? '' : ' metric-fade-in'}">
     <div class="metric-label">${label}</div>
     <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px">
       <div>
         <div class="metric-val">${display}</div>
-        ${changeEl(change)}
+        ${chg}
       </div>
-      <div style="flex-shrink:0;margin-left:8px;align-self:flex-end">${spark}</div>
+      <div style="flex-shrink:0;margin-left:8px;align-self:flex-end">${isLoading ? '' : spark}</div>
     </div>
   </div>`
 }
@@ -197,49 +408,175 @@ function goalsCard(goals, color) {
   </div>`
 }
 
-function platformBlock(key) {
+function platformBlock(key, isLoading) {
   const cfg = PLATFORMS[key]
   const d   = analyticsData.platforms[key]
   const c   = cfg.color
   const isYT = key === 'youtube'
   const isIG = key === 'instagram'
+  const isTT = key === 'tiktok'
+
+  if (isIG) return instagramBlock(isLoading)
 
   const fLabel = isYT ? 'SUBSCRIBERS' : 'FOLLOWERS'
   const fVal   = isYT ? d.subscribers   : d.followers
   const fChg   = isYT ? d.subscribers_change : d.followers_change
   const fData  = isYT ? d.weekly_data.subscribers : d.weekly_data.followers
 
-  const pLabel = isIG ? 'REELS POSTED' : 'VIDEOS POSTED'
-  const pVal   = isYT ? d.videos_this_week : (isIG ? d.posts_this_week  : d.videos_this_week)
-  const pChg   = isYT ? d.videos_change   : (isIG ? d.posts_change      : d.videos_change)
+  const pLabel = 'VIDEOS POSTED'
+  const pVal   = d.videos_this_week
+  const pChg   = d.videos_change
+
+  let statusBadge = ''
+  if (!isLoading) {
+    if (isYT && ytDataStatus === 'live') {
+      statusBadge = '<span class="data-badge-live">● Live</span>'
+    } else if (isYT && ytDataStatus === 'cached') {
+      statusBadge = '<span class="data-badge-cached">Using cached data</span>'
+    } else if (isTT && ttDataStatus === 'live') {
+      statusBadge = '<span class="data-badge-live">● CSV</span>'
+    } else if (isTT && ttDataStatus === 'cached') {
+      statusBadge = `<span class="data-badge-cached">Export CSV to update</span>`
+    }
+  }
+
+  const tiktokNote = isTT && ttDataStatus === 'cached' && !isLoading
+    ? `<div class="tiktok-csv-link"><a href="https://studio.tiktok.com" target="_blank" rel="noopener">Export from TikTok Studio →</a></div>`
+    : ''
 
   return `<div class="platform-section">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
       <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      ${statusBadge}
     </div>
 
     <div class="ag3">
-      ${metricCard(fLabel, fVal, fChg, fData, c)}
-      ${metricCard('AVG VIEWS', d.avg_views, d.avg_views_change, d.weekly_data.views, c)}
-      ${metricCard(pLabel, pVal, pChg, null, c)}
+      ${metricCard(fLabel, fVal, fChg, fData, c, isLoading)}
+      ${metricCard('AVG VIEWS', d.avg_views, d.avg_views_change, d.weekly_data.views, c, isLoading)}
+      ${metricCard(pLabel, pVal, pChg, null, c, isLoading)}
     </div>
 
     <div class="ag3" style="margin-bottom:14px">
-      ${metricCard('ENGAGEMENT RATE', d.engagement_rate + '%', d.engagement_change, null, c)}
+      ${metricCard('ENGAGEMENT RATE', d.engagement_rate + '%', d.engagement_change, null, c, isLoading)}
     </div>
 
+    ${tiktokNote}
     ${goalsCard(d.goals, c)}
   </div>`
 }
 
+function instagramBlock(isLoading) {
+  const cfg = PLATFORMS.instagram
+  const d   = analyticsData.platforms.instagram
+  const c   = cfg.color
+
+  return `<div class="platform-section coming-soon-section" style="position:relative">
+    <div class="coming-soon-overlay"></div>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+      <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      <span class="coming-soon-badge">Coming Soon</span>
+    </div>
+
+    <div class="ag3">
+      ${metricCard('FOLLOWERS', '—', null, null, c, false)}
+      ${metricCard('AVG VIEWS', '—', null, null, c, false)}
+      ${metricCard('REELS POSTED', '—', null, null, c, false)}
+    </div>
+
+    <div class="ag3" style="margin-bottom:14px">
+      ${metricCard('ENGAGEMENT RATE', '—', null, null, c, false)}
+    </div>
+
+    <div class="coming-soon-checklist">
+      <div class="card-title" style="margin-bottom:8px">SETUP PROGRESS</div>
+      <div class="check-item done">✅ Meta Business Suite connected</div>
+      <div class="check-item done">✅ Facebook account setup</div>
+      <div class="check-item pending">⬜ Developer app approval</div>
+      <div class="check-item pending">⬜ API tokens generated</div>
+      <div class="check-item pending">⬜ Live data connected</div>
+    </div>
+  </div>`
+}
+
+function socialTopCard(isLoading) {
+  const ig = analyticsData.platforms.instagram
+  const yt = analyticsData.platforms.youtube
+  const tt = analyticsData.platforms.tiktok
+  const totalFollowers = yt.subscribers + tt.followers
+
+  return `<div class="social-top-card">
+    <div class="social-top-header">
+      <span class="social-top-title">Social Media Overview</span>
+      <span class="last-refreshed" id="last-refreshed-inline">${lastRefreshedTime ? 'Updated ' + lastRefreshedTime : ''}</span>
+    </div>
+    <div class="social-platforms-row">
+      <div class="social-platform-cell coming-soon-cell">
+        <div class="social-cell-badge" style="background:#E1306C">IG</div>
+        <div class="social-cell-info">
+          <div class="social-cell-name">Instagram</div>
+          <div class="social-cell-val">—</div>
+          <div class="social-cell-sub">Coming Soon</div>
+        </div>
+      </div>
+      <div class="social-platform-cell">
+        <div class="social-cell-badge" style="background:#FF0000">YT</div>
+        <div class="social-cell-info">
+          <div class="social-cell-name">YouTube</div>
+          <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : fmtNum(yt.subscribers)}</div>
+          <div class="social-cell-sub">subscribers${ytDataStatus === 'live' ? ' · live' : ''}</div>
+        </div>
+      </div>
+      <div class="social-platform-cell">
+        <div class="social-cell-badge" style="background:#00C2A8">TT</div>
+        <div class="social-cell-info">
+          <div class="social-cell-name">TikTok</div>
+          <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : fmtNum(tt.followers)}</div>
+          <div class="social-cell-sub">followers${ttDataStatus === 'live' ? ' · csv' : ''}</div>
+        </div>
+      </div>
+    </div>
+  </div>`
+}
+
 // ─── RENDER ─────────────────────────────────────────────────────
-function renderAnalytics() {
+function renderDashboard(isLoading) {
+  const d  = analyticsData
+
+  document.getElementById('analytics-root').innerHTML = `
+    <div class="analytics-header">
+      <div>
+        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:3px">Social Media Analytics</div>
+        <div style="font-size:13px;color:var(--text2)">Weekly Review — ${d.week_label} &nbsp;·&nbsp; Updated ${d.last_updated}</div>
+      </div>
+      <div class="analytics-header-right">
+        <span class="last-refreshed" id="last-refreshed-label">${lastRefreshedTime ? 'Last fetched: ' + lastRefreshedTime : ''}</span>
+        <button class="refresh-btn" onclick="refreshAnalytics()" id="refresh-btn">
+          <span class="refresh-icon">↻</span> Refresh
+        </button>
+      </div>
+    </div>
+
+    ${socialTopCard(isLoading)}
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-title" style="margin-bottom:14px">PLATFORM BREAKDOWN</div>
+      ${['youtube', 'tiktok', 'instagram'].map(k => platformBlock(k, isLoading)).join('')}
+    </div>
+
+    <div class="metrics-grid" style="margin-bottom:28px">
+      ${summaryCfgCards()}
+    </div>
+  `
+}
+
+function summaryCfgCards() {
   const d  = analyticsData
   const ig = d.platforms.instagram
   const yt = d.platforms.youtube
   const tt = d.platforms.tiktok
-
   const totalFollowers = ig.followers + yt.subscribers + tt.followers
   const totalPosts     = ig.posts_this_week + yt.videos_this_week + tt.videos_this_week
   const bestPlatform   = [
@@ -248,33 +585,93 @@ function renderAnalytics() {
     { name: 'TikTok',    eng: tt.engagement_rate }
   ].reduce((a, b) => b.eng > a.eng ? b : a)
 
-  const summaryCfg = [
+  const cfg = [
     { label: 'TOTAL FOLLOWERS',    value: totalFollowers.toLocaleString(), sub: 'all platforms combined',  bc: 'var(--accent)' },
     { label: 'CONTENT PUBLISHED',  value: String(totalPosts),              sub: 'posts this week',         bc: '#1d4ed8' },
     { label: 'BEST PLATFORM',      value: bestPlatform.name,               sub: bestPlatform.eng + '% engagement', bc: '#00C2A8' },
     { label: 'WEEK',               value: d.week_label,                    sub: 'current review period',   bc: 'var(--amber)' }
   ]
 
-  document.getElementById('analytics-root').innerHTML = `
-    <div style="margin-bottom:18px">
-      <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:3px">Social Media Analytics</div>
-      <div style="font-size:13px;color:var(--text2)">Weekly Review — ${d.week_label} &nbsp;·&nbsp; Updated ${d.last_updated}</div>
-    </div>
-
-    <div class="metrics-grid" style="margin-bottom:28px">
-      ${summaryCfg.map(c => `
-        <div class="summary-card" style="border-left:3px solid ${c.bc}">
-          <div class="metric-label">${c.label}</div>
-          <div class="metric-val" style="margin-top:4px">${c.value}</div>
-          <div class="metric-sub">${c.sub}</div>
-        </div>`).join('')}
-    </div>
-
-    ${['instagram', 'youtube', 'tiktok'].map(platformBlock).join('')}
-  `
+  return cfg.map(c => `
+    <div class="summary-card" style="border-left:3px solid ${c.bc}">
+      <div class="metric-label">${c.label}</div>
+      <div class="metric-val" style="margin-top:4px">${c.value}</div>
+      <div class="metric-sub">${c.sub}</div>
+    </div>`).join('')
 }
 
-renderAnalytics()
+function updateLastRefreshed() {
+  const now = new Date()
+  const pht = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 8 * 3600000)
+  lastRefreshedTime = pht.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) + ' PHT'
+  const el = document.getElementById('last-refreshed-label')
+  const el2 = document.getElementById('last-refreshed-inline')
+  if (el) el.textContent = 'Last fetched: ' + lastRefreshedTime
+  if (el2) el2.textContent = 'Updated ' + lastRefreshedTime
+}
+
+function showLoadingState() {
+  renderDashboard(true)
+  const btn = document.getElementById('refresh-btn')
+  if (btn) btn.classList.add('spinning')
+}
+
+// ─── LIVE DATA LOAD ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  showLoadingState()
+  const data = await loadAllAnalytics()
+
+  if (data.youtube.success) {
+    analyticsData.platforms.youtube.subscribers     = data.youtube.subscribers
+    analyticsData.platforms.youtube.avg_views       = data.youtube.avg_views
+    analyticsData.platforms.youtube.videos_this_week = data.youtube.videos_this_week
+    analyticsData.platforms.youtube.engagement_rate = data.youtube.engagement_rate
+    ytDataStatus = 'live'
+  } else {
+    ytDataStatus = 'cached'
+  }
+
+  if (data.tiktok.success) {
+    analyticsData.platforms.tiktok.followers        = data.tiktok.followers
+    analyticsData.platforms.tiktok.avg_views        = data.tiktok.avg_views
+    analyticsData.platforms.tiktok.videos_this_week = data.tiktok.videos_this_week
+    analyticsData.platforms.tiktok.engagement_rate  = data.tiktok.engagement_rate
+    ttDataStatus = 'live'
+  } else {
+    ttDataStatus = 'cached'
+  }
+
+  renderDashboard(false)
+  updateLastRefreshed()
+})
+
+async function refreshAnalytics() {
+  showLoadingState()
+  const data = await loadAllAnalytics()
+
+  if (data.youtube.success) {
+    analyticsData.platforms.youtube.subscribers     = data.youtube.subscribers
+    analyticsData.platforms.youtube.avg_views       = data.youtube.avg_views
+    analyticsData.platforms.youtube.videos_this_week = data.youtube.videos_this_week
+    analyticsData.platforms.youtube.engagement_rate = data.youtube.engagement_rate
+    ytDataStatus = 'live'
+  } else {
+    ytDataStatus = 'cached'
+  }
+
+  if (data.tiktok.success) {
+    analyticsData.platforms.tiktok.followers        = data.tiktok.followers
+    analyticsData.platforms.tiktok.avg_views        = data.tiktok.avg_views
+    analyticsData.platforms.tiktok.videos_this_week = data.tiktok.videos_this_week
+    analyticsData.platforms.tiktok.engagement_rate  = data.tiktok.engagement_rate
+    ttDataStatus = 'live'
+  } else {
+    ttDataStatus = 'cached'
+  }
+
+  renderDashboard(false)
+  updateLastRefreshed()
+}
 
 // ─── DARK MODE ──────────────────────────────────────────────────
 const toggleBtn = document.getElementById('dark-toggle')

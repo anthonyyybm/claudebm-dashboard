@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="assets/css/main.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="assets/js/analytics-api.js"></script>
 </head>
 <body>
 
@@ -70,6 +71,43 @@
       </div>
     </div>
 
+    <div class="card mb-12" id="analytics-summary-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-title" style="margin-bottom:0">SOCIAL MEDIA</div>
+        <a href="analytics/index.html" style="font-size:11px;color:var(--accent);text-decoration:none;font-weight:600">View Full Report →</a>
+      </div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1px solid var(--border)">Platform</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1px solid var(--border)">Followers</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1px solid var(--border)">Avg Views</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1px solid var(--border)">Status</th>
+          </tr>
+        </thead>
+        <tbody id="analytics-summary-body">
+          <tr>
+            <td style="padding:6px 8px;border-bottom:1px solid var(--border)"><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:18px;height:18px;border-radius:4px;background:#E1306C;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700">IG</span> Instagram</span></td>
+            <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;color:var(--text3)">—</td>
+            <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;color:var(--text3)">—</td>
+            <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right"><span class="badge amber">Coming Soon</span></td>
+          </tr>
+          <tr>
+            <td style="padding:6px 8px;border-bottom:1px solid var(--border)"><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:18px;height:18px;border-radius:4px;background:#FF0000;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700">YT</span> YouTube</span></td>
+            <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-weight:600" id="ov-yt-subs"><div class="skeleton" style="height:14px;width:32px;margin-left:auto"></div></td>
+            <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-weight:600" id="ov-yt-views"><div class="skeleton" style="height:14px;width:32px;margin-left:auto"></div></td>
+            <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right"><span class="badge gray" id="ov-yt-badge">Loading</span></td>
+          </tr>
+          <tr>
+            <td style="padding:6px 8px"><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:18px;height:18px;border-radius:4px;background:#00C2A8;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700">TT</span> TikTok</span></td>
+            <td style="padding:6px 8px;text-align:right;font-weight:600" id="ov-tt-followers"><div class="skeleton" style="height:14px;width:32px;margin-left:auto"></div></td>
+            <td style="padding:6px 8px;text-align:right;font-weight:600" id="ov-tt-views"><div class="skeleton" style="height:14px;width:32px;margin-left:auto"></div></td>
+            <td style="padding:6px 8px;text-align:right"><span class="badge gray" id="ov-tt-badge">Loading</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <div class="yt-overview-label">YouTube — coming soon</div>
     <div class="metrics-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:8px">
       <div class="metric-card metric coming-soon">
@@ -92,7 +130,7 @@
       </ul>
     </div>
 
-    <div class="two-col">
+    <div class="two-col" style="margin-bottom:12px">
       <div class="card">
         <div class="card-title">Script Bank — Last 8</div>
         <div id="script-preview-list"><div class="skeleton"></div><div class="skeleton mt-8"></div></div>
@@ -168,21 +206,6 @@
       </div>
     </div>
 
-    <div class="card" id="social-media-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div class="card-title" style="margin-bottom:0">Social Media</div>
-        <a href="analytics/index.html" style="font-size:11px;font-weight:500;color:var(--accent)">View Full Report →</a>
-      </div>
-      <div id="social-summary-rows">
-        <div class="skeleton"></div>
-        <div class="skeleton mt-8"></div>
-        <div class="skeleton mt-8"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-        <span class="text-xs text-muted">Updated April 15, 2026</span>
-        <a href="analytics/index.html" style="font-size:11px;color:var(--text3)">Configure →</a>
-      </div>
-    </div>
   </section>
 
   <!-- SCRIPTS -->
@@ -480,24 +503,62 @@
   setInterval(updateTime, 1000)
 </script>
 
-<!-- Social Media summary card ─────────────────────────────── -->
+<!-- Analytics summary card — live data ─────────────────────── -->
 <script>
-;(function () {
-  const rows = [
-    { name: 'Instagram', color: '#E1306C', a: '1,362 followers', b: '580 avg views', c: '3.3% eng' },
-    { name: 'YouTube',   color: '#FF0000', a: '122 subscribers', b: '385 avg views', c: '2.7% eng' },
-    { name: 'TikTok',    color: '#00C2A8', a: '34 followers',    b: '750 avg views', c: '4.6% eng' }
-  ]
-  const el = document.getElementById('social-summary-rows')
-  if (!el) return
-  el.innerHTML = rows.map((r, i) => `
-    <div style="display:flex;align-items:center;gap:10px;padding:7px 0;${i < rows.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
-      <span style="width:8px;height:8px;border-radius:50%;background:${r.color};display:inline-block;flex-shrink:0"></span>
-      <span style="font-size:13px;font-weight:500;color:var(--text);flex:1;min-width:0">${r.name}</span>
-      <span style="font-size:11px;color:var(--text3)">${r.a}</span>
-      <span style="font-size:11px;color:var(--text3)">${r.b}</span>
-      <span style="font-size:11px;color:var(--text3);font-weight:600">${r.c}</span>
-    </div>`).join('')
+;(async function () {
+  function fmtN(n) {
+    if (n === null || n === undefined) return '—'
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
+    return String(n)
+  }
+
+  // Populate existing social-summary-rows if present (legacy)
+  const legacyEl = document.getElementById('social-summary-rows')
+  if (legacyEl) {
+    legacyEl.innerHTML = [
+      { name: 'Instagram', color: '#E1306C', a: '—', b: '—', c: 'Coming Soon' },
+      { name: 'YouTube',   color: '#FF0000', a: '122 subs',    b: '385 avg views', c: 'Loading…' },
+      { name: 'TikTok',    color: '#00C2A8', a: '34 followers', b: '533 avg views', c: 'CSV' }
+    ].map((r, i, arr) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 0;${i < arr.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+        <span style="width:8px;height:8px;border-radius:50%;background:${r.color};display:inline-block;flex-shrink:0"></span>
+        <span style="font-size:13px;font-weight:500;color:var(--text);flex:1;min-width:0">${r.name}</span>
+        <span style="font-size:11px;color:var(--text3)">${r.a}</span>
+        <span style="font-size:11px;color:var(--text3)">${r.b}</span>
+        <span style="font-size:11px;color:var(--text3);font-weight:600">${r.c}</span>
+      </div>`).join('')
+  }
+
+  // Load live data for the new analytics summary card
+  if (typeof loadAllAnalytics !== 'function') return
+  const data = await loadAllAnalytics()
+
+  const ytSubs   = document.getElementById('ov-yt-subs')
+  const ytViews  = document.getElementById('ov-yt-views')
+  const ytBadge  = document.getElementById('ov-yt-badge')
+  const ttFollow = document.getElementById('ov-tt-followers')
+  const ttViews  = document.getElementById('ov-tt-views')
+  const ttBadge  = document.getElementById('ov-tt-badge')
+
+  if (data.youtube.success) {
+    if (ytSubs)  ytSubs.textContent  = fmtN(data.youtube.subscribers)
+    if (ytViews) ytViews.textContent = fmtN(data.youtube.avg_views)
+    if (ytBadge) { ytBadge.textContent = 'Live'; ytBadge.className = 'badge green' }
+  } else {
+    if (ytSubs)  ytSubs.textContent  = '122'
+    if (ytViews) ytViews.textContent = '385'
+    if (ytBadge) { ytBadge.textContent = 'Cached'; ytBadge.className = 'badge amber' }
+  }
+
+  if (data.tiktok.success) {
+    if (ttFollow) ttFollow.textContent = fmtN(data.tiktok.followers)
+    if (ttViews)  ttViews.textContent  = fmtN(data.tiktok.avg_views)
+    if (ttBadge)  { ttBadge.textContent = 'CSV'; ttBadge.className = 'badge accent' }
+  } else {
+    if (ttFollow) ttFollow.textContent = '34'
+    if (ttViews)  ttViews.textContent  = '533'
+    if (ttBadge)  { ttBadge.textContent = 'Cached'; ttBadge.className = 'badge amber' }
+  }
 })()
 </script>
 
