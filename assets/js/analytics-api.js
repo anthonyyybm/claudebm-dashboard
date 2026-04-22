@@ -68,7 +68,19 @@ async function fetchTikTokData() {
     )
     if (!res.ok) throw new Error('TikTok data not found')
     const data = await res.json()
-    return { success: true, ...data }
+
+    // Normalize: support both old flat format and new metrics-nested format
+    const m = data.metrics || data
+    return {
+      success: true,
+      followers:        data.followers || null,
+      avg_views:        m.avg_views_7d || m.avg_views || 0,
+      videos_this_week: m.posts_count  || data.videos_this_week || 0,
+      engagement_rate:  m.engagement_rate || 0,
+      snapshot_date:    data.snapshot_date || data.last_updated || null,
+      source:           data.source_file   || data.source || 'csv',
+      daily:            data.daily || []
+    }
   } catch (error) {
     console.error('TikTok data error:', error)
     return { success: false, error: error.message }
