@@ -1,6 +1,7 @@
 {
   "snapshot_date": "2026-04-23",
   "source_file": "TIKTOK_ASOF_2026_04_23.csv",
+  "followers": 40,
   "metrics": {
     "avg_views_7d": 832,
     "total_views": 35925,
