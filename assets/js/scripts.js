@@ -741,7 +741,7 @@
           selectedIds.delete(id)
           updateBulkBar()
           window.closeScriptModal()
-          renderTable()
+          renderCurrentPanel()
           showToast('Script deleted', 'success')
         } catch (err) {
           showToast('Delete failed: ' + (err.message || 'unknown error'), 'error')
@@ -779,7 +779,7 @@
           allScripts = allScripts.filter(s => !ids.includes(s.id))
           selectedIds.clear()
           updateBulkBar()
-          renderTable()
+          renderCurrentPanel()
           showToast(`${n} script${n === 1 ? '' : 's'} deleted`, 'success')
         } catch (err) {
           showToast('Bulk delete failed: ' + (err.message || 'unknown error'), 'error')
@@ -811,7 +811,7 @@
       const { error } = await window.sb.from('scripts').update({ status: 'Ready' }).in('id', ids)
       if (error) throw error
       ids.forEach(id => { const s = allScripts.find(x => x.id === id); if (s) s.status = 'Ready' })
-      renderTable()
+      renderCurrentPanel()
       showToast(`${ids.length} script${ids.length === 1 ? '' : 's'} marked Ready`, 'success')
     } catch (err) {
       showToast('Failed: ' + (err.message || 'unknown error'), 'error')
@@ -828,7 +828,7 @@
       ids.forEach(id => { const s = allScripts.find(x => x.id === id); if (s) { s.status = 'Used'; s.used_at = now } })
       selectedIds.clear()
       updateBulkBar()
-      renderTable()
+      renderCurrentPanel()
       showToast(`${ids.length} script${ids.length === 1 ? '' : 's'} marked Used`, 'success')
     } catch (err) {
       showToast('Failed: ' + (err.message || 'unknown error'), 'error')
@@ -876,6 +876,7 @@
     if (type === 'Walking Scene')       return `<span class="badge green">${escHtml(type)}</span>`
     if (type === 'Natural Interaction') return `<span class="badge teal">${escHtml(type)}</span>`
     if (type === 'Mistake First')       return `<span class="badge blue">${escHtml(type)}</span>`
+    if (type === 'Granny Selfie')       return `<span class="badge pink">${escHtml(type)}</span>`
     return `<span class="badge gray">${escHtml(type)}</span>`
   }
 
@@ -897,12 +898,27 @@
     return s.slice(0, 14)
   }
 
+  // ── Active panel re-render ────────────────────────────────────
+  function renderCurrentPanel () {
+    const active = sessionStorage.getItem('activeSubTab') || 'all'
+    switch (active) {
+      case 'granny-first':        renderTypePanel('Granny First',        'granny-first');        break
+      case 'granny-watches':      renderTypePanel('Granny Watches',      'granny-watches');      break
+      case 'walking-scene':       renderTypePanel('Walking Scene',       'walking-scene');       break
+      case 'natural-interaction': renderTypePanel('Natural Interaction', 'natural-interaction'); break
+      case 'creative-commercial': renderCommercialCards();  break
+      case 'granny-reacts':       renderGrannyReactsTab(); break
+      case 'granny-selfie':       renderGrannySelfieTab(); break
+      default:                    renderTable(); break
+    }
+  }
+
   // ── Status actions ────────────────────────────────────────────
   window.markReady = async function (id) {
     const { error } = await window.sb.from('scripts').update({ status: 'Ready' }).eq('id', id)
     if (!error) { const s = allScripts.find(x => x.id === id); if (s) s.status = 'Ready' }
     window.closeScriptModal()
-    renderTable()
+    renderCurrentPanel()
     showToast('Marked as Ready', 'success')
   }
 
@@ -911,7 +927,7 @@
     const { error } = await window.sb.from('scripts').update({ status: 'Used', used_at: now }).eq('id', id)
     if (!error) { const s = allScripts.find(x => x.id === id); if (s) { s.status = 'Used'; s.used_at = now } }
     window.closeScriptModal()
-    renderTable()
+    renderCurrentPanel()
     showToast('Marked as Used', 'success')
   }
 
@@ -1082,6 +1098,7 @@
       case 'natural-interaction':   renderTypePanel('Natural Interaction', 'natural-interaction'); break
       case 'creative-commercial':   renderCommercialCards();  break
       case 'granny-reacts':         renderGrannyReactsTab(); break
+      case 'granny-selfie':         renderGrannySelfieTab(); break
     }
   }
 
@@ -1298,6 +1315,58 @@
           <span class="gr-section-count">${reactScripts.length} script${reactScripts.length === 1 ? '' : 's'}</span>
         </div>
         ${tableHtml}
+      </div>`
+  }
+
+  // ── Granny Selfie tab ─────────────────────────────────────────
+  function renderGrannySelfieTab () {
+    const container = document.getElementById('granny-selfie-container')
+    if (!container) return
+    const rows = allScripts
+      .filter(s => s.content_type === 'Granny Selfie')
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+
+    if (!rows.length) {
+      container.innerHTML = `<div class="gr-empty">No Selfie format scripts yet — generate a batch with the selfie format to populate this tab</div>`
+      return
+    }
+
+    container.innerHTML = `
+      <div class="type-panel-header">
+        <span class="type-panel-count">${rows.length} script${rows.length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Topic</th><th>Series</th><th>Type</th><th>Status</th><th>Check</th>
+                <th title="Image">Img</th>
+                <th title="V1">V1</th><th title="V2">V2</th>
+                <th title="V3">V3</th><th title="CTA">CTA</th>
+                <th title="Captions">Cap</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(s => `
+                <tr style="cursor:pointer" onclick="window.openScriptModal('${s.id}')">
+                  <td class="script-topic" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(s.topic || '—')}</td>
+                  <td class="text-xs text-muted">${abbreviateSeries(s.series)}</td>
+                  <td>${formatBadge(s.content_type)}</td>
+                  <td><span class="badge ${STATUS_COLOR[s.status] || 'gray'}">${s.status || '—'}</span></td>
+                  <td>${ccBadge(s.consistency_check)}</td>
+                  <td>${dot(s.image_prompt || s.image_prompts)}</td>
+                  <td>${dot(s.video_prompt_p1)}</td>
+                  <td>${dot(s.video_prompt_p2)}</td>
+                  <td>${dot(s.video_prompt_p3)}</td>
+                  <td>${dot(s.cta_prompt)}</td>
+                  <td>${dot(s.caption_tiktok)}</td>
+                  <td class="text-xs text-muted">${s.created_at ? s.created_at.slice(0, 10) : '—'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>`
   }
 

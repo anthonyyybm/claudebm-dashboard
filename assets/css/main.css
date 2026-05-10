@@ -175,6 +175,8 @@ body.dark .badge.blue   { background: #1e2a4a; color: #60a5fa; }
 body.dark .badge.coral  { background: #3d1f0a; color: #fb923c; }
 .badge.teal { background: #ccfbf1; color: #0f766e; }
 body.dark .badge.teal { background: #0d2825; color: #2dd4bf; }
+.badge.pink { background: #fce7f3; color: #be185d; }
+body.dark .badge.pink { background: #3b0a27; color: #f472b6; }
 
 /* ─── Script rows ─────────────────────────────────────────────── */
 .script-row {
@@ -969,12 +971,10 @@ tr:last-child td { border-bottom: none; }
 /* ─── Sub-tab bar (secondary navigation inside Reels) ─────────── */
 .sub-tab-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 0;
   border-bottom: 2px solid var(--border);
   margin-bottom: 14px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
 }
 .sub-tab-bar::-webkit-scrollbar { display: none; }
 .sub-tab {
