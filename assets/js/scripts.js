@@ -1083,6 +1083,45 @@
     })
   }
 
+  // ── Sub-tab pagination helpers ────────────────────────────────
+  window.subTabGoPage = function (p) {
+    if (p < 1) return
+    currentPage = p
+    renderCurrentPanel()
+    const panel = document.querySelector('#tab-scripts .sub-tab-panel.active')
+    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  window.subTabSetPageSize = function (n) {
+    pageSize = n
+    currentPage = 1
+    renderCurrentPanel()
+  }
+
+  function subTabPaginationHtml (total, totalPages) {
+    if (totalPages <= 1) return ''
+    const isMobile = window.innerWidth < 600
+    let pageNums = ''
+    if (!isMobile && totalPages <= 20) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNums += `<button class="page-btn${i === currentPage ? ' active' : ''}" onclick="window.subTabGoPage(${i})">${i}</button>`
+      }
+    } else if (!isMobile) {
+      pageNums = `<span class="text-xs text-muted" style="padding:0 6px">Page ${currentPage} of ${totalPages}</span>`
+    }
+    return `<div class="pagination-row">
+      <div class="pagination-controls">
+        <button class="page-btn" onclick="window.subTabGoPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>Previous</button>
+        ${pageNums}
+        <button class="page-btn" onclick="window.subTabGoPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>Next</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px">
+        <span class="text-xs text-muted">Per page:</span>
+        ${[10, 25, 50].map(n => `<button class="page-btn${pageSize === n ? ' active' : ''}" onclick="window.subTabSetPageSize(${n})">${n}</button>`).join('')}
+      </div>
+    </div>`
+  }
+
   // ── Sub-tab switching ─────────────────────────────────────────
   const subTabBtns  = document.querySelectorAll('[data-sub-tab]')
   const subPanels   = document.querySelectorAll('.sub-tab-panel')
@@ -1091,6 +1130,7 @@
     subTabBtns.forEach(b => b.classList.toggle('active', b.dataset.subTab === name))
     subPanels.forEach(p  => p.classList.toggle('active',  p.id === `sub-tab-${name}`))
     sessionStorage.setItem('activeSubTab', name)
+    currentPage = 1
     switch (name) {
       case 'granny-first':          renderTypePanel('Granny First',        'granny-first');        break
       case 'granny-watches':        renderTypePanel('Granny Watches',      'granny-watches');      break
@@ -1135,16 +1175,21 @@
   function renderTypePanel (type, slug) {
     const container = document.getElementById(`type-panel-${slug}`)
     if (!container) return
-    const rows = applySharedFilters(allScripts.filter(s => s.content_type === type))
+    const allRows = applySharedFilters(allScripts.filter(s => s.content_type === type))
+    const total = allRows.length
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    if (currentPage > totalPages) currentPage = totalPages
+    const start = (currentPage - 1) * pageSize
+    const rows = allRows.slice(start, start + pageSize)
 
-    if (!rows.length) {
-      container.innerHTML = `<div class="gr-empty">No ${type} scripts yet — generate a batch to populate this tab</div>`
+    if (!total) {
+      container.innerHTML = `<div class="gr-empty">No ${type} scripts match this filter</div>`
       return
     }
 
     container.innerHTML = `
       <div class="type-panel-header">
-        <span class="type-panel-count">${rows.length} script${rows.length === 1 ? '' : 's'}</span>
+        <span class="type-panel-count">Showing ${start + 1}–${Math.min(start + pageSize, total)} of ${total} script${total === 1 ? '' : 's'}</span>
       </div>
       <div class="card">
         <div class="table-wrap">
@@ -1177,6 +1222,7 @@
             </tbody>
           </table>
         </div>
+        ${subTabPaginationHtml(total, totalPages)}
       </div>`
   }
 
@@ -1185,12 +1231,17 @@
     const container = document.getElementById('commercial-cards-container')
     const countEl   = document.getElementById('cc-count')
     if (!container) return
-    const rows = applySharedFilters(allScripts.filter(s => s.content_type === 'Creative Commercial'))
+    const allRows = applySharedFilters(allScripts.filter(s => s.content_type === 'Creative Commercial'))
+    const total = allRows.length
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    if (currentPage > totalPages) currentPage = totalPages
+    const start = (currentPage - 1) * pageSize
+    const rows = allRows.slice(start, start + pageSize)
 
-    if (countEl) countEl.textContent = `${rows.length} script${rows.length === 1 ? '' : 's'}`
+    if (countEl) countEl.textContent = total ? `Showing ${start + 1}–${Math.min(start + pageSize, total)} of ${total} script${total === 1 ? '' : 's'}` : 'No scripts match'
 
-    if (!rows.length) {
-      container.innerHTML = `<div class="gr-empty">No Creative Commercial scripts yet</div>`
+    if (!total) {
+      container.innerHTML = `<div class="gr-empty">No Creative Commercial scripts match this filter</div>`
       return
     }
 
@@ -1210,14 +1261,20 @@
           <div class="text-xs text-muted" style="margin-top:8px">${s.created_at ? s.created_at.slice(0, 10) : '—'}</div>
         </div>`
       }).join('')}
-    </div>`
+    </div>
+    ${subTabPaginationHtml(total, totalPages)}`
   }
 
   // ── Granny Reacts tab — 3 sections ───────────────────────────
   function renderGrannyReactsTab () {
     const container = document.getElementById('granny-reacts-container')
     if (!container) return
-    const reactScripts = applySharedFilters(allScripts.filter(s => s.content_type === 'Granny Reacts'))
+    const allReactScripts = applySharedFilters(allScripts.filter(s => s.content_type === 'Granny Reacts'))
+    const total = allReactScripts.length
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    if (currentPage > totalPages) currentPage = totalPages
+    const start = (currentPage - 1) * pageSize
+    const reactScripts = allReactScripts.slice(start, start + pageSize)
 
     function parseInfluencer (topic) {
       if (!topic) return '—'
@@ -1333,9 +1390,10 @@
       <div class="gr-section">
         <div class="gr-section-header">
           <div class="gr-section-title">Generated Scripts</div>
-          <span class="gr-section-count">${reactScripts.length} script${reactScripts.length === 1 ? '' : 's'}</span>
+          <span class="gr-section-count">${total ? `Showing ${start + 1}–${Math.min(start + pageSize, total)} of ${total}` : '0'} script${total === 1 ? '' : 's'}</span>
         </div>
         ${tableHtml}
+        ${subTabPaginationHtml(total, totalPages)}
       </div>`
   }
 
@@ -1343,16 +1401,21 @@
   function renderGrannySelfieTab () {
     const container = document.getElementById('granny-selfie-container')
     if (!container) return
-    const rows = applySharedFilters(allScripts.filter(s => s.content_type === 'Granny Selfie'))
+    const allRows = applySharedFilters(allScripts.filter(s => s.content_type === 'Granny Selfie'))
+    const total = allRows.length
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    if (currentPage > totalPages) currentPage = totalPages
+    const start = (currentPage - 1) * pageSize
+    const rows = allRows.slice(start, start + pageSize)
 
-    if (!rows.length) {
-      container.innerHTML = `<div class="gr-empty">No Selfie format scripts yet — generate a batch with the selfie format to populate this tab</div>`
+    if (!total) {
+      container.innerHTML = `<div class="gr-empty">No Selfie format scripts match this filter</div>`
       return
     }
 
     container.innerHTML = `
       <div class="type-panel-header">
-        <span class="type-panel-count">${rows.length} script${rows.length === 1 ? '' : 's'}</span>
+        <span class="type-panel-count">Showing ${start + 1}–${Math.min(start + pageSize, total)} of ${total} script${total === 1 ? '' : 's'}</span>
       </div>
       <div class="card">
         <div class="table-wrap">
@@ -1386,6 +1449,7 @@
             </tbody>
           </table>
         </div>
+        ${subTabPaginationHtml(total, totalPages)}
       </div>`
   }
 
