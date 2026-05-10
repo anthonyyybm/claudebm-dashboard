@@ -1060,7 +1060,7 @@
       document.querySelectorAll('[data-scripts-filter]').forEach(b => b.classList.remove('active'))
       btn.classList.add('active')
       currentPage = 1
-      renderTable()
+      renderCurrentPanel()
     })
   })
 
@@ -1069,7 +1069,7 @@
     searchEl.addEventListener('input', e => {
       searchQuery = e.target.value.trim()
       currentPage = 1
-      renderTable()
+      renderCurrentPanel()
     })
   }
 
@@ -1079,7 +1079,7 @@
       sortOrder = e.target.value
       sortEl.classList.toggle('sort-active', sortOrder !== 'newest')
       currentPage = 1
-      renderTable()
+      renderCurrentPanel()
     })
   }
 
@@ -1104,13 +1104,38 @@
 
   subTabBtns.forEach(b => b.addEventListener('click', () => activateSubTab(b.dataset.subTab)))
 
+  // ── Shared filter/sort/search helper ─────────────────────────
+  function applySharedFilters (rows) {
+    if (activeFilter !== 'All') {
+      if (activeFilter === 'Flagged') rows = rows.filter(s => s.consistency_check === 'Flagged')
+      else rows = rows.filter(s => s.status === activeFilter)
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      rows = rows.filter(s =>
+        (s.topic || '').toLowerCase().includes(q) ||
+        (s.series || '').toLowerCase().includes(q)
+      )
+    }
+    rows = [...rows]
+    switch (sortOrder) {
+      case 'oldest':    rows.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')); break
+      case 'series':    rows.sort((a, b) => (a.series || '').localeCompare(b.series || '')); break
+      case 'status': {
+        const ord = { Draft: 0, Ready: 1, Used: 2 }
+        rows.sort((a, b) => (ord[a.status] ?? 3) - (ord[b.status] ?? 3)); break
+      }
+      case 'relevance': rows.sort((a, b) => (a.consistency_check === 'Passed' ? 0 : 1) - (b.consistency_check === 'Passed' ? 0 : 1)); break
+      default:          rows.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+    }
+    return rows
+  }
+
   // ── Type panel (pre-filtered table for a single content type) ─
   function renderTypePanel (type, slug) {
     const container = document.getElementById(`type-panel-${slug}`)
     if (!container) return
-    const rows = allScripts
-      .filter(s => s.content_type === type)
-      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+    const rows = applySharedFilters(allScripts.filter(s => s.content_type === type))
 
     if (!rows.length) {
       container.innerHTML = `<div class="gr-empty">No ${type} scripts yet — generate a batch to populate this tab</div>`
@@ -1160,9 +1185,7 @@
     const container = document.getElementById('commercial-cards-container')
     const countEl   = document.getElementById('cc-count')
     if (!container) return
-    const rows = allScripts
-      .filter(s => s.content_type === 'Creative Commercial')
-      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+    const rows = applySharedFilters(allScripts.filter(s => s.content_type === 'Creative Commercial'))
 
     if (countEl) countEl.textContent = `${rows.length} script${rows.length === 1 ? '' : 's'}`
 
@@ -1194,9 +1217,7 @@
   function renderGrannyReactsTab () {
     const container = document.getElementById('granny-reacts-container')
     if (!container) return
-    const reactScripts = allScripts
-      .filter(s => s.content_type === 'Granny Reacts')
-      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+    const reactScripts = applySharedFilters(allScripts.filter(s => s.content_type === 'Granny Reacts'))
 
     function parseInfluencer (topic) {
       if (!topic) return '—'
@@ -1322,9 +1343,7 @@
   function renderGrannySelfieTab () {
     const container = document.getElementById('granny-selfie-container')
     if (!container) return
-    const rows = allScripts
-      .filter(s => s.content_type === 'Granny Selfie')
-      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+    const rows = applySharedFilters(allScripts.filter(s => s.content_type === 'Granny Selfie'))
 
     if (!rows.length) {
       container.innerHTML = `<div class="gr-empty">No Selfie format scripts yet — generate a batch with the selfie format to populate this tab</div>`
