@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TikTok Connect | Boosted Movers</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='14' fill='%231a7a4a'/><text y='.9em' font-size='52' font-family='system-ui' font-weight='700' fill='white' x='12' y='68'>BM</text></svg>">
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <style>
+    /* ─── TikTok Demo ─────────────────────────────────────────── */
+    .demo-wrap {
+      max-width: 680px;
+      margin: 40px auto;
+      padding: 0 16px;
+    }
+    .connect-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 32px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+      text-align: center;
+    }
+    .tt-icon {
+      width: 64px; height: 64px;
+      background: #010101;
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.2);
+    }
+    .tt-icon svg { width: 36px; height: 36px; }
+    .connect-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .connect-sub {
+      font-size: 14px;
+      color: var(--text2);
+      line-height: 1.6;
+      margin-bottom: 28px;
+      max-width: 380px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .btn-tiktok {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 28px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      background: #010101;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s, background .15s;
+      box-shadow: 0 4px 12px rgba(0,0,0,.25);
+      letter-spacing: .2px;
+    }
+    .btn-tiktok:hover {
+      background: #1a1a1a;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(0,0,0,.3);
+    }
+    .btn-tiktok:active { transform: translateY(0); }
+    .btn-tiktok svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .scopes-note {
+      margin-top: 16px;
+      font-size: 11px;
+      color: var(--text3);
+    }
+    .scopes-note span {
+      display: inline-block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: ui-monospace, monospace;
+      margin: 0 2px;
+    }
+
+    /* ─── Loading state ───────────────────────────────────────── */
+    .loading-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 48px 32px;
+      text-align: center;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 15px; color: var(--text2); font-weight: 500; }
+    .loading-sub  { font-size: 12px; color: var(--text3); margin-top: 6px; }
+
+    /* ─── Error state ─────────────────────────────────────────── */
+    .error-card {
+      background: var(--danger-light);
+      border: 1px solid var(--danger);
+      border-radius: 16px;
+      padding: 28px 24px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.06);
+    }
+    .error-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--danger);
+      margin-bottom: 8px;
+    }
+    .error-msg {
+      font-size: 13px;
+      color: var(--danger);
+      line-height: 1.6;
+      margin-bottom: 16px;
+      font-family: ui-monospace, monospace;
+      background: rgba(192,57,43,.08);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .cors-note {
+      background: var(--amber-light);
+      border: 1px solid var(--amber);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 12px;
+      color: var(--amber);
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+    .cors-note strong { display: block; margin-bottom: 4px; font-size: 13px; }
+
+    /* ─── Profile card ────────────────────────────────────────── */
+    .profile-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+      margin-bottom: 16px;
+    }
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .profile-avatar {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border);
+      flex-shrink: 0;
+    }
+    .profile-avatar-placeholder {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: #010101;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .profile-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .profile-handle {
+      font-size: 13px;
+      color: var(--text3);
+      margin-bottom: 6px;
+    }
+    .profile-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .profile-stat {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .profile-stat-val {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 3px;
+    }
+    .profile-stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text3);
+    }
+
+    /* ─── Videos section ──────────────────────────────────────── */
+    .videos-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 24px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+      margin-bottom: 16px;
+    }
+    .videos-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--text3);
+      margin-bottom: 14px;
+      font-weight: 700;
+    }
+    .video-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .video-row:last-child { border-bottom: none; }
+    .video-row:hover { background: var(--surface2); margin: 0 -12px; padding: 12px; border-radius: 8px; }
+    .video-thumb {
+      width: 52px; height: 72px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .video-thumb-placeholder {
+      width: 52px; height: 72px;
+      border-radius: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      color: var(--text3);
+      font-size: 18px;
+    }
+    .video-info { flex: 1; min-width: 0; }
+    .video-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .video-stats {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .video-stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--text3);
+      font-weight: 500;
+    }
+    .video-stat svg { width: 12px; height: 12px; opacity: .7; }
+
+    /* ─── Disconnect / back button ────────────────────────────── */
+    .action-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .page-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ─── Config warning ──────────────────────────────────────── */
+    .config-warn {
+      background: var(--amber-light);
+      border: 1px solid var(--amber);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 12px;
+      color: var(--amber);
+      line-height: 1.7;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    .config-warn strong { display: block; margin-bottom: 4px; font-weight: 700; }
+    .config-warn code {
+      background: rgba(217,119,6,.12);
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Topbar ─────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo-mark">BM</div>
+    <div>
+      <span class="logo-text">Boosted Movers</span>
+      <span class="logo-sub">TikTok Connect</span>
+    </div>
+  </div>
+  <nav class="nav">
+    <button class="tab" onclick="window.location.href='../index.html'">← Dashboard</button>
+    <button class="tab" onclick="window.location.href='../analytics/index.html'">Analytics</button>
+  </nav>
+  <div class="topbar-right">
+    <div class="time-display" id="time-display">—</div>
+    <button class="dark-toggle" id="dark-toggle">🌙</button>
+  </div>
+</header>
+
+<!-- ─── Main ─────────────────────────────────────────────────────────── -->
+<main class="content">
+  <div class="demo-wrap">
+
+    <!-- Loading -->
+    <div id="view-loading" style="display:none">
+      <div class="loading-card">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loading-text">Connecting to TikTok…</div>
+        <div class="loading-sub" id="loading-sub">Exchanging authorization code</div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div id="view-error" style="display:none">
+      <div class="error-card">
+        <div class="error-title">Connection Failed</div>
+        <div class="error-msg" id="error-msg">—</div>
+        <div class="cors-note" id="cors-hint" style="display:none">
+          <strong>CORS Restriction Detected</strong>
+          TikTok's token endpoint blocks direct browser requests. To fix this for
+          the sandbox demo, add your <code>TIKTOK_CLIENT_KEY</code> and
+          <code>TIKTOK_CLIENT_SECRET</code> to a Supabase Edge Function and update
+          the <code>TOKEN_PROXY_URL</code> config at the top of this page's
+          <code>&lt;script&gt;</code> block.
+        </div>
+        <button class="btn" onclick="disconnect()">Try Again</button>
+      </div>
+    </div>
+
+    <!-- Connect -->
+    <div id="view-connect">
+      <div class="connect-card">
+        <div class="tt-icon">
+          <!-- TikTok logo mark -->
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M34.1 7C33.3 10.4 30 13 26.5 13.2V19.8C29.3 19.6 31.8 18.6 33.8 17v10.3C33.8 33.8 28.6 39 22.1 39c-6.5 0-11.7-5.2-11.7-11.7 0-6.3 5-11.4 11.2-11.7v6.6c-2.8.3-5 2.6-5 5.2 0 2.9 2.3 5.2 5.2 5.2 3 0 5.5-2.5 5.5-5.5V7h6.8z" fill="white"/>
+          </svg>
+        </div>
+        <div class="connect-title">Connect Your TikTok</div>
+        <div class="connect-sub">Authorize Boosted Movers to view your TikTok profile and recent video performance.</div>
+
+        <div id="config-warning" style="display:none" class="config-warn">
+          <strong>Setup Required</strong>
+          Replace <code>YOUR_CLIENT_KEY_HERE</code> in this page's script config
+          with your TikTok app's Client Key from the Developer Portal.
+        </div>
+
+        <button class="btn-tiktok" id="connect-btn" onclick="startOAuth()">
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M34.1 7C33.3 10.4 30 13 26.5 13.2V19.8C29.3 19.6 31.8 18.6 33.8 17v10.3C33.8 33.8 28.6 39 22.1 39c-6.5 0-11.7-5.2-11.7-11.7 0-6.3 5-11.4 11.2-11.7v6.6c-2.8.3-5 2.6-5 5.2 0 2.9 2.3 5.2 5.2 5.2 3 0 5.5-2.5 5.5-5.5V7h6.8z" fill="white"/>
+          </svg>
+          Connect TikTok
+        </button>
+
+        <div class="scopes-note">
+          Requests scopes:
+          <span>user.info.basic</span>
+          <span>video.list</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile + Videos -->
+    <div id="view-profile" style="display:none">
+      <div class="action-row">
+        <div class="page-section-title">TikTok Account</div>
+        <button class="btn btn-ghost" onclick="disconnect()">Disconnect</button>
+      </div>
+
+      <!-- Profile card -->
+      <div class="profile-card">
+        <div class="profile-header">
+          <div id="avatar-wrap">
+            <div class="profile-avatar-placeholder">
+              <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+                <path d="M34.1 7C33.3 10.4 30 13 26.5 13.2V19.8C29.3 19.6 31.8 18.6 33.8 17v10.3C33.8 33.8 28.6 39 22.1 39c-6.5 0-11.7-5.2-11.7-11.7 0-6.3 5-11.4 11.2-11.7v6.6c-2.8.3-5 2.6-5 5.2 0 2.9 2.3 5.2 5.2 5.2 3 0 5.5-2.5 5.5-5.5V7h6.8z" fill="white"/>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="profile-name" id="profile-name">—</div>
+            <div class="profile-handle" id="profile-handle">Loading…</div>
+            <span class="badge green">Connected</span>
+          </div>
+        </div>
+        <div class="profile-stats">
+          <div class="profile-stat">
+            <div class="profile-stat-val" id="stat-followers">—</div>
+            <div class="profile-stat-label">Followers</div>
+          </div>
+          <div class="profile-stat">
+            <div class="profile-stat-val" id="stat-following">—</div>
+            <div class="profile-stat-label">Following</div>
+          </div>
+          <div class="profile-stat">
+            <div class="profile-stat-val" id="stat-likes">—</div>
+            <div class="profile-stat-label">Total Likes</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Videos card -->
+      <div class="videos-card">
+        <div class="videos-title">Recent Videos — Last 5</div>
+        <div id="videos-list">
+          <div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">Loading videos…</div>
+        </div>
+      </div>
+
+      <!-- Raw token info (collapsed) -->
+      <details style="margin-top:8px">
+        <summary style="font-size:11px;color:var(--text3);cursor:pointer;user-select:none">Developer info</summary>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:6px;font-family:ui-monospace,monospace;font-size:11px;color:var(--text2);line-height:1.7" id="dev-info"></div>
+      </details>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ─── CONFIG — fill in your TikTok sandbox credentials ─────────────────────
+// CLIENT_KEY is safe to expose (it's public). CLIENT_SECRET must be kept
+// server-side in production; for this sandbox demo it's embedded here.
+// Replace these placeholders after creating your app in TikTok Developer Portal.
+const TIKTOK_CLIENT_KEY    = 'YOUR_CLIENT_KEY_HERE'
+const TIKTOK_CLIENT_SECRET = 'YOUR_CLIENT_SECRET_HERE'
+
+// Redirect URI — must match exactly what's registered in TikTok Developer Portal
+const REDIRECT_URI = 'https://anthonyyybm.github.io/claudebm-dashboard/tiktok-demo'
+
+// Optional: set to a proxy URL if TikTok's token endpoint blocks CORS.
+// Leave as '' to attempt a direct browser request first.
+// Example: 'https://bmtbzcnrlojacvafyrxi.supabase.co/functions/v1/tiktok-token'
+const TOKEN_PROXY_URL = ''
+
+// TikTok API base
+const TT_API = 'https://open.tiktokapis.com/v2'
+// ──────────────────────────────────────────────────────────────────────────
+
+// ─── Dark mode ────────────────────────────────────────────────────────────
+const toggleBtn = document.getElementById('dark-toggle')
+function applyDark(on) {
+  document.body.classList.toggle('dark', on)
+  toggleBtn.textContent = on ? '☀️' : '🌙'
+  localStorage.setItem('darkMode', on)
+}
+applyDark(localStorage.getItem('darkMode') === 'true')
+toggleBtn.addEventListener('click', () => applyDark(!document.body.classList.contains('dark')))
+
+// ─── Live time ─────────────────────────────────────────────────────────────
+function updateTime() {
+  const now = new Date()
+  const pht = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 8 * 3600000)
+  document.getElementById('time-display').textContent =
+    pht.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) + ' PHT'
+}
+updateTime()
+setInterval(updateTime, 1000)
+
+// ─── View helpers ─────────────────────────────────────────────────────────
+function showView(id) {
+  ['view-loading','view-error','view-connect','view-profile'].forEach(v => {
+    document.getElementById(v).style.display = (v === id) ? '' : 'none'
+  })
+}
+
+function fmtN(n) {
+  if (n === null || n === undefined || n === '') return '—'
+  const num = Number(n)
+  if (isNaN(num)) return '—'
+  if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
+  return String(num)
+}
+
+// ─── OAuth start ──────────────────────────────────────────────────────────
+function startOAuth() {
+  if (TIKTOK_CLIENT_KEY === 'YOUR_CLIENT_KEY_HERE') {
+    document.getElementById('config-warning').style.display = ''
+    return
+  }
+  const state = crypto.randomUUID()
+  sessionStorage.setItem('tt_state', state)
+
+  const params = new URLSearchParams({
+    client_key:    TIKTOK_CLIENT_KEY,
+    scope:         'user.info.basic,video.list',
+    response_type: 'code',
+    redirect_uri:  REDIRECT_URI,
+    state
+  })
+  window.location.href = `https://www.tiktok.com/v2/auth/authorize/?${params}`
+}
+
+// ─── Disconnect / reset ────────────────────────────────────────────────────
+function disconnect() {
+  sessionStorage.removeItem('tt_access_token')
+  sessionStorage.removeItem('tt_state')
+  showView('view-connect')
+}
+window.disconnect = disconnect
+
+// ─── Token exchange ───────────────────────────────────────────────────────
+async function exchangeCode(code) {
+  const body = new URLSearchParams({
+    client_key:    TIKTOK_CLIENT_KEY,
+    client_secret: TIKTOK_CLIENT_SECRET,
+    code,
+    grant_type:    'authorization_code',
+    redirect_uri:  REDIRECT_URI
+  })
+
+  const endpoint = TOKEN_PROXY_URL || `${TT_API}/oauth/token/`
+
+  const res = await fetch(endpoint, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body
+  })
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => res.statusText)
+    throw new Error(`Token exchange failed (${res.status}): ${txt}`)
+  }
+
+  const data = await res.json()
+  if (data.error) throw new Error(`${data.error}: ${data.error_description || ''}`)
+  return data
+}
+
+// ─── Fetch user info ──────────────────────────────────────────────────────
+async function fetchUserInfo(token) {
+  const fields = 'open_id,union_id,avatar_url,display_name,bio_description,profile_deep_link,is_verified,username,follower_count,following_count,likes_count,video_count'
+  const res = await fetch(`${TT_API}/user/info/?fields=${fields}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error(`User info failed (${res.status})`)
+  const data = await res.json()
+  if (data.error && data.error.code !== 'ok') throw new Error(data.error.message)
+  return data.data?.user || {}
+}
+
+// ─── Fetch video list ─────────────────────────────────────────────────────
+async function fetchVideos(token) {
+  const fields = 'id,title,video_description,cover_image_url,view_count,like_count,comment_count,share_count,create_time'
+  const body = JSON.stringify({ max_count: 5 })
+  const res = await fetch(`${TT_API}/video/list/?fields=${fields}`, {
+    method:  'POST',
+    headers: {
+      Authorization:  `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body
+  })
+  if (!res.ok) throw new Error(`Video list failed (${res.status})`)
+  const data = await res.json()
+  if (data.error && data.error.code !== 'ok') throw new Error(data.error.message)
+  return data.data?.videos || []
+}
+
+// ─── Render profile ────────────────────────────────────────────────────────
+function renderProfile(user) {
+  const avatarWrap = document.getElementById('avatar-wrap')
+  if (user.avatar_url) {
+    avatarWrap.innerHTML = `<img src="${user.avatar_url}" class="profile-avatar" alt="avatar" onerror="this.style.display='none'">`
+  }
+
+  document.getElementById('profile-name').textContent = user.display_name || '—'
+  document.getElementById('profile-handle').textContent = user.username ? `@${user.username}` : (user.open_id ? `ID: ${user.open_id}` : '')
+  document.getElementById('stat-followers').textContent = fmtN(user.follower_count)
+  document.getElementById('stat-following').textContent = fmtN(user.following_count)
+  document.getElementById('stat-likes').textContent     = fmtN(user.likes_count)
+}
+
+// ─── Render videos ────────────────────────────────────────────────────────
+function renderVideos(videos) {
+  const list = document.getElementById('videos-list')
+  if (!videos.length) {
+    list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">No videos found in sandbox scope.</div>'
+    return
+  }
+
+  list.innerHTML = videos.map(v => {
+    const title = v.title || v.video_description || '(No title)'
+    const thumb = v.cover_image_url
+      ? `<img src="${v.cover_image_url}" style="width:52px;height:72px;border-radius:6px;object-fit:cover;border:1px solid var(--border)" alt="">`
+      : `<div class="video-thumb-placeholder">▶</div>`
+    const date = v.create_time
+      ? new Date(v.create_time * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : ''
+    return `
+      <div class="video-row">
+        ${thumb}
+        <div class="video-info">
+          <div class="video-title">${escHtml(title)}</div>
+          <div class="video-stats">
+            <span class="video-stat">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3C4.7 3 1.9 5 1 8c.9 3 3.7 5 7 5s6.1-2 7-5c-.9-3-3.7-5-7-5zm0 8a3 3 0 110-6 3 3 0 010 6zm0-4.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg>
+              ${fmtN(v.view_count)} views
+            </span>
+            <span class="video-stat">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5A6.5 6.5 0 1114.5 8 6.51 6.51 0 018 1.5zm1 9.5H7V5h2zm0-7H7V2h2z"/></svg>
+              ${fmtN(v.like_count)} likes
+            </span>
+            <span class="video-stat">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M14 1H2a1 1 0 00-1 1v8a1 1 0 001 1h3v3l3-3h6a1 1 0 001-1V2a1 1 0 00-1-1zM3 9V3h10v6H8L5 11.5V9H3z"/></svg>
+              ${fmtN(v.comment_count)} comments
+            </span>
+            ${date ? `<span class="video-stat" style="margin-left:auto;font-size:10px">${date}</span>` : ''}
+          </div>
+        </div>
+      </div>`
+  }).join('')
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+// ─── Main flow ────────────────────────────────────────────────────────────
+async function init() {
+  // Check if we already have a token in session
+  const cached = sessionStorage.getItem('tt_access_token')
+  if (cached) {
+    showView('view-loading')
+    document.getElementById('loading-text').textContent = 'Loading profile…'
+    document.getElementById('loading-sub').textContent  = 'Fetching account data'
+    try {
+      const [user, videos] = await Promise.all([fetchUserInfo(cached), fetchVideos(cached)])
+      renderProfile(user)
+      renderVideos(videos)
+      showView('view-profile')
+    } catch (err) {
+      sessionStorage.removeItem('tt_access_token')
+      showError(err.message)
+    }
+    return
+  }
+
+  // Check for OAuth callback params in URL
+  const params = new URLSearchParams(window.location.search)
+  const code    = params.get('code')
+  const state   = params.get('state')
+  const errParam = params.get('error')
+
+  if (errParam) {
+    showError(`TikTok denied access: ${params.get('error_description') || errParam}`)
+    return
+  }
+
+  if (!code) {
+    // Show connect button — warn if placeholder keys are still set
+    if (TIKTOK_CLIENT_KEY === 'YOUR_CLIENT_KEY_HERE') {
+      document.getElementById('config-warning').style.display = ''
+    }
+    showView('view-connect')
+    return
+  }
+
+  // Validate state
+  const savedState = sessionStorage.getItem('tt_state')
+  if (savedState && state && savedState !== state) {
+    showError('State mismatch — possible CSRF. Please try again.')
+    return
+  }
+
+  // Clean URL (remove code from address bar)
+  history.replaceState({}, '', window.location.pathname)
+
+  showView('view-loading')
+
+  try {
+    // Exchange code for access token
+    const tokenData = await exchangeCode(code)
+    const accessToken = tokenData.access_token
+
+    if (!accessToken) throw new Error('No access_token in response: ' + JSON.stringify(tokenData))
+
+    sessionStorage.setItem('tt_access_token', accessToken)
+
+    // Update loading state
+    document.getElementById('loading-text').textContent = 'Loading profile…'
+    document.getElementById('loading-sub').textContent  = 'Fetching account data'
+
+    // Fetch data in parallel
+    const [user, videos] = await Promise.all([fetchUserInfo(accessToken), fetchVideos(accessToken)])
+
+    // Render developer info
+    document.getElementById('dev-info').textContent = JSON.stringify({
+      open_id:        user.open_id,
+      token_type:     tokenData.token_type,
+      expires_in:     tokenData.expires_in,
+      scope:          tokenData.scope,
+      refresh_expires_in: tokenData.refresh_expires_in
+    }, null, 2)
+
+    renderProfile(user)
+    renderVideos(videos)
+    showView('view-profile')
+
+  } catch (err) {
+    const isCors = err.message.includes('Failed to fetch') || err.message.includes('CORS') || err.message.includes('NetworkError')
+    showError(err.message, isCors)
+  }
+}
+
+function showError(msg, showCorsHint = false) {
+  document.getElementById('error-msg').textContent = msg
+  document.getElementById('cors-hint').style.display = showCorsHint ? '' : 'none'
+  showView('view-error')
+}
+
+init()
+</script>
+</body>
+</html>
