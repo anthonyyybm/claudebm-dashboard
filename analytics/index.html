@@ -813,21 +813,31 @@ async function exchangeTikTokCode(code) {
 }
 
 async function fetchTikTokUserInfo(token) {
-  const fields = 'open_id,display_name,avatar_url,username,follower_count,following_count,likes_count'
-  const reqHeaders = { Authorization: `Bearer ${token}` }
-  console.log('[TikTok] fetchTikTokUserInfo — access_token:', token)
-  console.log('[TikTok] fetchTikTokUserInfo — request headers:', reqHeaders)
-  const res = await fetch(`${TT_API_BASE}/user/info/?fields=${fields}`, {
-    headers: reqHeaders
-  })
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => res.text())
-    console.error('[TikTok] user/info error body:', errBody)
-    throw new Error(`User info failed (${res.status}): ${JSON.stringify(errBody)}`)
+  const headers = { Authorization: `Bearer ${token}` }
+
+  // Fetch basic fields (always authorized under user.info.basic)
+  const basicFields = 'open_id,display_name,avatar_url,username'
+  const basicRes = await fetch(`${TT_API_BASE}/user/info/?fields=${basicFields}`, { headers })
+  if (!basicRes.ok) {
+    const errBody = await basicRes.json().catch(() => basicRes.text())
+    console.error('[TikTok] user/info basic error:', errBody)
+    throw new Error(`User info failed (${basicRes.status}): ${JSON.stringify(errBody)}`)
   }
-  const data = await res.json()
-  if (data.error && data.error.code !== 'ok') throw new Error(data.error.message)
-  return data.data?.user || {}
+  const basicData = await basicRes.json()
+  const user = basicData.data?.user || {}
+
+  // Fetch stats fields separately — gracefully skip if scope not granted yet
+  const statsFields = 'follower_count,following_count,likes_count'
+  const statsRes = await fetch(`${TT_API_BASE}/user/info/?fields=${statsFields}`, { headers })
+  if (statsRes.ok) {
+    const statsData = await statsRes.json()
+    Object.assign(user, statsData.data?.user || {})
+  } else {
+    const errBody = await statsRes.json().catch(() => null)
+    console.warn('[TikTok] user/info stats skipped (scope likely not granted):', errBody?.error?.code)
+  }
+
+  return user
 }
 
 async function fetchTikTokVideoList(token) {
@@ -847,12 +857,13 @@ async function handleTikTokCallback(code) {
   try {
     const tokenData = await exchangeTikTokCode(code)
     if (!tokenData.access_token) throw new Error('No access_token in response')
-    sessionStorage.setItem('tt_access_token', tokenData.access_token)
-    ttOAuthToken = tokenData.access_token
     const [user, videos] = await Promise.all([
       fetchTikTokUserInfo(tokenData.access_token),
       fetchTikTokVideoList(tokenData.access_token)
     ])
+    // Only persist token after API calls confirm it works
+    sessionStorage.setItem('tt_access_token', tokenData.access_token)
+    ttOAuthToken = tokenData.access_token
     tiktokLiveData.followers = user.follower_count ?? null
     tiktokLiveData.videos    = videos
   } catch (err) {
