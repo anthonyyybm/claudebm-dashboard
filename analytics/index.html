@@ -856,6 +856,8 @@ async function fetchTikTokVideoList(token) {
 async function handleTikTokCallback(code) {
   try {
     const tokenData = await exchangeTikTokCode(code)
+    console.log('[TikTok] token exchange response:', tokenData)
+    console.log('[TikTok] scopes granted by TikTok:', tokenData.scope)
     if (!tokenData.access_token) throw new Error('No access_token in response')
     const [user, videos] = await Promise.all([
       fetchTikTokUserInfo(tokenData.access_token),
