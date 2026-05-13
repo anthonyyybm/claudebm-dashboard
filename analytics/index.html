@@ -773,6 +773,21 @@ function instagramBlock(isLoading) {
 
 // ─── TIKTOK HELPERS ─────────────────────────────────────────────
 function ttEscH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+function updateFollowerHistory(count) {
+  const today   = new Date().toISOString().split('T')[0]
+  let history   = JSON.parse(localStorage.getItem('tt_follower_history') || '[]')
+  const last    = history[history.length - 1]
+  if (!last || last.date !== today) {
+    history.push({ date: today, count: Number(count) || 0 })
+    if (history.length > 60) history = history.slice(-60)
+    localStorage.setItem('tt_follower_history', JSON.stringify(history))
+  }
+  return history
+}
+function getFollowerHistory() {
+  return JSON.parse(localStorage.getItem('tt_follower_history') || '[]')
+}
 function ttFmtN(n) {
   if (!n && n !== 0) return '—'
   const v = Number(n)
@@ -947,13 +962,62 @@ function renderMonthlyTopVideoInner(videos, selectedMonth) {
     ${cardHtml}`
 }
 
+function generateChartInsight(data, valueKey, metricLabel) {
+  if (!data || data.length < 2) return ''
+  const vals  = data.map(m => m[valueKey] || 0)
+  const n     = vals.length
+  const first = vals[0], last = vals[n - 1]
+  const maxVal = Math.max(...vals), maxIdx = vals.lastIndexOf(maxVal)
+  const minVal = Math.min(...vals), minIdx = vals.indexOf(minVal)
+  const isEng  = valueKey === 'eng'
+  const fmt = v => isEng ? v.toFixed(1) + '%' : (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(1)+'K' : String(Math.round(v)))
+  const avg   = vals.reduce((a, b) => a + b, 0) / n
+  const overallPct = first > 0 ? Math.round((last - first) / first * 100) : 0
+  const peakedMid  = maxIdx > 0 && maxIdx < n - 1 && maxVal > avg * 1.3
+  const dipMid     = minIdx > 0 && minIdx < n - 1 && minVal < avg * 0.6
+  const recentUp   = n >= 2 && last > vals[n - 2] * 1.15
+  const recentDown = n >= 2 && last < vals[n - 2] * 0.85
+
+  let text = ''
+
+  if (peakedMid && last < maxVal * 0.75) {
+    const dropPct = Math.round((maxVal - last) / maxVal * 100)
+    text = `Peaked at ${fmt(maxVal)} in ${data[maxIdx].label}, then declined ${dropPct}% through ${data[n-1].label}.`
+    if (recentUp) text += ' Slight recovery in the most recent period.'
+  } else if (dipMid && last > minVal * 1.3) {
+    text = `Dipped to ${fmt(minVal)} in ${data[minIdx].label} but has since recovered to ${fmt(last)}.`
+  } else if (overallPct >= 50) {
+    text = `Strong upward trend — up ${overallPct}% from ${data[0].label} to ${data[n-1].label}.`
+    if (recentDown) text += ' Momentum slowing in the latest period.'
+  } else if (overallPct >= 15) {
+    text = `Gradual growth of ${overallPct}% over this period.`
+    if (recentUp) text += ' Growth is accelerating recently.'
+  } else if (overallPct <= -50) {
+    text = `Sharp decline of ${Math.abs(overallPct)}% since ${data[0].label}.`
+    if (recentUp) text += ' Most recent period shows early signs of recovery.'
+  } else if (overallPct <= -15) {
+    text = `Declining trend, down ${Math.abs(overallPct)}% over this period.`
+    if (recentUp) text += ' Latest period bucked the trend — worth watching.'
+  } else {
+    const dir = overallPct >= 0 ? `up ${overallPct}%` : `down ${Math.abs(overallPct)}%`
+    text = `Relatively stable over this period — ${dir} overall.`
+  }
+
+  // Append best-period callout if it stands out and wasn't already named
+  if (!text.includes(data[maxIdx].label) && maxVal > avg * 1.5) {
+    text += ` Best period: ${data[maxIdx].label} (${fmt(maxVal)}).`
+  }
+
+  return text
+}
+
 function renderTrendsTab(videos) {
   const metricCfg = [
-    { key: 'views',    label: 'Views',       color: '#00C2A8' },
-    { key: 'likes',    label: 'Likes',        color: '#f43f5e' },
-    { key: 'comments', label: 'Comments',     color: '#8b5cf6' },
-    { key: 'avg',      label: 'Avg Views',    color: '#f59e0b' },
-    { key: 'eng',      label: 'Eng Rate',     color: '#3b82f6' },
+    { key: 'views',    label: 'Views',            color: '#00C2A8' },
+    { key: 'likes',    label: 'Likes',             color: '#f43f5e' },
+    { key: 'comments', label: 'Comments',          color: '#8b5cf6' },
+    { key: 'avg',      label: 'Average Views',     color: '#f59e0b' },
+    { key: 'eng',      label: 'Engagement Rate',   color: '#3b82f6' },
   ]
   const rangeCfg = [
     { key: 'all',   label: 'All Time' },
@@ -961,8 +1025,8 @@ function renderTrendsTab(videos) {
     { key: '3m',    label: 'Last 3 Mo' },
     { key: 'month', label: 'This Month' },
   ]
-  const data = getChartData(videos, ttChartRange)
-  const mc   = metricCfg.find(m => m.key === ttChartMetric) || metricCfg[0]
+  const data    = getChartData(videos, ttChartRange)
+  const mc      = metricCfg.find(m => m.key === ttChartMetric) || metricCfg[0]
   const metricTabs = metricCfg.map(m =>
     `<button class="tt-tab${ttChartMetric === m.key ? ' active' : ''}" data-metric="${m.key}" onclick="switchTikTokChartMetric('${m.key}')">${m.label}</button>`
   ).join('')
@@ -970,7 +1034,8 @@ function renderTrendsTab(videos) {
     `<button class="tt-range-btn${ttChartRange === r.key ? ' active' : ''}" onclick="switchTikTokChartRange('${r.key}')">${r.label}</button>`
   ).join('')
   const rangeLbl = rangeCfg.find(r => r.key === ttChartRange)?.label || ''
-  const legend = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+  const insight  = data.length >= 2 ? generateChartInsight(data, mc.key, mc.label) : ''
+  const legend = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${insight ? '5px' : '6px'}">
     <span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);font-weight:600">
       <span style="width:14px;height:2px;background:${mc.color};border-radius:1px;display:inline-block"></span>
       ${mc.label}
@@ -979,7 +1044,8 @@ function renderTrendsTab(videos) {
     <span style="font-size:10px;color:var(--text3)">${rangeLbl}</span>
     <span style="font-size:10px;color:var(--text3)">·</span>
     <span style="font-size:10px;color:var(--text3)">${data.length} data point${data.length !== 1 ? 's' : ''}</span>
-  </div>`
+  </div>
+  ${insight ? `<p style="font-size:10px;font-style:italic;color:var(--text3);margin:0 0 7px;line-height:1.5">${ttEscH(insight)}</p>` : ''}`
   const chartHtml = data.length < 2
     ? `<div style="padding:20px;text-align:center;font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">Not enough data for this time range</div>`
     : `<div class="tt-chart-wrap">${legend}${renderLineChart(data, mc.key, mc.color)}</div>`
@@ -1007,7 +1073,12 @@ function renderOverviewContent(user, videos) {
   }
   function trendLine(d) { return d === null ? '' : d >= 0 ? `Up ${d}% from last month.` : `Down ${Math.abs(d)}% from last month.` }
   const dv = momDelta(mViews), de = momDelta(mEng), da = momDelta(mAvg)
-  const tipFollowers = `${ttFmtN(user.follower_count)} total followers. Keep posting daily to accelerate growth.`
+  const fHistory    = getFollowerHistory()
+  const mFollowers  = fHistory.length >= 2 ? fHistory.map(h => h.count) : []
+  const fTrendNote  = fHistory.length >= 2
+    ? ` Tracking since ${fHistory[0].date}.`
+    : ' Sparkline builds as you revisit.'
+  const tipFollowers = `${ttFmtN(user.follower_count)} total followers.${fTrendNote} Keep posting daily to accelerate growth.`
   const tipViews     = `${ttFmtN(totalViews)} views across ${videos.length} videos. ${trendLine(dv)}`
   const tipLikes     = `Like rate: ${totalViews > 0 ? ((totalLikes/totalViews)*100).toFixed(1) : 0}% of views. Industry avg is 3–5%.`
   const tipComments  = `Comment rate: ${totalViews > 0 ? ((totalComments/totalViews)*100).toFixed(2) : 0}% of views. Comments signal strong audience connection.`
@@ -1019,7 +1090,10 @@ function renderOverviewContent(user, videos) {
   return `<div class="ag6" style="margin-bottom:14px">
     <div class="a-metric" data-tooltip="${tipFollowers}">
       <div class="metric-label">FOLLOWERS</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(user.follower_count)}</div><div class="metric-sub">account total</div></div></div>
+      <div class="tt-metric-inner">
+        <div><div class="metric-val" style="margin-top:4px">${ttFmtN(user.follower_count)}</div><div class="metric-sub">${mFollowers.length >= 2 ? mFollowers.length + ' day history' : 'account total'}</div></div>
+        ${mFollowers.length >= 2 ? ttSparkline(mFollowers, '#00C2A8') : ''}
+      </div>
     </div>
     <div class="a-metric" data-tooltip="${tipViews}">
       <div class="metric-label">TOTAL VIEWS</div>
@@ -1461,6 +1535,7 @@ async function handleTikTokCallback(code) {
     ])
     localStorage.setItem('tt_access_token', tokenData.access_token)
     ttOAuthToken          = tokenData.access_token
+    updateFollowerHistory(user.follower_count)
     tiktokLiveData.user   = user
     tiktokLiveData.videos = allVideos
     tiktokLiveData.error  = null
@@ -1479,6 +1554,7 @@ async function loadTikTokFromSession() {
       fetchTikTokUserInfo(ttOAuthToken),
       fetchAllTikTokVideos(ttOAuthToken)
     ])
+    updateFollowerHistory(user.follower_count)
     tiktokLiveData.user   = user
     tiktokLiveData.videos = allVideos
     tiktokLiveData.error  = null
