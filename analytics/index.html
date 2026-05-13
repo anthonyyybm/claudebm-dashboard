@@ -186,6 +186,67 @@
       display: inline-block;
     }
 
+    /* ─── TikTok OAuth connect button ── */
+    .tt-connect-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #010101;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: opacity .15s;
+      letter-spacing: .2px;
+    }
+    .tt-connect-btn:hover { opacity: .82; }
+    .tt-connect-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    /* ─── TikTok inline video rows ── */
+    .tt-video-section { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .tt-video-section-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--text3);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .tt-video-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .tt-video-item:last-child { border-bottom: none; }
+    .tt-video-thumb-placeholder {
+      width: 40px; height: 56px;
+      border-radius: 5px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      color: var(--text3);
+      font-size: 14px;
+    }
+    .tt-video-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 5px;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .tt-video-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+    .tt-video-stat { font-size: 10px; color: var(--text3); font-weight: 500; }
+
     /* ─── Social media top card ── */
     .social-top-card {
       background: var(--surface);
@@ -327,6 +388,15 @@ const analyticsData = {
 let ytDataStatus = 'default'   // 'default' | 'live' | 'cached'
 let ttDataStatus = 'default'   // 'default' | 'live' | 'cached'
 let lastRefreshedTime = null
+let ttOAuthToken   = sessionStorage.getItem('tt_access_token') || null
+let tiktokLiveData = { followers: null, videos: [] }
+
+// ─── TIKTOK OAUTH CONFIG ────────────────────────────────────────
+const TT_CLIENT_KEY    = 'sbawiohwdjglaeadzv'
+const TT_CLIENT_SECRET = '91aIEKkTLZddgTouMrtTakXngqMumqcz'
+const TT_REDIRECT_URI  = 'https://anthonyyybm.github.io/claudebm-dashboard/analytics/'
+const TT_TOKEN_PROXY   = ''
+const TT_API_BASE      = 'https://open.tiktokapis.com/v2'
 
 // ─── PLATFORM CONFIG ────────────────────────────────────────────
 const PLATFORMS = {
@@ -417,6 +487,7 @@ function platformBlock(key, isLoading) {
   const isTT = key === 'tiktok'
 
   if (isIG) return instagramBlock(isLoading)
+  if (isTT) return tiktokBlock(isLoading)
 
   const fLabel = isYT ? 'SUBSCRIBERS' : 'FOLLOWERS'
   const fVal   = isYT ? d.subscribers   : d.followers
@@ -498,6 +569,93 @@ function instagramBlock(isLoading) {
       <div class="check-item pending">⬜ API tokens generated</div>
       <div class="check-item pending">⬜ Live data connected</div>
     </div>
+  </div>`
+}
+
+function tiktokBlock(isLoading) {
+  const cfg = PLATFORMS.tiktok
+  const d   = analyticsData.platforms.tiktok
+  const c   = cfg.color
+  const connected = !!ttOAuthToken
+
+  const followerVal = connected && tiktokLiveData.followers !== null
+    ? tiktokLiveData.followers : d.followers
+
+  let statusBadge = ''
+  if (!isLoading) {
+    if (connected) {
+      statusBadge = '<span class="data-badge-live">● Live API</span>'
+    } else if (ttDataStatus === 'live') {
+      statusBadge = '<span class="data-badge-live">● CSV</span>'
+    } else if (ttDataStatus === 'cached') {
+      statusBadge = '<span class="data-badge-cached">Export CSV to update</span>'
+    }
+  }
+
+  const oauthBtn = isLoading ? '' : (connected
+    ? `<button class="refresh-btn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="disconnectTikTok()">Disconnect</button>`
+    : `<button class="tt-connect-btn" style="margin-left:auto" onclick="startTikTokOAuth()"><svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M34.1 7C33.3 10.4 30 13 26.5 13.2V19.8C29.3 19.6 31.8 18.6 33.8 17v10.3C33.8 33.8 28.6 39 22.1 39c-6.5 0-11.7-5.2-11.7-11.7 0-6.3 5-11.4 11.2-11.7v6.6c-2.8.3-5 2.6-5 5.2 0 2.9 2.3 5.2 5.2 5.2 3 0 5.5-2.5 5.5-5.5V7h6.8z" fill="white"/></svg>Connect TikTok</button>`)
+
+  const tiktokNote = !connected && ttDataStatus === 'cached' && !isLoading
+    ? `<div class="tiktok-csv-link"><a href="https://studio.tiktok.com" target="_blank" rel="noopener">Export from TikTok Studio →</a></div>`
+    : ''
+
+  const videoSection = connected && !isLoading && tiktokLiveData.videos.length > 0
+    ? renderTikTokVideosInline(tiktokLiveData.videos)
+    : ''
+
+  return `<div class="platform-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+      <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      ${statusBadge}
+      ${oauthBtn}
+    </div>
+
+    <div class="ag3">
+      ${metricCard('FOLLOWERS', followerVal, d.followers_change, d.weekly_data.followers, c, isLoading)}
+      ${metricCard('AVG VIEWS', d.avg_views, d.avg_views_change, d.weekly_data.views, c, isLoading)}
+      ${metricCard('VIDEOS POSTED', d.videos_this_week, d.videos_change, null, c, isLoading)}
+    </div>
+
+    <div class="ag3" style="margin-bottom:14px">
+      ${metricCard('ENGAGEMENT RATE', d.engagement_rate + '%', d.engagement_change, null, c, isLoading)}
+    </div>
+
+    ${tiktokNote}
+    ${goalsCard(d.goals, c)}
+    ${videoSection}
+  </div>`
+}
+
+function renderTikTokVideosInline(videos) {
+  function escH(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+  function fN(n) {
+    if (!n && n !== 0) return '—'
+    const v = Number(n)
+    if (v >= 1000000) return (v/1000000).toFixed(1).replace(/\.0$/,'')+'M'
+    if (v >= 1000) return (v/1000).toFixed(1).replace(/\.0$/,'')+'K'
+    return String(v)
+  }
+  return `<div class="tt-video-section">
+    <div class="tt-video-section-title">Recent Videos — Last 5</div>
+    ${videos.map(v => {
+      const title = v.title || v.video_description || '(No title)'
+      const thumb = v.cover_image_url
+        ? `<img src="${v.cover_image_url}" style="width:40px;height:56px;border-radius:5px;object-fit:cover;border:1px solid var(--border)" alt="">`
+        : `<div class="tt-video-thumb-placeholder">▶</div>`
+      return `<div class="tt-video-item">
+        ${thumb}
+        <div style="flex:1;min-width:0">
+          <div class="tt-video-title">${escH(title)}</div>
+          <div class="tt-video-stats">
+            <span class="tt-video-stat">${fN(v.view_count)} views</span>
+            <span class="tt-video-stat">${fN(v.like_count)} likes</span>
+            <span class="tt-video-stat">${fN(v.comment_count)} comments</span>
+          </div>
+        </div>
+      </div>`
+    }).join('')}
   </div>`
 }
 
@@ -616,8 +774,124 @@ function showLoadingState() {
   if (btn) btn.classList.add('spinning')
 }
 
+// ─── TIKTOK OAUTH FUNCTIONS ─────────────────────────────────────
+function startTikTokOAuth() {
+  const state = crypto.randomUUID()
+  sessionStorage.setItem('tt_state', state)
+  const params = new URLSearchParams({
+    client_key:    TT_CLIENT_KEY,
+    scope:         'user.info.basic,video.list',
+    response_type: 'code',
+    redirect_uri:  TT_REDIRECT_URI,
+    state
+  })
+  window.location.href = `https://www.tiktok.com/v2/auth/authorize/?${params}`
+}
+window.startTikTokOAuth = startTikTokOAuth
+
+function disconnectTikTok() {
+  sessionStorage.removeItem('tt_access_token')
+  sessionStorage.removeItem('tt_state')
+  ttOAuthToken = null
+  tiktokLiveData = { followers: null, videos: [] }
+  renderDashboard(false)
+}
+window.disconnectTikTok = disconnectTikTok
+
+async function exchangeTikTokCode(code) {
+  const body = new URLSearchParams({
+    client_key:    TT_CLIENT_KEY,
+    client_secret: TT_CLIENT_SECRET,
+    code,
+    grant_type:    'authorization_code',
+    redirect_uri:  TT_REDIRECT_URI
+  })
+  const endpoint = TT_TOKEN_PROXY || `${TT_API_BASE}/oauth/token/`
+  const res = await fetch(endpoint, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body
+  })
+  if (!res.ok) {
+    const txt = await res.text().catch(() => res.statusText)
+    throw new Error(`Token exchange failed (${res.status}): ${txt}`)
+  }
+  const data = await res.json()
+  if (data.error) throw new Error(`${data.error}: ${data.error_description || ''}`)
+  return data
+}
+
+async function fetchTikTokUserInfo(token) {
+  const fields = 'open_id,display_name,avatar_url,username,follower_count,following_count,likes_count'
+  const res = await fetch(`${TT_API_BASE}/user/info/?fields=${fields}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error(`User info failed (${res.status})`)
+  const data = await res.json()
+  if (data.error && data.error.code !== 'ok') throw new Error(data.error.message)
+  return data.data?.user || {}
+}
+
+async function fetchTikTokVideoList(token) {
+  const fields = 'id,title,video_description,cover_image_url,view_count,like_count,comment_count,create_time'
+  const res = await fetch(`${TT_API_BASE}/video/list/?fields=${fields}`, {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ max_count: 5 })
+  })
+  if (!res.ok) throw new Error(`Video list failed (${res.status})`)
+  const data = await res.json()
+  if (data.error && data.error.code !== 'ok') throw new Error(data.error.message)
+  return data.data?.videos || []
+}
+
+async function handleTikTokCallback(code) {
+  try {
+    const tokenData = await exchangeTikTokCode(code)
+    if (!tokenData.access_token) throw new Error('No access_token in response')
+    sessionStorage.setItem('tt_access_token', tokenData.access_token)
+    ttOAuthToken = tokenData.access_token
+    const [user, videos] = await Promise.all([
+      fetchTikTokUserInfo(tokenData.access_token),
+      fetchTikTokVideoList(tokenData.access_token)
+    ])
+    tiktokLiveData.followers = user.follower_count ?? null
+    tiktokLiveData.videos    = videos
+  } catch (err) {
+    console.error('TikTok OAuth callback error:', err)
+    sessionStorage.removeItem('tt_access_token')
+    ttOAuthToken = null
+  }
+}
+
+async function loadTikTokFromSession() {
+  if (!ttOAuthToken) return
+  try {
+    const [user, videos] = await Promise.all([
+      fetchTikTokUserInfo(ttOAuthToken),
+      fetchTikTokVideoList(ttOAuthToken)
+    ])
+    tiktokLiveData.followers = user.follower_count ?? null
+    tiktokLiveData.videos    = videos
+  } catch (err) {
+    console.error('TikTok session load error:', err)
+    sessionStorage.removeItem('tt_access_token')
+    ttOAuthToken = null
+  }
+}
+
 // ─── LIVE DATA LOAD ─────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  // Handle TikTok OAuth callback (?code=...) or load from session token
+  const urlParams = new URLSearchParams(window.location.search)
+  const ttCode = urlParams.get('code')
+  if (ttCode) {
+    history.replaceState({}, '', window.location.pathname)
+    await handleTikTokCallback(ttCode)
+  } else if (ttOAuthToken) {
+    await loadTikTokFromSession()
+  }
+
   showLoadingState()
   const data = await loadAllAnalytics()
 
@@ -639,6 +913,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     ttDataStatus = 'live'
   } else {
     ttDataStatus = 'cached'
+  }
+
+  // Override TikTok followers with live API value if OAuth connected
+  if (ttOAuthToken && tiktokLiveData.followers !== null) {
+    analyticsData.platforms.tiktok.followers = tiktokLiveData.followers
   }
 
   renderDashboard(false)
@@ -646,6 +925,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 })
 
 async function refreshAnalytics() {
+  if (ttOAuthToken) await loadTikTokFromSession()
+
   showLoadingState()
   const data = await loadAllAnalytics()
 
@@ -667,6 +948,10 @@ async function refreshAnalytics() {
     ttDataStatus = 'live'
   } else {
     ttDataStatus = 'cached'
+  }
+
+  if (ttOAuthToken && tiktokLiveData.followers !== null) {
+    analyticsData.platforms.tiktok.followers = tiktokLiveData.followers
   }
 
   renderDashboard(false)
