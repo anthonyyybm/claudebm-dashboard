@@ -814,8 +814,11 @@ async function exchangeTikTokCode(code) {
 
 async function fetchTikTokUserInfo(token) {
   const fields = 'open_id,display_name,avatar_url,username,follower_count,following_count,likes_count'
+  const reqHeaders = { Authorization: `Bearer ${token}` }
+  console.log('[TikTok] fetchTikTokUserInfo — access_token:', token)
+  console.log('[TikTok] fetchTikTokUserInfo — request headers:', reqHeaders)
   const res = await fetch(`${TT_API_BASE}/user/info/?fields=${fields}`, {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: reqHeaders
   })
   if (!res.ok) throw new Error(`User info failed (${res.status})`)
   const data = await res.json()
