@@ -393,9 +393,8 @@ let tiktokLiveData = { followers: null, videos: [] }
 
 // ─── TIKTOK OAUTH CONFIG ────────────────────────────────────────
 const TT_CLIENT_KEY    = 'sbawiohwdjglaeadzv'
-const TT_CLIENT_SECRET = '91aIEKkTLZddgTouMrtTakXngqMumqcz'
 const TT_REDIRECT_URI  = 'https://anthonyyybm.github.io/claudebm-dashboard/analytics/'
-const TT_TOKEN_PROXY   = ''
+const TT_TOKEN_PROXY   = 'https://bmtbzcnrlojacvafyrxi.supabase.co/functions/v1/tiktok-token-exchange'
 const TT_API_BASE      = 'https://open.tiktokapis.com/v2'
 
 // ─── PLATFORM CONFIG ────────────────────────────────────────────
@@ -799,25 +798,17 @@ function disconnectTikTok() {
 window.disconnectTikTok = disconnectTikTok
 
 async function exchangeTikTokCode(code) {
-  const body = new URLSearchParams({
-    client_key:    TT_CLIENT_KEY,
-    client_secret: TT_CLIENT_SECRET,
-    code,
-    grant_type:    'authorization_code',
-    redirect_uri:  TT_REDIRECT_URI
-  })
-  const endpoint = TT_TOKEN_PROXY || `${TT_API_BASE}/oauth/token/`
-  const res = await fetch(endpoint, {
+  const res = await fetch(TT_TOKEN_PROXY, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ code, redirect_uri: TT_REDIRECT_URI })
   })
   if (!res.ok) {
     const txt = await res.text().catch(() => res.statusText)
     throw new Error(`Token exchange failed (${res.status}): ${txt}`)
   }
   const data = await res.json()
-  if (data.error) throw new Error(`${data.error}: ${data.error_description || ''}`)
+  if (data.error) throw new Error(`${data.error}: ${data.detail || ''}`)
   return data
 }
 
