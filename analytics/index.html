@@ -383,6 +383,28 @@
     .tt-metric-inner { display: flex; justify-content: space-between; align-items: flex-end; gap: 6px; }
     .tt-metric-inner svg { flex-shrink: 0; align-self: flex-end; }
 
+    /* ─── Overview / Trends main tab bar ── */
+    .tt-main-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid var(--border); }
+    .tt-main-tab {
+      padding: 7px 18px; font-size: 12px; font-weight: 600;
+      border: none; background: none; color: var(--text3);
+      cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px;
+      transition: color .15s, border-color .15s;
+    }
+    .tt-main-tab.active { color: #00C2A8; border-bottom-color: #00C2A8; }
+    .tt-main-tab:hover:not(.active) { color: var(--text2); }
+
+    /* ─── Chart time-range filter ── */
+    .tt-range-wrap { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; }
+    .tt-range-btn {
+      padding: 3px 10px; border-radius: 5px;
+      font-size: 10px; font-weight: 600;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text3); cursor: pointer; transition: all .15s;
+    }
+    .tt-range-btn.active { background: var(--surface2); border-color: var(--text2); color: var(--text); }
+    .tt-range-btn:hover:not(.active) { border-color: var(--text2); color: var(--text2); }
+
     /* ─── TikTok profile card (connected state) ── */
     .tt-profile-card {
       display: flex;
@@ -563,6 +585,10 @@ let lastRefreshedTime = null
 let ttOAuthToken   = localStorage.getItem('tt_access_token') || null
 let tiktokLiveData = { user: null, videos: [], error: null }
 let ttActiveTab    = 'last5'
+let ttMainTab      = 'overview'
+let ttChartMetric  = 'views'
+let ttChartRange   = 'all'
+let ttMonthFilter  = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` })()
 
 // ─── TIKTOK OAUTH CONFIG ────────────────────────────────────────
 const TT_CLIENT_KEY    = 'sbawiohwdjglaeadzv'
@@ -797,14 +823,55 @@ function ttSparkline(values, color, w = 72, h = 32) {
   </svg>`
 }
 
-function renderLineChart(monthlyData, valueKey, color) {
-  if (!monthlyData || monthlyData.length < 2) return '<div class="tt-loading-state">Not enough monthly data</div>'
-  const W = 560, H = 140, PL = 38, PR = 10, PT = 12, PB = 28
-  const vals = monthlyData.map(m => m[valueKey] || 0)
-  const hi = Math.max(...vals, 1), lo = 0
+function groupByDay(videos, filterMonth) {
+  const map = {}
+  videos.forEach(v => {
+    if (!v.create_time) return
+    const d   = new Date(Number(v.create_time) * 1000)
+    const mKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    if (filterMonth && mKey !== filterMonth) return
+    const key  = d.toISOString().split('T')[0]
+    const lbl  = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    if (!map[key]) map[key] = { key, label: lbl, videos: [], views: 0, likes: 0, comments: 0, count: 0 }
+    map[key].views    += v.view_count    || 0
+    map[key].likes    += v.like_count    || 0
+    map[key].comments += v.comment_count || 0
+    map[key].count    += 1
+  })
+  return Object.values(map).sort((a, b) => a.key.localeCompare(b.key))
+}
+
+function enrichData(data) {
+  return data.map(m => ({
+    ...m,
+    avg: m.count ? Math.round(m.views / m.count) : 0,
+    eng: m.views > 0 ? +((m.likes + m.comments) / m.views * 100).toFixed(2) : 0
+  }))
+}
+
+function getChartData(videos, range) {
+  const now = new Date()
+  if (range === 'month') {
+    const curMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+    return enrichData(groupByDay(videos, curMonth))
+  }
+  const byMonth = groupByMonth(videos)
+  if (range === 'all') return enrichData(byMonth)
+  const n = range === '6m' ? 6 : 3
+  const cutoff = new Date(now)
+  cutoff.setMonth(cutoff.getMonth() - n)
+  const cutKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}`
+  return enrichData(byMonth.filter(m => m.key >= cutKey))
+}
+
+function renderLineChart(data, valueKey, color) {
+  if (!data || data.length < 2) return '<div class="tt-loading-state">Not enough data for this range.</div>'
+  const W = 540, H = 120, PL = 36, PR = 8, PT = 10, PB = 24
+  const vals = data.map(m => m[valueKey] || 0)
+  const hi = Math.max(...vals, 1)
   const cw = W - PL - PR, ch = H - PT - PB
-  const pts = monthlyData.map((m, i) => [
-    PL + (i / (monthlyData.length - 1)) * cw,
+  const pts = data.map((m, i) => [
+    PL + (i / (data.length - 1)) * cw,
     PT + (1 - (m[valueKey] || 0) / hi) * ch
   ])
   let line = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
@@ -813,19 +880,25 @@ function renderLineChart(monthlyData, valueKey, color) {
     line += ` C${cx},${pts[i-1][1].toFixed(1)} ${cx},${pts[i][1].toFixed(1)} ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`
   }
   const area = `${line} L${pts[pts.length-1][0].toFixed(1)},${H-PB} L${pts[0][0].toFixed(1)},${H-PB}Z`
-  const xLabels = monthlyData.map((m, i) =>
-    `<text x="${pts[i][0].toFixed(1)}" y="${H-PB+14}" text-anchor="middle" font-size="9" fill="var(--text3)" font-family="system-ui">${m.label}</text>`
+  const xLabels = data.map((m, i) =>
+    `<text x="${pts[i][0].toFixed(1)}" y="${H-PB+14}" text-anchor="middle" font-size="8" fill="var(--text3)" font-family="system-ui">${m.label}</text>`
   ).join('')
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => {
+  const yTicks = [0, 0.5, 1].map(t => {
     const y = (PT + (1 - t) * ch).toFixed(1)
     const v = Math.round(hi * t)
     const lbl = v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(1)+'K' : String(v)
-    return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>
+    return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"/>
             <text x="${PL-4}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="8" fill="var(--text3)" font-family="system-ui">${lbl}</text>`
   }).join('')
-  const dots = pts.map((pt, i) =>
-    `<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="3" fill="${color}" stroke="var(--surface2)" stroke-width="1.5"/>`
-  ).join('')
+  const dots = pts.map((pt, i) => {
+    const v = data[i][valueKey] || 0
+    const fv = valueKey === 'eng' ? v.toFixed(2)+'%' : (v >= 1000 ? (v/1000).toFixed(1)+'K' : String(v))
+    const tip = (data[i].label + ': ' + fv).replace(/'/g, '&#39;')
+    return `<g onmouseover="showChartTip(event,'${tip}')" onmouseout="hideChartTip()" style="cursor:pointer">
+      <circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="10" fill="transparent"/>
+      <circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="4" fill="${color}" stroke="var(--surface2)" stroke-width="2" class="tt-dot"/>
+    </g>`
+  }).join('')
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">
     ${yTicks}
     <path d="${area}" fill="${color}" fill-opacity="0.12"/>
@@ -835,55 +908,133 @@ function renderLineChart(monthlyData, valueKey, color) {
   </svg>`
 }
 
-function renderChartsTab(videos) {
+function renderMonthlyTopVideoInner(videos, selectedMonth) {
   const byMonth = groupByMonth(videos)
-  if (byMonth.length < 2) {
-    return '<div class="tt-loading-state">Need at least 2 months of video data to show charts.</div>'
+  if (byMonth.length === 0) {
+    return '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text3)">No video data available</div>'
   }
-  const enriched = byMonth.map(m => ({
-    ...m,
-    avg:  m.count ? Math.round(m.views / m.count) : 0,
-    eng:  m.views > 0 ? +((m.likes + m.comments) / m.views * 100).toFixed(2) : 0
-  }))
-  const charts = [
-    { key: 'views',    label: 'Views Per Month',            color: '#00C2A8' },
-    { key: 'likes',    label: 'Likes Per Month',             color: '#f43f5e' },
-    { key: 'comments', label: 'Comments Per Month',          color: '#8b5cf6' },
-    { key: 'avg',      label: 'Avg Views Per Video Per Month', color: '#f59e0b' },
-    { key: 'eng',      label: 'Engagement Rate Per Month (%)', color: '#3b82f6' },
-  ]
-  return charts.map(cfg => `
-    <div class="tt-chart-block">
-      <div class="tt-chart-label">${cfg.label}</div>
-      <div class="tt-chart-wrap">${renderLineChart(enriched, cfg.key, cfg.color)}</div>
-    </div>`).join('')
-}
-
-function renderMonthlyTopVideos(videos) {
-  const byMonth = groupByMonth(videos)
-  if (byMonth.length === 0) return ''
-  const cards = byMonth.slice().reverse().map(month => {
-    const top   = month.videos.reduce((a, b) => (b.view_count||0) > (a.view_count||0) ? b : a)
+  const opts = byMonth.slice().reverse().map(m =>
+    `<option value="${m.key}"${m.key === selectedMonth ? ' selected' : ''}>${m.label}</option>`
+  ).join('')
+  const monthData = byMonth.find(m => m.key === selectedMonth)
+  let cardHtml
+  if (!monthData || monthData.videos.length === 0) {
+    cardHtml = `<div style="padding:14px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">No videos posted this month</div>`
+  } else {
+    const top = monthData.videos.reduce((a, b) => (b.view_count||0) > (a.view_count||0) ? b : a)
     const thumb = top.cover_image_url
-      ? `<img src="${ttEscH(top.cover_image_url)}" class="tt-monthly-thumb" alt="">`
-      : `<div class="tt-monthly-thumb-placeholder">▶</div>`
-    return `<div class="tt-monthly-card">
-      <div class="tt-monthly-label">${month.label}</div>
+      ? `<img src="${ttEscH(top.cover_image_url)}" style="width:56px;height:78px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)" alt="">`
+      : `<div style="width:56px;height:78px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;color:var(--text3)">▶</div>`
+    cardHtml = `<div class="tt-top-video-card">
       ${thumb}
-      <div class="tt-monthly-info">
-        <div class="tt-monthly-title">${ttEscH(top.title || top.video_description || '(No title)')}</div>
-        <div class="tt-monthly-stats">
-          <span>👁 ${ttFmtN(top.view_count)}</span>
-          <span>♥ ${ttFmtN(top.like_count)}</span>
-          <span>💬 ${ttFmtN(top.comment_count)}</span>
+      <div style="flex:1;min-width:0">
+        <div class="tt-top-video-badge">🏆 Top Video — ${monthData.label}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:7px;line-height:1.4">${ttEscH(top.title || top.video_description || '(No title)')}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text2)">👁 <strong>${ttFmtN(top.view_count)}</strong> views</span>
+          <span style="font-size:11px;color:var(--text2)">♥ <strong>${ttFmtN(top.like_count)}</strong> likes</span>
+          <span style="font-size:11px;color:var(--text2)">💬 <strong>${ttFmtN(top.comment_count)}</strong> comments</span>
+          ${top.create_time ? `<span style="font-size:11px;color:var(--text3)">${ttFmtDate(top.create_time)}</span>` : ''}
         </div>
       </div>
     </div>`
-  }).join('')
-  return `<div style="margin-bottom:16px">
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:700;margin-bottom:8px">🏆 Top Video Per Month</div>
-    <div class="tt-monthly-scroll">${cards}</div>
-  </div>`
+  }
+  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:700">🏆 Top Video of the Month</div>
+      <select onchange="setTikTokMonthFilter(this.value)" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;outline:none">${opts}</select>
+    </div>
+    ${cardHtml}`
+}
+
+function renderTrendsTab(videos) {
+  const metricCfg = [
+    { key: 'views',    label: 'Views',       color: '#00C2A8' },
+    { key: 'likes',    label: 'Likes',        color: '#f43f5e' },
+    { key: 'comments', label: 'Comments',     color: '#8b5cf6' },
+    { key: 'avg',      label: 'Avg Views',    color: '#f59e0b' },
+    { key: 'eng',      label: 'Eng Rate',     color: '#3b82f6' },
+  ]
+  const rangeCfg = [
+    { key: 'all',   label: 'All Time' },
+    { key: '6m',    label: 'Last 6 Mo' },
+    { key: '3m',    label: 'Last 3 Mo' },
+    { key: 'month', label: 'This Month' },
+  ]
+  const data = getChartData(videos, ttChartRange)
+  const mc   = metricCfg.find(m => m.key === ttChartMetric) || metricCfg[0]
+  const metricTabs = metricCfg.map(m =>
+    `<button class="tt-tab${ttChartMetric === m.key ? ' active' : ''}" data-metric="${m.key}" onclick="switchTikTokChartMetric('${m.key}')">${m.label}</button>`
+  ).join('')
+  const rangeBtns = rangeCfg.map(r =>
+    `<button class="tt-range-btn${ttChartRange === r.key ? ' active' : ''}" onclick="switchTikTokChartRange('${r.key}')">${r.label}</button>`
+  ).join('')
+  const chartHtml = data.length < 2
+    ? `<div style="padding:24px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">Not enough data for this time range</div>`
+    : `<div class="tt-chart-wrap">${renderLineChart(data, mc.key, mc.color)}</div>`
+  return `<div class="tt-tabs" style="flex-wrap:wrap;gap:5px;margin-bottom:10px">${metricTabs}</div>
+    <div class="tt-range-wrap">${rangeBtns}</div>
+    ${chartHtml}`
+}
+
+function renderOverviewContent(user, videos) {
+  const byMonth    = groupByMonth(videos)
+  const totalViews    = videos.reduce((s, v) => s + (v.view_count    || 0), 0)
+  const totalLikes    = videos.reduce((s, v) => s + (v.like_count    || 0), 0)
+  const totalComments = videos.reduce((s, v) => s + (v.comment_count || 0), 0)
+  const avgViews      = videos.length ? Math.round(totalViews / videos.length) : 0
+  const engRate       = totalViews > 0 ? ((totalLikes + totalComments) / totalViews * 100).toFixed(2) : '0.00'
+  const mViews    = byMonth.map(m => m.views)
+  const mLikes    = byMonth.map(m => m.likes)
+  const mComments = byMonth.map(m => m.comments)
+  const mAvg      = byMonth.map(m => m.count ? Math.round(m.views / m.count) : 0)
+  const mEng      = byMonth.map(m => m.views > 0 ? +((m.likes+m.comments)/m.views*100).toFixed(2) : 0)
+  function momDelta(arr) {
+    if (arr.length < 2) return null
+    const prev = arr[arr.length-2], cur = arr[arr.length-1]
+    return prev ? (((cur-prev)/prev)*100).toFixed(1) : null
+  }
+  function trendLine(d) { return d === null ? '' : d >= 0 ? `Up ${d}% from last month.` : `Down ${Math.abs(d)}% from last month.` }
+  const dv = momDelta(mViews), de = momDelta(mEng), da = momDelta(mAvg)
+  const tipFollowers = `${ttFmtN(user.follower_count)} total followers. Keep posting daily to accelerate growth.`
+  const tipViews     = `${ttFmtN(totalViews)} views across ${videos.length} videos. ${trendLine(dv)}`
+  const tipLikes     = `Like rate: ${totalViews > 0 ? ((totalLikes/totalViews)*100).toFixed(1) : 0}% of views. Industry avg is 3–5%.`
+  const tipComments  = `Comment rate: ${totalViews > 0 ? ((totalComments/totalViews)*100).toFixed(2) : 0}% of views. Comments signal strong audience connection.`
+  const tipAvg       = `${ttFmtN(avgViews)} avg views/video. ${trendLine(da)} ${avgViews > 1000 ? 'Solid performance.' : 'Hook the first 3 seconds harder.'}`
+  const tipEng       = `${engRate}% engagement. ${+engRate > 5 ? '🔥 Top tier.' : +engRate > 2 ? '✅ Above average.' : '⚠ Add stronger CTAs.'} ${trendLine(de)}`
+  const tabLimit  = ttActiveTab === 'last5' ? 5 : 20
+  return `<div class="ag6" style="margin-bottom:14px">
+    <div class="a-metric" data-tooltip="${tipFollowers}">
+      <div class="metric-label">FOLLOWERS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(user.follower_count)}</div><div class="metric-sub">account total</div></div></div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipViews}">
+      <div class="metric-label">TOTAL VIEWS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalViews)}</div><div class="metric-sub">all ${videos.length} videos</div></div>${ttSparkline(mViews,'#00C2A8')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipLikes}">
+      <div class="metric-label">TOTAL LIKES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalLikes)}</div><div class="metric-sub">all videos</div></div>${ttSparkline(mLikes,'#f43f5e')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipComments}">
+      <div class="metric-label">TOTAL COMMENTS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalComments)}</div><div class="metric-sub">all videos</div></div>${ttSparkline(mComments,'#8b5cf6')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipAvg}">
+      <div class="metric-label">AVG VIEWS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(avgViews)}</div><div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(mAvg,'#f59e0b')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipEng}">
+      <div class="metric-label">ENGAGEMENT RATE</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div><div class="metric-sub">(likes+comments)/views</div></div>${ttSparkline(mEng,'#3b82f6')}</div>
+    </div>
+  </div>
+  <div id="tt-monthly-top" style="margin-bottom:16px">${renderMonthlyTopVideoInner(videos, ttMonthFilter)}</div>
+  <div class="tt-tabs">
+    <button class="tt-tab${ttActiveTab==='last5'?' active':''}" data-tab="last5" onclick="switchTikTokVideoTab('last5')">Last 5</button>
+    <button class="tt-tab${ttActiveTab==='last20'?' active':''}" data-tab="last20" onclick="switchTikTokVideoTab('last20')">Last 20</button>
+    <span style="margin-left:auto;font-size:10px;color:var(--text3);align-self:center">${videos.length} videos · ${byMonth.length} months</span>
+  </div>
+  <div id="tt-video-table">${renderVideoTableRows(videos.slice(0, tabLimit), videos)}</div>`
 }
 
 function renderVideoTableRows(videos, allVideos) {
@@ -913,24 +1064,73 @@ function renderVideoTableRows(videos, allVideos) {
   }).join('')
 }
 
-function switchTikTokTab(tab) {
+function switchTikTokVideoTab(tab) {
   ttActiveTab = tab
-  const tableEl = document.getElementById('tt-video-table')
-  if (tableEl) {
-    if (tab === 'charts') {
-      tableEl.innerHTML = renderChartsTab(tiktokLiveData.videos)
-    } else {
-      const limit = tab === 'last5' ? 5 : 20
-      tableEl.innerHTML = renderVideoTableRows(
-        tiktokLiveData.videos.slice(0, limit), tiktokLiveData.videos
-      )
-    }
+  const el = document.getElementById('tt-video-table')
+  if (el) {
+    const limit = tab === 'last5' ? 5 : 20
+    el.innerHTML = renderVideoTableRows(tiktokLiveData.videos.slice(0, limit), tiktokLiveData.videos)
   }
-  document.querySelectorAll('.tt-tab').forEach(btn => {
+  document.querySelectorAll('[data-tab="last5"],[data-tab="last20"]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tab === tab)
   })
 }
-window.switchTikTokTab = switchTikTokTab
+window.switchTikTokVideoTab = switchTikTokVideoTab
+
+function switchTikTokMainTab(tab) {
+  ttMainTab = tab
+  const el = document.getElementById('tt-main-content')
+  if (!el || !tiktokLiveData.user) { renderDashboard(false); return }
+  el.innerHTML = tab === 'trends'
+    ? renderTrendsTab(tiktokLiveData.videos)
+    : renderOverviewContent(tiktokLiveData.user, tiktokLiveData.videos)
+  document.querySelectorAll('.tt-main-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab)
+  })
+}
+window.switchTikTokMainTab = switchTikTokMainTab
+
+function switchTikTokChartMetric(metric) {
+  ttChartMetric = metric
+  const el = document.getElementById('tt-main-content')
+  if (el) el.innerHTML = renderTrendsTab(tiktokLiveData.videos)
+}
+window.switchTikTokChartMetric = switchTikTokChartMetric
+
+function switchTikTokChartRange(range) {
+  ttChartRange = range
+  const el = document.getElementById('tt-main-content')
+  if (el) el.innerHTML = renderTrendsTab(tiktokLiveData.videos)
+}
+window.switchTikTokChartRange = switchTikTokChartRange
+
+function setTikTokMonthFilter(value) {
+  ttMonthFilter = value
+  const el = document.getElementById('tt-monthly-top')
+  if (el) el.innerHTML = renderMonthlyTopVideoInner(tiktokLiveData.videos, value)
+}
+window.setTikTokMonthFilter = setTikTokMonthFilter
+
+function showChartTip(evt, text) {
+  let tip = document.getElementById('tt-chart-tip')
+  if (!tip) {
+    tip = document.createElement('div')
+    tip.id = 'tt-chart-tip'
+    tip.style.cssText = 'position:fixed;background:rgba(15,15,15,.92);color:#fff;font-size:10px;line-height:1.4;padding:5px 9px;border-radius:5px;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.3);transition:opacity .1s'
+    document.body.appendChild(tip)
+  }
+  tip.textContent = text
+  tip.style.opacity = '1'
+  tip.style.left = (evt.clientX + 14) + 'px'
+  tip.style.top  = (evt.clientY - 36) + 'px'
+}
+window.showChartTip = showChartTip
+
+function hideChartTip() {
+  const tip = document.getElementById('tt-chart-tip')
+  if (tip) tip.style.opacity = '0'
+}
+window.hideChartTip = hideChartTip
 
 function tiktokBlock(isLoading) {
   const cfg = PLATFORMS.tiktok
@@ -944,59 +1144,17 @@ function tiktokBlock(isLoading) {
     const videos = tiktokLiveData.videos
     const byMonth = groupByMonth(videos)
 
-    // Aggregate totals
-    const totalViews    = videos.reduce((s, v) => s + (v.view_count    || 0), 0)
-    const totalLikes    = videos.reduce((s, v) => s + (v.like_count    || 0), 0)
-    const totalComments = videos.reduce((s, v) => s + (v.comment_count || 0), 0)
-    const avgViews      = videos.length ? Math.round(totalViews / videos.length) : 0
-    const engRate       = totalViews > 0
-      ? ((totalLikes + totalComments) / totalViews * 100).toFixed(2) : '0.00'
-
-    // Monthly sparkline data
-    const mViews    = byMonth.map(m => m.views)
-    const mLikes    = byMonth.map(m => m.likes)
-    const mComments = byMonth.map(m => m.comments)
-    const mAvg      = byMonth.map(m => m.count ? Math.round(m.views / m.count) : 0)
-    const mEng      = byMonth.map(m => m.views > 0 ? +((m.likes+m.comments)/m.views*100).toFixed(2) : 0)
-
-    // Month-over-month delta for tooltips
-    function momDelta(arr) {
-      if (arr.length < 2) return null
-      const prev = arr[arr.length - 2], cur = arr[arr.length - 1]
-      if (!prev) return null
-      return (((cur - prev) / prev) * 100).toFixed(1)
-    }
-    function trendLine(delta) {
-      if (delta === null) return ''
-      return delta >= 0
-        ? `Up ${delta}% from last month.`
-        : `Down ${Math.abs(delta)}% from last month.`
-    }
-
-    const deltaViews = momDelta(mViews)
-    const deltaEng   = momDelta(mEng)
-    const deltaAvg   = momDelta(mAvg)
-
-    // Tooltip texts
-    const tipFollowers = `${ttFmtN(user.follower_count)} total followers. Keep posting daily to accelerate growth.`
-    const tipViews     = `${ttFmtN(totalViews)} views across ${videos.length} videos. ${trendLine(deltaViews)}`
-    const tipLikes     = `Like rate: ${totalViews > 0 ? ((totalLikes/totalViews)*100).toFixed(1) : 0}% of views convert to likes. Industry avg is 3–5%.`
-    const tipComments  = `Comment rate: ${totalViews > 0 ? ((totalComments/totalViews)*100).toFixed(2) : 0}% of views. Comments signal strong audience connection.`
-    const tipAvg       = `${ttFmtN(avgViews)} avg views/video. ${trendLine(deltaAvg)} ${avgViews > 1000 ? 'Solid performance — keep it up.' : 'Hook the first 3 seconds harder to boost this.'}`
-    const tipEng       = `${engRate}% engagement rate. ${+engRate > 5 ? '🔥 Excellent — top tier.' : +engRate > 2 ? '✅ Above average.' : '⚠ Room to improve — add stronger CTAs.'} ${trendLine(deltaEng)}`
-
     const avatarEl = user.avatar_url
       ? `<img src="${ttEscH(user.avatar_url)}" class="tt-avatar" alt="">`
       : `<div class="tt-avatar tt-avatar-placeholder">TT</div>`
 
-    const tabLimit  = ttActiveTab === 'last5' ? 5 : 20
-    const tabContent = ttActiveTab === 'charts'
-      ? renderChartsTab(videos)
-      : renderVideoTableRows(videos.slice(0, tabLimit), videos)
-
     const errorBanner = tiktokLiveData.error
       ? `<div class="tt-error-state">⚠ ${ttEscH(tiktokLiveData.error)}</div>`
       : ''
+
+    const mainContent = ttMainTab === 'trends'
+      ? renderTrendsTab(videos)
+      : renderOverviewContent(user, videos)
 
     return `<div class="platform-section">
       ${errorBanner}
@@ -1012,84 +1170,17 @@ function tiktokBlock(isLoading) {
           ${avatarEl}
           <div>
             <div class="tt-display-name">${ttEscH(user.display_name || 'TikTok Account')}</div>
-            <div class="tt-profile-handle">${videos.length} videos analysed · ${byMonth.length} month${byMonth.length !== 1 ? 's' : ''} of data</div>
+            <div class="tt-profile-handle">${videos.length} videos · ${byMonth.length} month${byMonth.length !== 1 ? 's' : ''} of data</div>
           </div>
         </div>
       </div>
 
-      <div class="ag6" style="margin-bottom:14px">
-        <div class="a-metric" data-tooltip="${tipFollowers}">
-          <div class="metric-label">FOLLOWERS</div>
-          <div class="tt-metric-inner">
-            <div>
-              <div class="metric-val" style="margin-top:4px">${ttFmtN(user.follower_count)}</div>
-              <div class="metric-sub">account total</div>
-            </div>
-          </div>
-        </div>
-        <div class="a-metric" data-tooltip="${tipViews}">
-          <div class="metric-label">TOTAL VIEWS</div>
-          <div class="tt-metric-inner">
-            <div>
-              <div class="metric-val" style="margin-top:4px">${ttFmtN(totalViews)}</div>
-              <div class="metric-sub">all ${videos.length} videos</div>
-            </div>
-            ${ttSparkline(mViews, '#00C2A8')}
-          </div>
-        </div>
-        <div class="a-metric" data-tooltip="${tipLikes}">
-          <div class="metric-label">TOTAL LIKES</div>
-          <div class="tt-metric-inner">
-            <div>
-              <div class="metric-val" style="margin-top:4px">${ttFmtN(totalLikes)}</div>
-              <div class="metric-sub">all videos</div>
-            </div>
-            ${ttSparkline(mLikes, '#f43f5e')}
-          </div>
-        </div>
-        <div class="a-metric" data-tooltip="${tipComments}">
-          <div class="metric-label">TOTAL COMMENTS</div>
-          <div class="tt-metric-inner">
-            <div>
-              <div class="metric-val" style="margin-top:4px">${ttFmtN(totalComments)}</div>
-              <div class="metric-sub">all videos</div>
-            </div>
-            ${ttSparkline(mComments, '#8b5cf6')}
-          </div>
-        </div>
-        <div class="a-metric" data-tooltip="${tipAvg}">
-          <div class="metric-label">AVG VIEWS</div>
-          <div class="tt-metric-inner">
-            <div>
-              <div class="metric-val" style="margin-top:4px">${ttFmtN(avgViews)}</div>
-              <div class="metric-sub">${videos.length} videos total</div>
-            </div>
-            ${ttSparkline(mAvg, '#f59e0b')}
-          </div>
-        </div>
-        <div class="a-metric" data-tooltip="${tipEng}">
-          <div class="metric-label">ENGAGEMENT RATE</div>
-          <div class="tt-metric-inner">
-            <div>
-              <div class="metric-val" style="margin-top:4px">${engRate}%</div>
-              <div class="metric-sub">(likes+comments)/views</div>
-            </div>
-            ${ttSparkline(mEng, '#3b82f6')}
-          </div>
-        </div>
+      <div class="tt-main-tabs">
+        <button class="tt-main-tab${ttMainTab==='overview'?' active':''}" data-tab="overview" onclick="switchTikTokMainTab('overview')">Overview</button>
+        <button class="tt-main-tab${ttMainTab==='trends'?' active':''}" data-tab="trends" onclick="switchTikTokMainTab('trends')">📈 Trends</button>
       </div>
 
-      ${renderMonthlyTopVideos(videos)}
-
-      <div class="tt-tabs">
-        <button class="tt-tab ${ttActiveTab === 'last5'   ? 'active' : ''}" data-tab="last5"   onclick="switchTikTokTab('last5')">Last 5</button>
-        <button class="tt-tab ${ttActiveTab === 'last20'  ? 'active' : ''}" data-tab="last20"  onclick="switchTikTokTab('last20')">Last 20</button>
-        <button class="tt-tab ${ttActiveTab === 'charts'  ? 'active' : ''}" data-tab="charts"  onclick="switchTikTokTab('charts')">📈 Charts</button>
-        <span style="margin-left:auto;font-size:10px;color:var(--text3);align-self:center">${videos.length} videos · ${byMonth.length} months</span>
-      </div>
-      <div id="tt-video-table">
-        ${tabContent}
-      </div>
+      <div id="tt-main-content">${mainContent}</div>
     </div>`
   }
 
@@ -1260,6 +1351,9 @@ function disconnectTikTok() {
   ttOAuthToken   = null
   tiktokLiveData = { user: null, videos: [], error: null }
   ttActiveTab    = 'last5'
+  ttMainTab      = 'overview'
+  ttChartMetric  = 'views'
+  ttChartRange   = 'all'
   renderDashboard(false)
 }
 window.disconnectTikTok = disconnectTikTok
