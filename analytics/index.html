@@ -247,6 +247,54 @@
     .tt-video-stats { display: flex; gap: 10px; flex-wrap: wrap; }
     .tt-video-stat { font-size: 10px; color: var(--text3); font-weight: 500; }
 
+    /* ─── TikTok analytics: 6-col summary grid ── */
+    .ag6 { display: grid; grid-template-columns: repeat(6,1fr); gap: 8px; margin-bottom: 14px; }
+    @media (max-width: 1100px) { .ag6 { grid-template-columns: repeat(3,1fr); } }
+    @media (max-width: 600px)  { .ag6 { grid-template-columns: repeat(2,1fr); } }
+
+    /* ─── Top video highlighted card ── */
+    .tt-top-video-card {
+      display: flex; gap: 12px; align-items: flex-start;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-left: 3px solid #00C2A8; border-radius: var(--radius);
+      padding: 12px; margin-bottom: 14px;
+    }
+    .tt-top-video-badge {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      background: #00C2A8; color: #fff;
+      padding: 2px 8px; border-radius: 10px; margin-bottom: 6px;
+    }
+
+    /* ─── Tab switcher ── */
+    .tt-tabs { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+    .tt-tab {
+      padding: 4px 14px; border-radius: 6px;
+      font-size: 11px; font-weight: 600;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text2); cursor: pointer; transition: all .15s;
+    }
+    .tt-tab.active { background: #00C2A8; color: #fff; border-color: #00C2A8; }
+    .tt-tab:hover:not(.active) { border-color: #00C2A8; color: #00C2A8; }
+
+    /* ─── Video table rows ── */
+    .tt-vt-row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .tt-vt-row:last-child { border-bottom: none; }
+    .tt-vt-thumb { width: 32px; height: 44px; border-radius: 4px; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border); }
+    .tt-vt-meta { flex: 1; min-width: 0; }
+    .tt-vt-title { font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tt-vt-stats { display: flex; gap: 8px; font-size: 10px; color: var(--text3); margin-bottom: 4px; flex-wrap: wrap; }
+    .tt-vt-bar-wrap { height: 3px; background: var(--border); border-radius: 2px; }
+    .tt-vt-bar { height: 3px; background: #00C2A8; border-radius: 2px; transition: width .3s; }
+    .tt-vt-date { font-size: 10px; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
+
+    /* ─── Loading / error states ── */
+    .tt-loading-state { padding: 28px; text-align: center; color: var(--text3); font-size: 12px; }
+    .tt-error-state {
+      padding: 12px 14px; font-size: 12px; color: var(--danger);
+      background: var(--surface2); border: 1px solid var(--danger);
+      border-radius: var(--radius); margin-top: 8px;
+    }
+
     /* ─── TikTok profile card (connected state) ── */
     .tt-profile-card {
       display: flex;
@@ -425,7 +473,8 @@ let ytDataStatus = 'default'   // 'default' | 'live' | 'cached'
 let ttDataStatus = 'default'   // 'default' | 'live' | 'cached'
 let lastRefreshedTime = null
 let ttOAuthToken   = localStorage.getItem('tt_access_token') || null
-let tiktokLiveData = { user: null, videos: [] }
+let tiktokLiveData = { user: null, videos: [], error: null }
+let ttActiveTab    = 'last5'
 
 // ─── TIKTOK OAUTH CONFIG ────────────────────────────────────────
 const TT_CLIENT_KEY    = 'sbawiohwdjglaeadzv'
@@ -607,6 +656,7 @@ function instagramBlock(isLoading) {
   </div>`
 }
 
+// ─── TIKTOK HELPERS ─────────────────────────────────────────────
 function ttEscH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 function ttFmtN(n) {
   if (!n && n !== 0) return '—'
@@ -621,68 +671,177 @@ function ttFmtDate(ts) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function renderVideoTableRows(videos, allVideos) {
+  if (!videos || videos.length === 0) {
+    return '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text3)">No videos found</div>'
+  }
+  const maxViews = Math.max(...allVideos.map(v => v.view_count || 0), 1)
+  return videos.map(v => {
+    const title  = ttEscH(v.title || v.video_description || '(No title)')
+    const barPct = Math.round(((v.view_count || 0) / maxViews) * 100)
+    const thumb  = v.cover_image_url
+      ? `<img src="${ttEscH(v.cover_image_url)}" class="tt-vt-thumb" alt="">`
+      : `<div class="tt-vt-thumb" style="background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3)">▶</div>`
+    return `<div class="tt-vt-row">
+      ${thumb}
+      <div class="tt-vt-meta">
+        <div class="tt-vt-title" title="${title}">${title}</div>
+        <div class="tt-vt-stats">
+          <span>👁 ${ttFmtN(v.view_count)}</span>
+          <span>♥ ${ttFmtN(v.like_count)}</span>
+          <span>💬 ${ttFmtN(v.comment_count)}</span>
+        </div>
+        <div class="tt-vt-bar-wrap"><div class="tt-vt-bar" style="width:${barPct}%"></div></div>
+      </div>
+      <div class="tt-vt-date">${ttFmtDate(v.create_time)}</div>
+    </div>`
+  }).join('')
+}
+
+function switchTikTokTab(tab) {
+  ttActiveTab = tab
+  const tableEl = document.getElementById('tt-video-table')
+  if (tableEl) {
+    const limit = tab === 'last5' ? 5 : 20
+    tableEl.innerHTML = renderVideoTableRows(
+      tiktokLiveData.videos.slice(0, limit), tiktokLiveData.videos
+    )
+  }
+  document.querySelectorAll('.tt-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab)
+  })
+}
+window.switchTikTokTab = switchTikTokTab
+
 function tiktokBlock(isLoading) {
   const cfg = PLATFORMS.tiktok
   const d   = analyticsData.platforms.tiktok
   const c   = cfg.color
   const connected = !!ttOAuthToken && !!tiktokLiveData.user
 
-  // ── Connected state: profile card + video list ───────────────
+  // ── Connected: full analytics dashboard ─────────────────────
   if (connected && !isLoading) {
     const user   = tiktokLiveData.user
     const videos = tiktokLiveData.videos
+
+    // Aggregate stats
+    const totalViews    = videos.reduce((s, v) => s + (v.view_count    || 0), 0)
+    const totalLikes    = videos.reduce((s, v) => s + (v.like_count    || 0), 0)
+    const totalComments = videos.reduce((s, v) => s + (v.comment_count || 0), 0)
+    const avgViews      = videos.length ? Math.round(totalViews / videos.length) : 0
+    const engRate       = totalViews > 0
+      ? ((totalLikes + totalComments) / totalViews * 100).toFixed(2) : '0.00'
+
+    // Top video by views
+    const topVideo = videos.length > 0
+      ? videos.reduce((a, b) => (b.view_count || 0) > (a.view_count || 0) ? b : a)
+      : null
 
     const avatarEl = user.avatar_url
       ? `<img src="${ttEscH(user.avatar_url)}" class="tt-avatar" alt="">`
       : `<div class="tt-avatar tt-avatar-placeholder">TT</div>`
 
-    const profileCard = `
-      <div class="tt-profile-card">
+    const tabLimit  = ttActiveTab === 'last5' ? 5 : 20
+    const tabVideos = videos.slice(0, tabLimit)
+
+    const errorBanner = tiktokLiveData.error
+      ? `<div class="tt-error-state">⚠ ${ttEscH(tiktokLiveData.error)}</div>`
+      : ''
+
+    return `<div class="platform-section">
+      ${errorBanner}
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+        <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+        <span class="data-badge-live" style="margin-left:0">● Live API</span>
+        <button class="refresh-btn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="disconnectTikTok()">Disconnect</button>
+      </div>
+
+      <div class="tt-profile-card" style="margin-bottom:14px">
         <div class="tt-profile-left">
           ${avatarEl}
           <div>
             <div class="tt-display-name">${ttEscH(user.display_name || 'TikTok Account')}</div>
-            <span class="data-badge-live" style="margin-left:0;margin-top:2px;display:inline-flex">● Live API</span>
+            <div class="tt-profile-handle">${videos.length} videos analysed</div>
           </div>
         </div>
-        <button class="refresh-btn" style="font-size:11px;padding:3px 9px;align-self:flex-start" onclick="disconnectTikTok()">Disconnect</button>
       </div>
-      <div class="tt-stats-row">
-        <div class="tt-stat-cell"><div class="tt-stat-val">${ttFmtN(user.follower_count)}</div><div class="tt-stat-label">Followers</div></div>
-        <div class="tt-stat-cell"><div class="tt-stat-val">${ttFmtN(user.following_count)}</div><div class="tt-stat-label">Following</div></div>
-        <div class="tt-stat-cell"><div class="tt-stat-val">${ttFmtN(user.likes_count)}</div><div class="tt-stat-label">Likes</div></div>
-        <div class="tt-stat-cell"><div class="tt-stat-val">${ttFmtN(user.video_count)}</div><div class="tt-stat-label">Videos</div></div>
-      </div>`
 
-    return `<div class="platform-section">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
-        <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      <div class="ag6">
+        <div class="a-metric">
+          <div class="metric-label">FOLLOWERS</div>
+          <div class="metric-val" style="margin-top:4px">${ttFmtN(user.follower_count)}</div>
+          <div class="metric-sub">account total</div>
+        </div>
+        <div class="a-metric">
+          <div class="metric-label">TOTAL VIEWS</div>
+          <div class="metric-val" style="margin-top:4px">${ttFmtN(totalViews)}</div>
+          <div class="metric-sub">all ${videos.length} videos</div>
+        </div>
+        <div class="a-metric">
+          <div class="metric-label">TOTAL LIKES</div>
+          <div class="metric-val" style="margin-top:4px">${ttFmtN(totalLikes)}</div>
+          <div class="metric-sub">all videos</div>
+        </div>
+        <div class="a-metric">
+          <div class="metric-label">TOTAL COMMENTS</div>
+          <div class="metric-val" style="margin-top:4px">${ttFmtN(totalComments)}</div>
+          <div class="metric-sub">all videos</div>
+        </div>
+        <div class="a-metric">
+          <div class="metric-label">AVG VIEWS</div>
+          <div class="metric-val" style="margin-top:4px">${ttFmtN(avgViews)}</div>
+          <div class="metric-sub">${videos.length} videos total</div>
+        </div>
+        <div class="a-metric">
+          <div class="metric-label">ENGAGEMENT RATE</div>
+          <div class="metric-val" style="margin-top:4px">${engRate}%</div>
+          <div class="metric-sub">(likes + comments) / views</div>
+        </div>
       </div>
-      ${profileCard}
-      ${videos.length > 0 ? renderTikTokVideosInline(videos) : ''}
+
+      ${topVideo ? `
+      <div class="tt-top-video-card">
+        ${topVideo.cover_image_url
+          ? `<img src="${ttEscH(topVideo.cover_image_url)}" style="width:56px;height:78px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)" alt="">`
+          : `<div style="width:56px;height:78px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;color:var(--text3)">▶</div>`
+        }
+        <div style="flex:1;min-width:0">
+          <div class="tt-top-video-badge">🏆 Top Video</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:7px;line-height:1.4">
+            ${ttEscH(topVideo.title || topVideo.video_description || '(No title)')}
+          </div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--text2)">👁 <strong>${ttFmtN(topVideo.view_count)}</strong> views</span>
+            <span style="font-size:11px;color:var(--text2)">♥ <strong>${ttFmtN(topVideo.like_count)}</strong> likes</span>
+            <span style="font-size:11px;color:var(--text2)">💬 <strong>${ttFmtN(topVideo.comment_count)}</strong> comments</span>
+            ${topVideo.create_time ? `<span style="font-size:11px;color:var(--text3)">${ttFmtDate(topVideo.create_time)}</span>` : ''}
+          </div>
+        </div>
+      </div>` : ''}
+
+      <div class="tt-tabs">
+        <button class="tt-tab ${ttActiveTab === 'last5'  ? 'active' : ''}" data-tab="last5"  onclick="switchTikTokTab('last5')">Last 5 Videos</button>
+        <button class="tt-tab ${ttActiveTab === 'last20' ? 'active' : ''}" data-tab="last20" onclick="switchTikTokTab('last20')">Last 20 Videos</button>
+        <span style="margin-left:auto;font-size:10px;color:var(--text3);align-self:center">${videos.length} total fetched</span>
+      </div>
+      <div id="tt-video-table">
+        ${renderVideoTableRows(tabVideos, videos)}
+      </div>
     </div>`
   }
 
-  // ── Disconnected / loading state: metrics + connect button ───
+  // ── Disconnected / loading ───────────────────────────────────
   let statusBadge = ''
   if (!isLoading) {
-    if (ttDataStatus === 'live') {
-      statusBadge = '<span class="data-badge-live">● CSV</span>'
-    } else if (ttDataStatus === 'cached') {
-      statusBadge = '<span class="data-badge-cached">Export CSV to update</span>'
-    }
+    if (ttDataStatus === 'live')   statusBadge = '<span class="data-badge-live">● CSV</span>'
+    else if (ttDataStatus === 'cached') statusBadge = '<span class="data-badge-cached">Export CSV to update</span>'
   }
-
   const oauthBtn = isLoading ? '' :
     `<button class="tt-connect-btn" style="margin-left:auto" onclick="startTikTokOAuth()">
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M34.1 7C33.3 10.4 30 13 26.5 13.2V19.8C29.3 19.6 31.8 18.6 33.8 17v10.3C33.8 33.8 28.6 39 22.1 39c-6.5 0-11.7-5.2-11.7-11.7 0-6.3 5-11.4 11.2-11.7v6.6c-2.8.3-5 2.6-5 5.2 0 2.9 2.3 5.2 5.2 5.2 3 0 5.5-2.5 5.5-5.5V7h6.8z" fill="white"/></svg>
       Connect TikTok
     </button>`
-
-  const tiktokNote = ttDataStatus === 'cached' && !isLoading
-    ? `<div class="tiktok-csv-link"><a href="https://studio.tiktok.com" target="_blank" rel="noopener">Export from TikTok Studio →</a></div>`
-    : ''
 
   return `<div class="platform-section">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
@@ -699,33 +858,7 @@ function tiktokBlock(isLoading) {
     <div class="ag3" style="margin-bottom:14px">
       ${metricCard('ENGAGEMENT RATE', d.engagement_rate + '%', d.engagement_change, null, c, isLoading)}
     </div>
-    ${tiktokNote}
     ${goalsCard(d.goals, c)}
-  </div>`
-}
-
-function renderTikTokVideosInline(videos) {
-  return `<div class="tt-video-section">
-    <div class="tt-video-section-title">Recent Videos — Last 5</div>
-    ${videos.map(v => {
-      const title = ttEscH(v.title || v.video_description || '(No title)')
-      const date  = ttFmtDate(v.create_time)
-      const thumb = v.cover_image_url
-        ? `<img src="${ttEscH(v.cover_image_url)}" style="width:40px;height:56px;border-radius:5px;object-fit:cover;border:1px solid var(--border);flex-shrink:0" alt="">`
-        : `<div class="tt-video-thumb-placeholder">▶</div>`
-      return `<div class="tt-video-item">
-        ${thumb}
-        <div style="flex:1;min-width:0">
-          <div class="tt-video-title">${title}</div>
-          <div class="tt-video-stats">
-            <span class="tt-video-stat">👁 ${ttFmtN(v.view_count)}</span>
-            <span class="tt-video-stat">♥ ${ttFmtN(v.like_count)}</span>
-            <span class="tt-video-stat">💬 ${ttFmtN(v.comment_count)}</span>
-            ${date ? `<span class="tt-video-stat" style="margin-left:auto">${date}</span>` : ''}
-          </div>
-        </div>
-      </div>`
-    }).join('')}
   </div>`
 }
 
@@ -862,8 +995,9 @@ window.startTikTokOAuth = startTikTokOAuth
 function disconnectTikTok() {
   localStorage.removeItem('tt_access_token')
   localStorage.removeItem('tt_state')
-  ttOAuthToken = null
-  tiktokLiveData = { user: null, videos: [] }
+  ttOAuthToken   = null
+  tiktokLiveData = { user: null, videos: [], error: null }
+  ttActiveTab    = 'last5'
   renderDashboard(false)
 }
 window.disconnectTikTok = disconnectTikTok
@@ -896,54 +1030,65 @@ async function fetchTikTokUserInfo(token) {
   return data.data?.user || {}
 }
 
-async function fetchTikTokVideoList(token) {
-  const fields = 'id,title,video_description,cover_image_url,view_count,like_count,comment_count,create_time'
-  const res = await fetch(`${TT_API_BASE}/video/list/?fields=${fields}`, {
-    method:  'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ max_count: 5 })
-  })
-  if (!res.ok) throw new Error(`Video list failed (${res.status})`)
-  const data = await res.json()
-  if (data.error && data.error.code !== 'ok') throw new Error(data.error.message)
-  return data.data?.videos || []
+async function fetchAllTikTokVideos(token) {
+  const fields  = 'id,title,video_description,cover_image_url,view_count,like_count,comment_count,create_time'
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+  let allVideos = [], cursor = 0, hasMore = true
+  while (hasMore) {
+    const res = await fetch(`${TT_API_BASE}/video/list/?fields=${fields}`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ max_count: 20, cursor })
+    })
+    if (!res.ok) throw new Error(`Video list failed (${res.status})`)
+    const data = await res.json()
+    if (data.error && data.error.code !== 'ok') throw new Error(data.error.message)
+    const page = data.data?.videos || []
+    allVideos = allVideos.concat(page)
+    hasMore   = data.data?.has_more === true
+    cursor    = data.data?.cursor   || 0
+    const el = document.getElementById('tt-loading-msg')
+    if (el) el.textContent = `Loading TikTok analytics... ${allVideos.length} videos`
+    if (!hasMore || page.length === 0) break
+  }
+  return allVideos.sort((a, b) => (b.create_time || 0) - (a.create_time || 0))
 }
 
 async function handleTikTokCallback(code) {
   try {
     const tokenData = await exchangeTikTokCode(code)
-    console.log('[TikTok] token exchange response:', tokenData)
-    console.log('[TikTok] scopes granted by TikTok:', tokenData.scope)
     if (!tokenData.access_token) throw new Error('No access_token in response')
-    const [user, videos] = await Promise.all([
+    const [user, allVideos] = await Promise.all([
       fetchTikTokUserInfo(tokenData.access_token),
-      fetchTikTokVideoList(tokenData.access_token)
+      fetchAllTikTokVideos(tokenData.access_token)
     ])
-    // Persist token only after API calls confirm it works
     localStorage.setItem('tt_access_token', tokenData.access_token)
-    ttOAuthToken = tokenData.access_token
+    ttOAuthToken          = tokenData.access_token
     tiktokLiveData.user   = user
-    tiktokLiveData.videos = videos
+    tiktokLiveData.videos = allVideos
+    tiktokLiveData.error  = null
   } catch (err) {
     console.error('TikTok OAuth callback error:', err)
     localStorage.removeItem('tt_access_token')
-    ttOAuthToken = null
+    ttOAuthToken         = null
+    tiktokLiveData.error = err.message
   }
 }
 
 async function loadTikTokFromSession() {
   if (!ttOAuthToken) return
   try {
-    const [user, videos] = await Promise.all([
+    const [user, allVideos] = await Promise.all([
       fetchTikTokUserInfo(ttOAuthToken),
-      fetchTikTokVideoList(ttOAuthToken)
+      fetchAllTikTokVideos(ttOAuthToken)
     ])
     tiktokLiveData.user   = user
-    tiktokLiveData.videos = videos
+    tiktokLiveData.videos = allVideos
+    tiktokLiveData.error  = null
   } catch (err) {
     console.error('TikTok session load error:', err)
     localStorage.removeItem('tt_access_token')
-    ttOAuthToken = null
+    ttOAuthToken         = null
+    tiktokLiveData.error = err.message
   }
 }
 
@@ -954,6 +1099,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const ttCode = urlParams.get('code')
   if (ttCode) {
     history.replaceState({}, '', window.location.pathname)
+    document.getElementById('analytics-root').innerHTML =
+      `<div style="padding:56px 20px;text-align:center">
+         <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px" id="tt-loading-msg">Connecting to TikTok...</div>
+         <div style="font-size:11px;color:var(--text3)">Fetching all videos — this may take a moment</div>
+       </div>`
     await handleTikTokCallback(ttCode)
   } else if (ttOAuthToken) {
     await loadTikTokFromSession()
