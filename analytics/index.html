@@ -779,7 +779,7 @@ function startTikTokOAuth() {
   sessionStorage.setItem('tt_state', state)
   const params = new URLSearchParams({
     client_key:    TT_CLIENT_KEY,
-    scope:         'user.info.basic,video.list',
+    scope:         'user.info.basic,user.info.stats,video.list',
     response_type: 'code',
     redirect_uri:  TT_REDIRECT_URI,
     state
