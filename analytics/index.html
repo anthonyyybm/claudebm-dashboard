@@ -820,7 +820,11 @@ async function fetchTikTokUserInfo(token) {
   const res = await fetch(`${TT_API_BASE}/user/info/?fields=${fields}`, {
     headers: reqHeaders
   })
-  if (!res.ok) throw new Error(`User info failed (${res.status})`)
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => res.text())
+    console.error('[TikTok] user/info error body:', errBody)
+    throw new Error(`User info failed (${res.status}): ${JSON.stringify(errBody)}`)
+  }
   const data = await res.json()
   if (data.error && data.error.code !== 'ok') throw new Error(data.error.message)
   return data.data?.user || {}
