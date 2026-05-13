@@ -375,7 +375,7 @@
     }
     .tt-chart-wrap {
       background: var(--surface2); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 14px 10px 8px;
+      border-radius: var(--radius); padding: 10px 8px 6px;
       overflow: hidden;
     }
 
@@ -867,7 +867,7 @@ function getChartData(videos, range) {
 
 function renderLineChart(data, valueKey, color) {
   if (!data || data.length < 2) return '<div class="tt-loading-state">Not enough data for this range.</div>'
-  const W = 500, H = 96, PL = 30, PR = 6, PT = 8, PB = 20
+  const W = 500, H = 80, PL = 24, PR = 4, PT = 6, PB = 16
   const vals = data.map(m => m[valueKey] || 0)
   const hi = Math.max(...vals, 1)
   const cw = W - PL - PR, ch = H - PT - PB
@@ -882,22 +882,22 @@ function renderLineChart(data, valueKey, color) {
   }
   const area = `${line} L${pts[pts.length-1][0].toFixed(1)},${H-PB} L${pts[0][0].toFixed(1)},${H-PB}Z`
   const xLabels = data.map((m, i) =>
-    `<text x="${pts[i][0].toFixed(1)}" y="${H-PB+13}" text-anchor="middle" font-size="7" fill="var(--text3)" font-family="system-ui">${m.label}</text>`
+    `<text x="${pts[i][0].toFixed(1)}" y="${H-PB+11}" text-anchor="middle" font-size="5" fill="var(--text3)" font-family="system-ui">${m.label}</text>`
   ).join('')
   const yTicks = [0, 0.5, 1].map(t => {
     const y = (PT + (1 - t) * ch).toFixed(1)
     const v = Math.round(hi * t)
     const lbl = v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(1)+'K' : String(v)
-    return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
-            <text x="${PL-3}" y="${(+y+2.5).toFixed(1)}" text-anchor="end" font-size="7" fill="var(--text3)" font-family="system-ui">${lbl}</text>`
+    return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
+            <text x="${PL-3}" y="${(+y+2).toFixed(1)}" text-anchor="end" font-size="5" fill="var(--text3)" font-family="system-ui">${lbl}</text>`
   }).join('')
   const dots = pts.map((pt, i) => {
     const v = data[i][valueKey] || 0
     const fv = valueKey === 'eng' ? v.toFixed(2)+'%' : (v >= 1000 ? (v/1000).toFixed(1)+'K' : String(v))
     const tip = (data[i].label + ': ' + fv).replace(/'/g, '&#39;')
     return `<g onmouseover="showChartTip(event,'${tip}')" onmouseout="hideChartTip()" style="cursor:pointer">
-      <circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="8" fill="transparent"/>
-      <circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="3" fill="${color}" stroke="var(--surface2)" stroke-width="1.5"/>
+      <circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="7" fill="transparent"/>
+      <circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="2.5" fill="${color}" stroke="var(--surface2)" stroke-width="1.5"/>
     </g>`
   }).join('')
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">
@@ -1492,7 +1492,8 @@ async function loadTikTokFromSession() {
 
 // ─── LIVE DATA LOAD ─────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  // Handle TikTok OAuth callback (?code=...) or load from session token
+  renderDashboard(true) // show skeletons immediately — never a blank page
+
   const urlParams = new URLSearchParams(window.location.search)
   const ttCode = urlParams.get('code')
   if (ttCode) {
