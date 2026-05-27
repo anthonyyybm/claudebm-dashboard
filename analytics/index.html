@@ -7,7 +7,30 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='14' fill='%231a7a4a'/><text y='.9em' font-size='52' font-family='system-ui' font-weight='700' fill='white' x='12' y='68'>BM</text></svg>">
   <link rel="stylesheet" href="../assets/css/main.css">
   <script src="../assets/js/analytics-api.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
+    /* ─── MoverMetrics dark palette — always dark on this page ── */
+    :root {
+      --bg:           #0d1117 !important;
+      --surface:      #161b22 !important;
+      --surface2:     #21262d !important;
+      --border:       #30363d !important;
+      --text:         #e6edf3 !important;
+      --text2:        #8b949e !important;
+      --text3:        #484f58 !important;
+      --accent:       #22c55e !important;
+      --accent-hover: #16a34a !important;
+      --accent-light: #0d2818 !important;
+      --accent-text:  #4ade80 !important;
+      --danger:       #f85149 !important;
+      --danger-light: #2d1b1b !important;
+      --amber:        #fbbf24 !important;
+      --amber-light:  #2d2010 !important;
+      --success:      #22c55e !important;
+      --success-light:#0d2818 !important;
+      --shadow:       0 1px 4px rgba(0,0,0,.25) !important;
+    }
+
     /* ─── Analytics-specific ─────────────────────────────────── */
     .a-metric {
       background: var(--surface);
@@ -17,7 +40,7 @@
       box-shadow: var(--shadow);
       transition: transform .15s, box-shadow .15s;
     }
-    .a-metric:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,.1); }
+    .a-metric:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,.2); }
     .a-chg-pos { font-size: 11px; font-weight: 600; color: var(--success); margin-top: 3px; }
     .a-chg-neg { font-size: 11px; font-weight: 600; color: var(--danger);  margin-top: 3px; }
     .a-chg-nil { font-size: 11px; color: var(--text3); margin-top: 3px; }
@@ -39,213 +62,109 @@
     @media (max-width: 900px) { .ag3 { grid-template-columns: repeat(2,1fr); } }
     @media (max-width: 480px) { .ag3 { grid-template-columns: 1fr; } }
 
-    /* ─── Skeleton shimmer override for analytics ── */
+    /* ─── Skeleton shimmer ── */
     .skeleton {
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
       background-size: 200% 100%;
       animation: shimmer 1.5s infinite;
       border-radius: 4px;
       height: 2rem;
       width: 60%;
     }
-    body.dark .skeleton {
-      background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
-      background-size: 200% 100%;
-    }
     @keyframes shimmer {
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
 
-    /* ─── Fade-in for loaded values ── */
+    /* ─── Fade-in ── */
     .metric-fade-in { animation: fadeIn .4s ease; }
 
-    /* ─── Header row with refresh ── */
+    /* ─── Header row ── */
     .analytics-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 18px;
-      flex-wrap: wrap;
-      gap: 10px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 18px; flex-wrap: wrap; gap: 10px;
     }
     .analytics-header-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     }
-    .last-refreshed {
-      font-size: 11px;
-      color: var(--text3);
-    }
+    .last-refreshed { font-size: 11px; color: var(--text3); }
     .refresh-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 500;
-      border: 1px solid var(--border);
-      color: var(--text2);
-      background: var(--surface);
-      cursor: pointer;
-      transition: all .15s;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border); color: var(--text2);
+      background: var(--surface); cursor: pointer; transition: all .15s;
     }
     .refresh-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent-text); }
     .refresh-btn.spinning .refresh-icon { display: inline-block; animation: spin .8s linear infinite; }
+    .refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-    /* ─── Data source badge ── */
+    /* ─── Status badges ── */
     .data-badge-cached {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 7px;
-      border-radius: 10px;
-      font-size: 10px;
-      font-weight: 600;
-      background: var(--amber-light);
-      color: var(--amber);
-      border: 1px solid var(--amber);
-      margin-left: 8px;
-      vertical-align: middle;
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600;
+      background: var(--amber-light); color: var(--amber); border: 1px solid var(--amber);
+      margin-left: 8px; vertical-align: middle;
     }
     .data-badge-live {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 7px;
-      border-radius: 10px;
-      font-size: 10px;
-      font-weight: 600;
-      background: var(--success-light);
-      color: var(--success);
-      border: 1px solid var(--success);
-      margin-left: 8px;
-      vertical-align: middle;
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600;
+      background: var(--success-light); color: var(--success); border: 1px solid var(--success);
+      margin-left: 8px; vertical-align: middle;
     }
 
     /* ─── Instagram coming soon ── */
-    .platform-section.coming-soon-section {
-      position: relative;
-    }
+    .platform-section.coming-soon-section { position: relative; }
     .coming-soon-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(255,255,255,0.45);
-      border-radius: var(--radius);
-      pointer-events: none;
-      z-index: 1;
-    }
-    body.dark .coming-soon-overlay {
-      background: rgba(15,20,16,0.45);
+      position: absolute; inset: 0;
+      background: rgba(13,17,23,0.45);
+      border-radius: var(--radius); pointer-events: none; z-index: 1;
     }
     .coming-soon-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 10px;
-      font-weight: 600;
-      background: var(--amber-light);
-      color: var(--amber);
-      border: 1px solid var(--amber);
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600;
+      background: var(--amber-light); color: var(--amber); border: 1px solid var(--amber);
       margin-left: 8px;
     }
     .coming-soon-checklist {
-      margin-top: 12px;
-      padding: 12px 14px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
+      margin-top: 12px; padding: 12px 14px;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
     }
-    .check-item {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 12px;
-      padding: 4px 0;
-      color: var(--text3);
-    }
+    .check-item { display: flex; align-items: center; gap: 7px; font-size: 12px; padding: 4px 0; color: var(--text3); }
     .check-item.done { color: var(--success); }
     .check-item.pending { color: var(--text3); }
 
-    /* ─── TikTok CSV link ── */
-    .tiktok-csv-note {
-      font-size: 11px;
-      color: var(--text3);
-      margin-top: 4px;
-    }
-    .tiktok-csv-link {
-      font-size: 11px;
-      color: var(--accent);
-      text-decoration: underline;
-      margin-top: 2px;
-      display: inline-block;
-    }
-
     /* ─── TikTok OAuth connect button ── */
     .tt-connect-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 600;
-      background: #010101;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      transition: opacity .15s;
-      letter-spacing: .2px;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+      background: #010101; color: #fff; border: none; cursor: pointer;
+      transition: opacity .15s; letter-spacing: .2px;
     }
     .tt-connect-btn:hover { opacity: .82; }
     .tt-connect-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
 
-    /* ─── TikTok inline video rows ── */
+    /* ─── TikTok status banners ── */
+    .tt-status-live {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 10px 12px; margin-bottom: 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); font-size: 11px;
+    }
+    .tt-status-expired {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 10px 12px; margin-bottom: 12px;
+      background: var(--surface2); border: 1px solid var(--amber);
+      border-radius: var(--radius); font-size: 11px;
+    }
+    .tt-status-note { font-size: 10px; color: var(--text3); }
+
+    /* ─── TikTok video rows ── */
     .tt-video-section { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
     .tt-video-section-title {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: .6px;
-      color: var(--text3);
-      font-weight: 700;
-      margin-bottom: 8px;
+      font-size: 10px; text-transform: uppercase; letter-spacing: .6px;
+      color: var(--text3); font-weight: 700; margin-bottom: 8px;
     }
-    .tt-video-item {
-      display: flex;
-      gap: 10px;
-      align-items: flex-start;
-      padding: 9px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .tt-video-item:last-child { border-bottom: none; }
-    .tt-video-thumb-placeholder {
-      width: 40px; height: 56px;
-      border-radius: 5px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      color: var(--text3);
-      font-size: 14px;
-    }
-    .tt-video-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 5px;
-      line-height: 1.4;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .tt-video-stats { display: flex; gap: 10px; flex-wrap: wrap; }
-    .tt-video-stat { font-size: 10px; color: var(--text3); font-weight: 500; }
 
     /* ─── TikTok analytics: 6-col summary grid ── */
     .ag6 { display: grid; grid-template-columns: repeat(6,1fr); gap: 8px; margin-bottom: 14px; }
@@ -261,15 +180,13 @@
     }
     .tt-top-video-badge {
       display: inline-block; font-size: 10px; font-weight: 700;
-      background: #00C2A8; color: #fff;
-      padding: 2px 8px; border-radius: 10px; margin-bottom: 6px;
+      background: #00C2A8; color: #fff; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px;
     }
 
     /* ─── Tab switcher ── */
     .tt-tabs { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
     .tt-tab {
-      padding: 4px 14px; border-radius: 6px;
-      font-size: 11px; font-weight: 600;
+      padding: 4px 14px; border-radius: 6px; font-size: 11px; font-weight: 600;
       border: 1px solid var(--border); background: var(--surface);
       color: var(--text2); cursor: pointer; transition: all .15s;
     }
@@ -299,10 +216,8 @@
     .tt-loader-wrap { padding: 60px 20px; text-align: center; }
     .tt-spinner {
       width: 36px; height: 36px; margin: 0 auto 14px;
-      border: 3px solid var(--border);
-      border-top-color: #00C2A8;
-      border-radius: 50%;
-      animation: ttSpin .75s linear infinite;
+      border: 3px solid var(--border); border-top-color: #00C2A8;
+      border-radius: 50%; animation: ttSpin .75s linear infinite;
     }
     @keyframes ttSpin { to { transform: rotate(360deg); } }
     .tt-loader-msg { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 4px; }
@@ -314,25 +229,23 @@
       content: attr(data-tooltip);
       position: absolute; bottom: calc(100% + 8px); left: 50%;
       transform: translateX(-50%);
-      background: rgba(15,15,15,.92); color: #fff;
+      background: rgba(22,27,34,.96); color: #e6edf3;
       font-size: 10px; line-height: 1.5; font-weight: 400;
       padding: 6px 10px; border-radius: 6px;
       width: 180px; text-align: center;
       pointer-events: none; opacity: 0;
       transition: opacity .18s; z-index: 300;
-      white-space: normal; box-shadow: 0 2px 8px rgba(0,0,0,.25);
+      white-space: normal; box-shadow: 0 2px 8px rgba(0,0,0,.4);
     }
     [data-tooltip]::after {
       content: ''; position: absolute; bottom: calc(100% + 3px); left: 50%;
       transform: translateX(-50%);
-      border: 4px solid transparent; border-top-color: rgba(15,15,15,.92);
+      border: 4px solid transparent; border-top-color: rgba(22,27,34,.96);
       pointer-events: none; opacity: 0; transition: opacity .18s; z-index: 300;
     }
     [data-tooltip]:hover::before, [data-tooltip]:hover::after { opacity: 1; }
-    body.dark [data-tooltip]::before { background: rgba(50,50,50,.97); border-top-color: rgba(50,50,50,.97); }
-    body.dark [data-tooltip]::after  { border-top-color: rgba(50,50,50,.97); }
 
-    /* ─── Monthly top videos horizontal scroll ── */
+    /* ─── Monthly top videos ── */
     .tt-monthly-scroll {
       display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px;
       scrollbar-width: thin; scrollbar-color: var(--border) transparent;
@@ -346,40 +259,27 @@
     }
     .tt-monthly-label {
       font-size: 9px; font-weight: 700; color: #00C2A8;
-      letter-spacing: .5px; text-transform: uppercase;
-      padding: 6px 8px 4px;
+      letter-spacing: .5px; text-transform: uppercase; padding: 6px 8px 4px;
     }
-    .tt-monthly-thumb {
-      width: 100%; aspect-ratio: 9/16; object-fit: cover;
-      display: block;
-    }
+    .tt-monthly-thumb { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; }
     .tt-monthly-thumb-placeholder {
-      width: 100%; aspect-ratio: 9/16;
-      background: var(--surface); display: flex;
-      align-items: center; justify-content: center;
+      width: 100%; aspect-ratio: 9/16; background: var(--surface);
+      display: flex; align-items: center; justify-content: center;
       font-size: 18px; color: var(--text3);
     }
     .tt-monthly-info { padding: 7px 8px 8px; }
     .tt-monthly-title {
-      font-size: 9px; font-weight: 600; color: var(--text);
-      line-height: 1.35; margin-bottom: 5px;
+      font-size: 9px; font-weight: 600; color: var(--text); line-height: 1.35; margin-bottom: 5px;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
     .tt-monthly-stats { display: flex; flex-direction: column; gap: 2px; font-size: 9px; color: var(--text3); }
 
     /* ─── Charts tab ── */
     .tt-chart-block { margin-bottom: 18px; }
-    .tt-chart-label {
-      font-size: 11px; font-weight: 700; color: var(--text2);
-      text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px;
-    }
-    .tt-chart-wrap {
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 10px 8px 6px;
-      overflow: hidden;
-    }
+    .tt-chart-label { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+    .tt-chart-wrap { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 8px 6px; overflow: hidden; }
 
-    /* ─── Metric card with right sparkline layout ── */
+    /* ─── Metric card with sparkline ── */
     .tt-metric-inner { display: flex; justify-content: space-between; align-items: flex-end; gap: 6px; }
     .tt-metric-inner svg { flex-shrink: 0; align-self: flex-end; }
 
@@ -397,42 +297,26 @@
     /* ─── Chart time-range filter ── */
     .tt-range-wrap { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; }
     .tt-range-btn {
-      padding: 3px 10px; border-radius: 5px;
-      font-size: 10px; font-weight: 600;
+      padding: 3px 10px; border-radius: 5px; font-size: 10px; font-weight: 600;
       border: 1px solid var(--border); background: var(--surface);
       color: var(--text3); cursor: pointer; transition: all .15s;
     }
     .tt-range-btn.active { background: var(--surface2); border-color: var(--text2); color: var(--text); }
     .tt-range-btn:hover:not(.active) { border-color: var(--text2); color: var(--text2); }
 
-    /* ─── TikTok profile card (connected state) ── */
+    /* ─── TikTok profile card ── */
     .tt-profile-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 10px;
     }
     .tt-profile-left { display: flex; align-items: center; gap: 10px; }
-    .tt-avatar {
-      width: 48px; height: 48px; border-radius: 50%;
-      object-fit: cover; border: 2px solid var(--border); flex-shrink: 0;
-    }
-    .tt-avatar-placeholder {
-      background: #00C2A8; color: #fff;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px; font-weight: 700;
-    }
+    .tt-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); flex-shrink: 0; }
+    .tt-avatar-placeholder { background: #00C2A8; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
     .tt-display-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
     .tt-profile-handle { font-size: 11px; color: var(--text3); }
-    .tt-stats-row {
-      display: grid; grid-template-columns: repeat(4, 1fr);
-      gap: 8px; margin-bottom: 14px;
-    }
+    .tt-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
     @media (max-width: 480px) { .tt-stats-row { grid-template-columns: repeat(2, 1fr); } }
     .tt-stat-cell {
       background: var(--surface2); border: 1px solid var(--border);
@@ -441,58 +325,29 @@
     .tt-stat-val { font-size: 16px; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 3px; }
     .tt-stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); font-weight: 600; }
 
-    /* ─── Social media top card ── */
-    .social-top-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      box-shadow: var(--shadow);
-      margin-bottom: 20px;
-    }
-    .social-top-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-    .social-top-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--text);
-      text-transform: uppercase;
-      letter-spacing: .5px;
-    }
-    .social-platforms-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-    }
+    /* ─── Social overview top card ── */
+    .social-top-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 20px; }
+    .social-top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .social-top-title { font-size: 13px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .5px; }
+    .social-platforms-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     @media (max-width: 600px) { .social-platforms-row { grid-template-columns: 1fr; } }
     .social-platform-cell {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 8px;
     }
-    .social-platform-cell.coming-soon-cell {
-      opacity: 0.55;
-      filter: grayscale(0.2);
-    }
-    .social-cell-badge {
-      width: 28px; height: 28px;
-      border-radius: 7px;
-      display: flex; align-items: center; justify-content: center;
-      color: #fff; font-size: 9px; font-weight: 700;
-      letter-spacing: .4px; flex-shrink: 0;
-    }
+    .social-platform-cell.coming-soon-cell { opacity: 0.45; filter: grayscale(0.2); }
+    .social-cell-badge { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 9px; font-weight: 700; letter-spacing: .4px; flex-shrink: 0; }
     .social-cell-info { min-width: 0; }
     .social-cell-name { font-size: 11px; color: var(--text3); margin-bottom: 2px; }
     .social-cell-val { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1; }
     .social-cell-sub { font-size: 10px; color: var(--text3); margin-top: 1px; }
+
+    /* ─── Feature card style (MoverMetrics) on section headers ── */
+    .section-header-accent {
+      display: inline-block; width: 3px; height: 18px;
+      background: var(--accent); border-radius: 2px; margin-right: 8px; vertical-align: middle;
+    }
   </style>
 </head>
 <body>
@@ -503,13 +358,12 @@
     <div class="logo-mark">BM</div>
     <div>
       <span class="logo-text">Boosted Movers</span>
-      <span class="logo-sub">Content Production</span>
+      <span class="logo-sub">Analytics</span>
     </div>
   </div>
   <div class="topbar-right">
     <a href="../index.html" class="btn btn-ghost" style="text-decoration:none;font-size:12px">← Dashboard</a>
     <div class="time-display" id="time-display">—</div>
-    <button class="dark-toggle" id="dark-toggle">🌙</button>
   </div>
 </header>
 
@@ -519,83 +373,125 @@
 </main>
 
 <script>
+// ─── FORCE DARK MODE ─────────────────────────────────────────────
+document.body.classList.add('dark')
+
+// ─── SUPABASE CLIENT ─────────────────────────────────────────────
+const SUPABASE_URL     = 'https://bmtbzcnrlojacvafyrxi.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtdGJ6Y25ybG9qYWN2YWZ5cnhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMDk0MDgsImV4cCI6MjA4OTc4NTQwOH0.wVJas9i0sx3oq3A4BNh2cw5iy4Xgxdb6JDA-68Tw_IQ'
+const { createClient } = supabase
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// ─── SUPABASE TOKEN FUNCTIONS ────────────────────────────────────
+async function sbGetToken() {
+  const { data, error } = await sb.from('tiktok_tokens')
+    .select('*').eq('account_name', 'boosted_movers').maybeSingle()
+  if (error) console.error('[sb] getToken error:', error)
+  return data
+}
+
+async function sbSaveToken(access_token, open_id) {
+  const now = new Date().toISOString()
+  const { error } = await sb.from('tiktok_tokens').upsert({
+    account_name: 'boosted_movers',
+    access_token,
+    open_id: open_id || null,
+    updated_at: now,
+    created_at: now
+  }, { onConflict: 'account_name' })
+  if (error) console.error('[sb] saveToken error:', error)
+}
+
+async function sbDeleteToken() {
+  const { error } = await sb.from('tiktok_tokens')
+    .delete().eq('account_name', 'boosted_movers')
+  if (error) console.error('[sb] deleteToken error:', error)
+}
+
+async function sbGetCache() {
+  const { data, error } = await sb.from('tiktok_cache')
+    .select('*').eq('account_name', 'boosted_movers').maybeSingle()
+  if (error) console.error('[sb] getCache error:', error)
+  return data
+}
+
+async function sbSaveCache(user_data, videos_data) {
+  const now = new Date().toISOString()
+  const { error } = await sb.from('tiktok_cache').upsert({
+    account_name: 'boosted_movers',
+    user_data,
+    videos_data,
+    last_fetched_at: now,
+    updated_at: now
+  }, { onConflict: 'account_name' })
+  if (error) console.error('[sb] saveCache error:', error)
+}
+
+function isTokenExpired(tokenRow) {
+  if (!tokenRow?.updated_at) return true
+  return (Date.now() - new Date(tokenRow.updated_at).getTime()) > 24 * 3600 * 1000
+}
+
 // ─── DATA LAYER ─────────────────────────────────────────────────
 const analyticsData = {
-  week_label: "W3 April",
+  week_label:   "W3 April",
   last_updated: "April 15, 2026",
   platforms: {
     instagram: {
-      followers: 1362,
-      followers_change: 2.0,
-      avg_views: 580,
-      avg_views_change: 11.5,
-      posts_this_week: 3,
-      posts_change: -25.0,
-      engagement_rate: 3.3,
-      engagement_change: 6.5,
+      followers: 1362, followers_change: 2.0,
+      avg_views: 580,  avg_views_change: 11.5,
+      posts_this_week: 3, posts_change: -25.0,
+      engagement_rate: 3.3, engagement_change: 6.5,
       weekly_data: {
-        followers: [1280, 1295, 1310, 1325, 1340, 1352, 1362],
-        views: [420, 380, 510, 490, 530, 560, 580]
+        followers: [1280,1295,1310,1325,1340,1352,1362],
+        views: [420,380,510,490,530,560,580]
       },
-      goals: [
-        { label: "3 reels with 1,000+ views", current: 1, target: 3 }
-      ]
+      goals: [{ label: "3 reels with 1,000+ views", current: 1, target: 3 }]
     },
     youtube: {
-      subscribers: 122,
-      subscribers_change: 6.1,
-      avg_views: 385,
-      avg_views_change: 13.2,
-      videos_this_week: 2,
-      videos_change: -33.3,
-      engagement_rate: 2.7,
-      engagement_change: 8.0,
+      subscribers: 122, subscribers_change: 6.1,
+      avg_views: 385,   avg_views_change: 13.2,
+      videos_this_week: 2, videos_change: -33.3,
+      engagement_rate: 2.7, engagement_change: 8.0,
       weekly_data: {
-        subscribers: [98, 103, 108, 112, 116, 119, 122],
-        views: [290, 310, 340, 355, 360, 372, 385]
+        subscribers: [98,103,108,112,116,119,122],
+        views: [290,310,340,355,360,372,385]
       },
-      goals: [
-        { label: "3 videos with 1,000+ views", current: 0, target: 3 }
-      ]
+      goals: [{ label: "3 videos with 1,000+ views", current: 0, target: 3 }]
     },
     tiktok: {
-      followers: 34,
-      followers_change: 9.7,
-      avg_views: 750,
-      avg_views_change: 8.7,
-      videos_this_week: 4,
-      videos_change: -20.0,
-      engagement_rate: 4.6,
-      engagement_change: 4.5,
+      followers: 34, followers_change: 9.7,
+      avg_views: 750, avg_views_change: 8.7,
+      videos_this_week: 4, videos_change: -20.0,
+      engagement_rate: 4.6, engagement_change: 4.5,
       weekly_data: {
-        followers: [22, 24, 27, 29, 31, 33, 34],
-        views: [580, 610, 650, 690, 710, 730, 750]
+        followers: [22,24,27,29,31,33,34],
+        views: [580,610,650,690,710,730,750]
       },
-      goals: [
-        { label: "50 followers", current: 34, target: 50 }
-      ]
+      goals: [{ label: "50 followers", current: 34, target: 50 }]
     }
   }
 }
 
 // ─── STATE ──────────────────────────────────────────────────────
-let ytDataStatus = 'default'   // 'default' | 'live' | 'cached'
-let ttDataStatus = 'default'   // 'default' | 'live' | 'cached'
+let ytDataStatus      = 'default'   // 'default' | 'live' | 'cached'
+let ttConnectionState = 'checking'  // 'checking' | 'live' | 'expired' | 'no-data'
+let ttLastFetchedAt   = null        // ISO string from tiktok_cache.last_fetched_at
+let ttOAuthToken      = null        // set after loading from Supabase
 let lastRefreshedTime = null
-let ttOAuthToken   = localStorage.getItem('tt_access_token') || null
-let tiktokLiveData = { user: null, videos: [], error: null }
-let ttActiveTab    = 'last5'
-let ttMainTab      = 'overview'
-let ttChartMetric  = 'views'
-let ttChartRange   = 'all'
-let ttVideoPage    = 0
-let ttMonthFilter  = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` })()
+let tiktokLiveData    = { user: null, videos: [], error: null }
+let ttActiveTab       = 'last5'
+let ttMainTab         = 'overview'
+let ttChartMetric     = 'views'
+let ttChartRange      = 'all'
+let ttVideoPage       = 0
+let ttMonthFilter     = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` })()
 
 // ─── TIKTOK OAUTH CONFIG ────────────────────────────────────────
-const TT_CLIENT_KEY    = 'sbawiohwdjglaeadzv'
-const TT_REDIRECT_URI  = 'https://anthonyyybm.github.io/claudebm-dashboard/analytics/'
-const TT_TOKEN_PROXY   = 'https://bmtbzcnrlojacvafyrxi.supabase.co/functions/v1/tiktok-token-exchange'
-const TT_API_BASE      = 'https://open.tiktokapis.com/v2'
+const TT_CLIENT_KEY   = 'sbawiohwdjglaeadzv'
+const TT_REDIRECT_URI = 'https://anthonyyybm.github.io/claudebm-dashboard/analytics/'
+const TT_TOKEN_PROXY  = 'https://bmtbzcnrlojacvafyrxi.supabase.co/functions/v1/tiktok-token-exchange'
+const TT_API_BASE     = 'https://open.tiktokapis.com/v2'
 
 // ─── PLATFORM CONFIG ────────────────────────────────────────────
 const PLATFORMS = {
@@ -628,7 +524,7 @@ function sparklineSVG(data, color) {
   ])
   let line = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
   for (let i = 1; i < pts.length; i++) {
-    const cx = ((pts[i - 1][0] + pts[i][0]) / 2).toFixed(1)
+    const cx = ((pts[i-1][0] + pts[i][0]) / 2).toFixed(1)
     line += ` C${cx},${pts[i-1][1].toFixed(1)} ${cx},${pts[i][1].toFixed(1)} ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`
   }
   const area = `${line} L${pts[pts.length-1][0].toFixed(1)},${H} L${pts[0][0].toFixed(1)},${H}Z`
@@ -642,11 +538,23 @@ function skeletonVal() {
   return '<div class="skeleton" style="height:1.6rem;width:55%;margin:6px 0 4px"></div>'
 }
 
+function toPhilippineTime(isoString) {
+  if (!isoString) return '—'
+  try {
+    const d = new Date(isoString)
+    return d.toLocaleString('en-US', {
+      timeZone: 'Asia/Manila',
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    }) + ' PHT'
+  } catch { return isoString }
+}
+
 // ─── COMPONENTS ─────────────────────────────────────────────────
 function metricCard(label, value, change, sparkData, color, isLoading) {
-  const spark = sparkData ? sparklineSVG(sparkData, color) : '<div style="width:80px;height:40px"></div>'
+  const spark   = sparkData ? sparklineSVG(sparkData, color) : '<div style="width:80px;height:40px"></div>'
   const display = isLoading ? skeletonVal() : (typeof value === 'string' ? value : fmtNum(value))
-  const chg = isLoading ? '<div class="a-chg-nil">loading…</div>' : changeEl(change)
+  const chg     = isLoading ? '<div class="a-chg-nil">loading…</div>' : changeEl(change)
   return `<div class="a-metric${isLoading ? '' : ' metric-fade-in'}">
     <div class="metric-label">${label}</div>
     <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px">
@@ -689,30 +597,15 @@ function platformBlock(key, isLoading) {
   if (isTT) return tiktokBlock(isLoading)
 
   const fLabel = isYT ? 'SUBSCRIBERS' : 'FOLLOWERS'
-  const fVal   = isYT ? d.subscribers   : d.followers
+  const fVal   = isYT ? d.subscribers  : d.followers
   const fChg   = isYT ? d.subscribers_change : d.followers_change
   const fData  = isYT ? d.weekly_data.subscribers : d.weekly_data.followers
 
-  const pLabel = 'VIDEOS POSTED'
-  const pVal   = d.videos_this_week
-  const pChg   = d.videos_change
-
   let statusBadge = ''
-  if (!isLoading) {
-    if (isYT && ytDataStatus === 'live') {
-      statusBadge = '<span class="data-badge-live">● Live</span>'
-    } else if (isYT && ytDataStatus === 'cached') {
-      statusBadge = '<span class="data-badge-cached">Using cached data</span>'
-    } else if (isTT && ttDataStatus === 'live') {
-      statusBadge = '<span class="data-badge-live">● CSV</span>'
-    } else if (isTT && ttDataStatus === 'cached') {
-      statusBadge = `<span class="data-badge-cached">Export CSV to update</span>`
-    }
+  if (!isLoading && isYT) {
+    if (ytDataStatus === 'live')   statusBadge = '<span class="data-badge-live">● Live</span>'
+    else if (ytDataStatus === 'cached') statusBadge = '<span class="data-badge-cached">Using cached data</span>'
   }
-
-  const tiktokNote = isTT && ttDataStatus === 'cached' && !isLoading
-    ? `<div class="tiktok-csv-link"><a href="https://studio.tiktok.com" target="_blank" rel="noopener">Export from TikTok Studio →</a></div>`
-    : ''
 
   return `<div class="platform-section">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -724,14 +617,13 @@ function platformBlock(key, isLoading) {
     <div class="ag3">
       ${metricCard(fLabel, fVal, fChg, fData, c, isLoading)}
       ${metricCard('AVG VIEWS', d.avg_views, d.avg_views_change, d.weekly_data.views, c, isLoading)}
-      ${metricCard(pLabel, pVal, pChg, null, c, isLoading)}
+      ${metricCard('VIDEOS POSTED', d.videos_this_week, d.videos_change, null, c, isLoading)}
     </div>
 
     <div class="ag3" style="margin-bottom:14px">
       ${metricCard('ENGAGEMENT RATE', d.engagement_rate + '%', d.engagement_change, null, c, isLoading)}
     </div>
 
-    ${tiktokNote}
     ${goalsCard(d.goals, c)}
   </div>`
 }
@@ -801,6 +693,33 @@ function ttFmtDate(ts) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// ─── TIKTOK STATUS BANNER ────────────────────────────────────────
+function ttStatusBanner() {
+  const reconnectBtn = `<button class="tt-connect-btn" onclick="startTikTokOAuth()">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M34.1 7C33.3 10.4 30 13 26.5 13.2V19.8C29.3 19.6 31.8 18.6 33.8 17v10.3C33.8 33.8 28.6 39 22.1 39c-6.5 0-11.7-5.2-11.7-11.7 0-6.3 5-11.4 11.2-11.7v6.6c-2.8.3-5 2.6-5 5.2 0 2.9 2.3 5.2 5.2 5.2 3 0 5.5-2.5 5.5-5.5V7h6.8z" fill="white"/></svg>
+    Reconnect TikTok
+  </button>`
+  const note = `<span class="tt-status-note">TikTok authorization expires every 24 hours. Reconnect daily to pull fresh data.</span>`
+
+  if (ttConnectionState === 'live') {
+    const ts = ttLastFetchedAt ? toPhilippineTime(ttLastFetchedAt) : '—'
+    return `<div class="tt-status-live">
+      <span class="data-badge-live" style="margin-left:0">● Live</span>
+      <span style="font-size:11px;color:var(--text2)">Last updated: ${ts}</span>
+      <span style="margin-left:auto">${note}</span>
+    </div>`
+  }
+  if (ttConnectionState === 'expired') {
+    const ts = ttLastFetchedAt ? toPhilippineTime(ttLastFetchedAt) : 'unknown time'
+    return `<div class="tt-status-expired">
+      <span style="font-size:12px;font-weight:600;color:var(--amber)">⚠ Token expired — showing data from ${ts}</span>
+      ${reconnectBtn}
+      <div style="width:100%;margin-top:4px">${note}</div>
+    </div>`
+  }
+  return ''
+}
+
 // ─── TIKTOK CHART / DATA HELPERS ────────────────────────────────
 function groupByMonth(videos) {
   const map = {}
@@ -843,7 +762,7 @@ function groupByDay(videos, filterMonth) {
   const map = {}
   videos.forEach(v => {
     if (!v.create_time) return
-    const d   = new Date(Number(v.create_time) * 1000)
+    const d    = new Date(Number(v.create_time) * 1000)
     const mKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
     if (filterMonth && mKey !== filterMonth) return
     const key  = d.toISOString().split('T')[0]
@@ -979,7 +898,6 @@ function generateChartInsight(data, valueKey, metricLabel) {
   const recentDown = n >= 2 && last < vals[n - 2] * 0.85
 
   let text = ''
-
   if (peakedMid && last < maxVal * 0.75) {
     const dropPct = Math.round((maxVal - last) / maxVal * 100)
     text = `Peaked at ${fmt(maxVal)} in ${data[maxIdx].label}, then declined ${dropPct}% through ${data[n-1].label}.`
@@ -1002,22 +920,19 @@ function generateChartInsight(data, valueKey, metricLabel) {
     const dir = overallPct >= 0 ? `up ${overallPct}%` : `down ${Math.abs(overallPct)}%`
     text = `Relatively stable over this period — ${dir} overall.`
   }
-
-  // Append best-period callout if it stands out and wasn't already named
   if (!text.includes(data[maxIdx].label) && maxVal > avg * 1.5) {
     text += ` Best period: ${data[maxIdx].label} (${fmt(maxVal)}).`
   }
-
   return text
 }
 
 function renderTrendsTab(videos) {
   const metricCfg = [
-    { key: 'views',    label: 'Views',            color: '#00C2A8' },
-    { key: 'likes',    label: 'Likes',             color: '#f43f5e' },
-    { key: 'comments', label: 'Comments',          color: '#8b5cf6' },
-    { key: 'avg',      label: 'Average Views',     color: '#f59e0b' },
-    { key: 'eng',      label: 'Engagement Rate',   color: '#3b82f6' },
+    { key: 'views',    label: 'Views',          color: '#00C2A8' },
+    { key: 'likes',    label: 'Likes',           color: '#f43f5e' },
+    { key: 'comments', label: 'Comments',        color: '#8b5cf6' },
+    { key: 'avg',      label: 'Average Views',   color: '#f59e0b' },
+    { key: 'eng',      label: 'Engagement Rate', color: '#3b82f6' },
   ]
   const rangeCfg = [
     { key: 'all',   label: 'All Time' },
@@ -1055,7 +970,7 @@ function renderTrendsTab(videos) {
 }
 
 function renderOverviewContent(user, videos) {
-  const byMonth    = groupByMonth(videos)
+  const byMonth       = groupByMonth(videos)
   const totalViews    = videos.reduce((s, v) => s + (v.view_count    || 0), 0)
   const totalLikes    = videos.reduce((s, v) => s + (v.like_count    || 0), 0)
   const totalComments = videos.reduce((s, v) => s + (v.comment_count || 0), 0)
@@ -1073,11 +988,9 @@ function renderOverviewContent(user, videos) {
   }
   function trendLine(d) { return d === null ? '' : d >= 0 ? `Up ${d}% from last month.` : `Down ${Math.abs(d)}% from last month.` }
   const dv = momDelta(mViews), de = momDelta(mEng), da = momDelta(mAvg)
-  const fHistory    = getFollowerHistory()
-  const mFollowers  = fHistory.length >= 2 ? fHistory.map(h => h.count) : []
-  const fTrendNote  = fHistory.length >= 2
-    ? ` Tracking since ${fHistory[0].date}.`
-    : ' Sparkline builds as you revisit.'
+  const fHistory   = getFollowerHistory()
+  const mFollowers = fHistory.length >= 2 ? fHistory.map(h => h.count) : []
+  const fTrendNote = fHistory.length >= 2 ? ` Tracking since ${fHistory[0].date}.` : ' Sparkline builds as you revisit.'
   const tipFollowers = `${ttFmtN(user.follower_count)} total followers.${fTrendNote} Keep posting daily to accelerate growth.`
   const tipViews     = `${ttFmtN(totalViews)} views across ${videos.length} videos. ${trendLine(dv)}`
   const tipLikes     = `Like rate: ${totalViews > 0 ? ((totalLikes/totalViews)*100).toFixed(1) : 0}% of views. Industry avg is 3–5%.`
@@ -1087,6 +1000,7 @@ function renderOverviewContent(user, videos) {
   const tableContent = ttActiveTab === 'last5'
     ? renderVideoTableRows(videos.slice(0, 5), videos)
     : renderPaginatedTable(ttActiveTab === 'all' ? videos : videos.slice(0, 20), videos, ttVideoPage, 5)
+
   return `<div class="ag6" style="margin-bottom:14px">
     <div class="a-metric" data-tooltip="${tipFollowers}">
       <div class="metric-label">FOLLOWERS</div>
@@ -1231,7 +1145,7 @@ function showChartTip(evt, text) {
   if (!tip) {
     tip = document.createElement('div')
     tip.id = 'tt-chart-tip'
-    tip.style.cssText = 'position:fixed;background:rgba(15,15,15,.92);color:#fff;font-size:10px;line-height:1.4;padding:5px 9px;border-radius:5px;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.3);transition:opacity .1s'
+    tip.style.cssText = 'position:fixed;background:rgba(22,27,34,.97);color:#e6edf3;font-size:10px;line-height:1.4;padding:5px 9px;border-radius:5px;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:opacity .1s'
     document.body.appendChild(tip)
   }
   tip.textContent = text
@@ -1247,16 +1161,16 @@ function hideChartTip() {
 }
 window.hideChartTip = hideChartTip
 
+// ─── TIKTOK BLOCK ────────────────────────────────────────────────
 function tiktokBlock(isLoading) {
   const cfg = PLATFORMS.tiktok
   const d   = analyticsData.platforms.tiktok
   const c   = cfg.color
-  const connected = !!ttOAuthToken && !!tiktokLiveData.user
 
-  // ── Connected: full analytics dashboard ─────────────────────
-  if (connected && !isLoading) {
-    const user   = tiktokLiveData.user
-    const videos = tiktokLiveData.videos
+  // Full analytics dashboard (connected OR showing expired cache)
+  if (tiktokLiveData.user && !isLoading) {
+    const user    = tiktokLiveData.user
+    const videos  = tiktokLiveData.videos
     const byMonth = groupByMonth(videos)
 
     const avatarEl = user.avatar_url
@@ -1267,18 +1181,26 @@ function tiktokBlock(isLoading) {
       ? `<div class="tt-error-state">⚠ ${ttEscH(tiktokLiveData.error)}</div>`
       : ''
 
+    const actionBtn = ttConnectionState === 'live'
+      ? `<button class="refresh-btn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="disconnectTikTok()">Disconnect</button>`
+      : `<button class="tt-connect-btn" style="margin-left:auto" onclick="startTikTokOAuth()">
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M34.1 7C33.3 10.4 30 13 26.5 13.2V19.8C29.3 19.6 31.8 18.6 33.8 17v10.3C33.8 33.8 28.6 39 22.1 39c-6.5 0-11.7-5.2-11.7-11.7 0-6.3 5-11.4 11.2-11.7v6.6c-2.8.3-5 2.6-5 5.2 0 2.9 2.3 5.2 5.2 5.2 3 0 5.5-2.5 5.5-5.5V7h6.8z" fill="white"/></svg>
+          Reconnect TikTok
+        </button>`
+
     const mainContent = ttMainTab === 'trends'
       ? renderTrendsTab(videos)
       : renderOverviewContent(user, videos)
 
     return `<div class="platform-section">
       ${errorBanner}
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
         <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
         <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
-        <span class="data-badge-live" style="margin-left:0">● Live API</span>
-        <button class="refresh-btn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="disconnectTikTok()">Disconnect</button>
+        ${actionBtn}
       </div>
+
+      ${ttStatusBanner()}
 
       <div class="tt-profile-card" style="margin-bottom:14px">
         <div class="tt-profile-left">
@@ -1299,13 +1221,8 @@ function tiktokBlock(isLoading) {
     </div>`
   }
 
-  // ── Disconnected / loading ───────────────────────────────────
-  let statusBadge = ''
-  if (!isLoading) {
-    if (ttDataStatus === 'live')   statusBadge = '<span class="data-badge-live">● CSV</span>'
-    else if (ttDataStatus === 'cached') statusBadge = '<span class="data-badge-cached">Export CSV to update</span>'
-  }
-  const oauthBtn = isLoading ? '' :
+  // ── No data / connect state ──────────────────────────────────
+  const connectBtn = isLoading ? '' :
     `<button class="tt-connect-btn" style="margin-left:auto" onclick="startTikTokOAuth()">
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M34.1 7C33.3 10.4 30 13 26.5 13.2V19.8C29.3 19.6 31.8 18.6 33.8 17v10.3C33.8 33.8 28.6 39 22.1 39c-6.5 0-11.7-5.2-11.7-11.7 0-6.3 5-11.4 11.2-11.7v6.6c-2.8.3-5 2.6-5 5.2 0 2.9 2.3 5.2 5.2 5.2 3 0 5.5-2.5 5.5-5.5V7h6.8z" fill="white"/></svg>
       Connect TikTok
@@ -1315,8 +1232,7 @@ function tiktokBlock(isLoading) {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
       <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
       <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
-      ${statusBadge}
-      ${oauthBtn}
+      ${connectBtn}
     </div>
     <div class="ag3">
       ${metricCard('FOLLOWERS', d.followers, d.followers_change, d.weekly_data.followers, c, isLoading)}
@@ -1331,10 +1247,8 @@ function tiktokBlock(isLoading) {
 }
 
 function socialTopCard(isLoading) {
-  const ig = analyticsData.platforms.instagram
   const yt = analyticsData.platforms.youtube
   const tt = analyticsData.platforms.tiktok
-  const totalFollowers = yt.subscribers + tt.followers
 
   return `<div class="social-top-card">
     <div class="social-top-header">
@@ -1363,7 +1277,7 @@ function socialTopCard(isLoading) {
         <div class="social-cell-info">
           <div class="social-cell-name">TikTok</div>
           <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : fmtNum(tiktokLiveData.user?.follower_count ?? tt.followers)}</div>
-          <div class="social-cell-sub">followers${tiktokLiveData.user ? ' · live' : (ttDataStatus === 'live' ? ' · csv' : '')}</div>
+          <div class="social-cell-sub">followers${tiktokLiveData.user ? (ttConnectionState === 'live' ? ' · live' : ' · cached') : ''}</div>
         </div>
       </div>
     </div>
@@ -1372,7 +1286,7 @@ function socialTopCard(isLoading) {
 
 // ─── RENDER ─────────────────────────────────────────────────────
 function renderDashboard(isLoading) {
-  const d  = analyticsData
+  const d = analyticsData
 
   document.getElementById('analytics-root').innerHTML = `
     <div class="analytics-header">
@@ -1415,10 +1329,10 @@ function summaryCfgCards() {
   ].reduce((a, b) => b.eng > a.eng ? b : a)
 
   const cfg = [
-    { label: 'TOTAL FOLLOWERS',    value: totalFollowers.toLocaleString(), sub: 'all platforms combined',  bc: 'var(--accent)' },
-    { label: 'CONTENT PUBLISHED',  value: String(totalPosts),              sub: 'posts this week',         bc: '#1d4ed8' },
-    { label: 'BEST PLATFORM',      value: bestPlatform.name,               sub: bestPlatform.eng + '% engagement', bc: '#00C2A8' },
-    { label: 'WEEK',               value: d.week_label,                    sub: 'current review period',   bc: 'var(--amber)' }
+    { label: 'TOTAL FOLLOWERS',   value: totalFollowers.toLocaleString(), sub: 'all platforms combined',       bc: 'var(--accent)' },
+    { label: 'CONTENT PUBLISHED', value: String(totalPosts),              sub: 'posts this week',              bc: '#1d4ed8' },
+    { label: 'BEST PLATFORM',     value: bestPlatform.name,               sub: bestPlatform.eng + '% engagement', bc: '#00C2A8' },
+    { label: 'WEEK',              value: d.week_label,                    sub: 'current review period',        bc: 'var(--amber)' }
   ]
 
   return cfg.map(c => `
@@ -1433,9 +1347,9 @@ function updateLastRefreshed() {
   const now = new Date()
   const pht = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 8 * 3600000)
   lastRefreshedTime = pht.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) + ' PHT'
-  const el = document.getElementById('last-refreshed-label')
+  const el  = document.getElementById('last-refreshed-label')
   const el2 = document.getElementById('last-refreshed-inline')
-  if (el) el.textContent = 'Last fetched: ' + lastRefreshedTime
+  if (el)  el.textContent  = 'Last fetched: ' + lastRefreshedTime
   if (el2) el2.textContent = 'Updated ' + lastRefreshedTime
 }
 
@@ -1460,16 +1374,15 @@ function startTikTokOAuth() {
 }
 window.startTikTokOAuth = startTikTokOAuth
 
-function disconnectTikTok() {
-  localStorage.removeItem('tt_access_token')
-  localStorage.removeItem('tt_state')
-  ttOAuthToken   = null
-  tiktokLiveData = { user: null, videos: [], error: null }
-  ttActiveTab    = 'last5'
-  ttMainTab      = 'overview'
-  ttChartMetric  = 'views'
-  ttChartRange   = 'all'
-  ttVideoPage    = 0
+async function disconnectTikTok() {
+  await sbDeleteToken()
+  ttOAuthToken      = null
+  ttConnectionState = tiktokLiveData.user ? 'expired' : 'no-data'
+  ttActiveTab   = 'last5'
+  ttMainTab     = 'overview'
+  ttChartMetric = 'views'
+  ttChartRange  = 'all'
+  ttVideoPage   = 0
   renderDashboard(false)
 }
 window.disconnectTikTok = disconnectTikTok
@@ -1495,7 +1408,6 @@ async function fetchTikTokUserInfo(token) {
   const res = await fetch(`${TT_API_BASE}/user/info/?fields=${fields}`, { headers })
   if (!res.ok) {
     const errBody = await res.json().catch(() => res.text())
-    console.error('[TikTok] user/info error:', errBody)
     throw new Error(`User info failed (${res.status}): ${JSON.stringify(errBody)}`)
   }
   const data = await res.json()
@@ -1529,49 +1441,94 @@ async function handleTikTokCallback(code) {
   try {
     const tokenData = await exchangeTikTokCode(code)
     if (!tokenData.access_token) throw new Error('No access_token in response')
+
+    // Save token to Supabase
+    await sbSaveToken(tokenData.access_token, tokenData.open_id || null)
+    ttOAuthToken = tokenData.access_token
+
+    // Fetch fresh data
     const [user, allVideos] = await Promise.all([
       fetchTikTokUserInfo(tokenData.access_token),
       fetchAllTikTokVideos(tokenData.access_token)
     ])
-    localStorage.setItem('tt_access_token', tokenData.access_token)
-    ttOAuthToken          = tokenData.access_token
+
+    // Save to cache
+    await sbSaveCache(user, allVideos)
+    ttLastFetchedAt = new Date().toISOString()
+
     updateFollowerHistory(user.follower_count)
     tiktokLiveData.user   = user
     tiktokLiveData.videos = allVideos
     tiktokLiveData.error  = null
+    ttConnectionState     = 'live'
   } catch (err) {
     console.error('TikTok OAuth callback error:', err)
-    localStorage.removeItem('tt_access_token')
+    await sbDeleteToken()
     ttOAuthToken         = null
     tiktokLiveData.error = err.message
+    ttConnectionState    = 'no-data'
   }
 }
 
-async function loadTikTokFromSession() {
-  if (!ttOAuthToken) return
-  try {
-    const [user, allVideos] = await Promise.all([
-      fetchTikTokUserInfo(ttOAuthToken),
-      fetchAllTikTokVideos(ttOAuthToken)
-    ])
-    updateFollowerHistory(user.follower_count)
-    tiktokLiveData.user   = user
-    tiktokLiveData.videos = allVideos
+// ─── INIT TIKTOK FROM SUPABASE ───────────────────────────────────
+async function initTikTokFromSupabase() {
+  const tokenRow = await sbGetToken()
+  const cacheRow = await sbGetCache()
+
+  // Update last fetched timestamp from cache if available
+  if (cacheRow?.last_fetched_at) {
+    ttLastFetchedAt = cacheRow.last_fetched_at
+  }
+
+  if (tokenRow && !isTokenExpired(tokenRow)) {
+    // Token valid — fetch fresh data
+    ttOAuthToken = tokenRow.access_token
+    try {
+      const [user, allVideos] = await Promise.all([
+        fetchTikTokUserInfo(tokenRow.access_token),
+        fetchAllTikTokVideos(tokenRow.access_token)
+      ])
+      await sbSaveCache(user, allVideos)
+      ttLastFetchedAt = new Date().toISOString()
+      updateFollowerHistory(user.follower_count)
+      tiktokLiveData.user   = user
+      tiktokLiveData.videos = allVideos
+      tiktokLiveData.error  = null
+      ttConnectionState     = 'live'
+    } catch (err) {
+      console.error('TikTok live fetch error:', err)
+      tiktokLiveData.error = err.message
+      // Fall back to cache if available
+      if (cacheRow?.user_data) {
+        tiktokLiveData.user   = cacheRow.user_data
+        tiktokLiveData.videos = cacheRow.videos_data || []
+      }
+      ttConnectionState = 'expired'
+    }
+  } else if (cacheRow?.user_data) {
+    // No valid token — load from cache
+    ttOAuthToken          = null
+    tiktokLiveData.user   = cacheRow.user_data
+    tiktokLiveData.videos = cacheRow.videos_data || []
     tiktokLiveData.error  = null
-  } catch (err) {
-    console.error('TikTok session load error:', err)
-    localStorage.removeItem('tt_access_token')
-    ttOAuthToken         = null
-    tiktokLiveData.error = err.message
+    ttConnectionState     = 'expired'
+    if (cacheRow.user_data?.follower_count) {
+      updateFollowerHistory(cacheRow.user_data.follower_count)
+    }
+  } else {
+    // No token, no cache
+    ttOAuthToken      = null
+    ttConnectionState = 'no-data'
   }
 }
 
 // ─── LIVE DATA LOAD ─────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  renderDashboard(true) // show skeletons immediately — never a blank page
+  renderDashboard(true)  // show skeletons immediately
 
   const urlParams = new URLSearchParams(window.location.search)
   const ttCode = urlParams.get('code')
+
   if (ttCode) {
     history.replaceState({}, '', window.location.pathname)
     document.getElementById('analytics-root').innerHTML =
@@ -1581,35 +1538,25 @@ document.addEventListener('DOMContentLoaded', async () => {
          <div class="tt-loader-sub">Fetching all videos — this may take a moment</div>
        </div>`
     await handleTikTokCallback(ttCode)
-  } else if (ttOAuthToken) {
-    await loadTikTokFromSession()
+  } else {
+    await initTikTokFromSupabase()
   }
 
   showLoadingState()
   const data = await loadAllAnalytics()
 
   if (data.youtube.success) {
-    analyticsData.platforms.youtube.subscribers     = data.youtube.subscribers
-    analyticsData.platforms.youtube.avg_views       = data.youtube.avg_views
+    analyticsData.platforms.youtube.subscribers      = data.youtube.subscribers
+    analyticsData.platforms.youtube.avg_views        = data.youtube.avg_views
     analyticsData.platforms.youtube.videos_this_week = data.youtube.videos_this_week
-    analyticsData.platforms.youtube.engagement_rate = data.youtube.engagement_rate
+    analyticsData.platforms.youtube.engagement_rate  = data.youtube.engagement_rate
     ytDataStatus = 'live'
   } else {
     ytDataStatus = 'cached'
   }
 
-  if (data.tiktok.success) {
-    analyticsData.platforms.tiktok.followers        = data.tiktok.followers
-    analyticsData.platforms.tiktok.avg_views        = data.tiktok.avg_views
-    analyticsData.platforms.tiktok.videos_this_week = data.tiktok.videos_this_week
-    analyticsData.platforms.tiktok.engagement_rate  = data.tiktok.engagement_rate
-    ttDataStatus = 'live'
-  } else {
-    ttDataStatus = 'cached'
-  }
-
-  // Override TikTok followers with live API value if OAuth connected
-  if (ttOAuthToken && tiktokLiveData.user?.follower_count != null) {
+  // Override TikTok followers with live/cached value if available
+  if (tiktokLiveData.user?.follower_count != null) {
     analyticsData.platforms.tiktok.followers = tiktokLiveData.user.follower_count
   }
 
@@ -1618,48 +1565,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 })
 
 async function refreshAnalytics() {
-  if (ttOAuthToken) await loadTikTokFromSession()
+  const btn = document.getElementById('refresh-btn')
+  if (btn) { btn.classList.add('spinning'); btn.disabled = true }
+
+  await initTikTokFromSupabase()
 
   showLoadingState()
   const data = await loadAllAnalytics()
 
   if (data.youtube.success) {
-    analyticsData.platforms.youtube.subscribers     = data.youtube.subscribers
-    analyticsData.platforms.youtube.avg_views       = data.youtube.avg_views
+    analyticsData.platforms.youtube.subscribers      = data.youtube.subscribers
+    analyticsData.platforms.youtube.avg_views        = data.youtube.avg_views
     analyticsData.platforms.youtube.videos_this_week = data.youtube.videos_this_week
-    analyticsData.platforms.youtube.engagement_rate = data.youtube.engagement_rate
+    analyticsData.platforms.youtube.engagement_rate  = data.youtube.engagement_rate
     ytDataStatus = 'live'
   } else {
     ytDataStatus = 'cached'
   }
 
-  if (data.tiktok.success) {
-    analyticsData.platforms.tiktok.followers        = data.tiktok.followers
-    analyticsData.platforms.tiktok.avg_views        = data.tiktok.avg_views
-    analyticsData.platforms.tiktok.videos_this_week = data.tiktok.videos_this_week
-    analyticsData.platforms.tiktok.engagement_rate  = data.tiktok.engagement_rate
-    ttDataStatus = 'live'
-  } else {
-    ttDataStatus = 'cached'
-  }
-
-  if (ttOAuthToken && tiktokLiveData.user?.follower_count != null) {
+  if (tiktokLiveData.user?.follower_count != null) {
     analyticsData.platforms.tiktok.followers = tiktokLiveData.user.follower_count
   }
 
   renderDashboard(false)
   updateLastRefreshed()
 }
-
-// ─── DARK MODE ──────────────────────────────────────────────────
-const toggleBtn = document.getElementById('dark-toggle')
-function applyDark(on) {
-  document.body.classList.toggle('dark', on)
-  toggleBtn.textContent = on ? '☀️' : '🌙'
-  localStorage.setItem('darkMode', on)
-}
-applyDark(localStorage.getItem('darkMode') === 'true')
-toggleBtn.addEventListener('click', () => applyDark(!document.body.classList.contains('dark')))
 
 // ─── LIVE TIME ──────────────────────────────────────────────────
 function tick() {
