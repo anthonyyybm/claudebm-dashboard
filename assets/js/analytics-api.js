@@ -76,7 +76,7 @@ async function fetchYouTubeData() {
 async function fetchTikTokData() {
   try {
     const res = await fetch(
-      'analytics-data/tiktok-parsed.json'
+      '../analytics-data/tiktok-parsed.json'
     )
     if (!res.ok) throw new Error('TikTok data not found')
     const data = await res.json()

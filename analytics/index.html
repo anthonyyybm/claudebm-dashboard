@@ -1907,8 +1907,12 @@ window.disconnectTikTok = disconnectTikTok
 async function exchangeTikTokCode(code) {
   const res = await fetch(TT_TOKEN_PROXY, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ code, redirect_uri: TT_REDIRECT_URI })
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'apikey':        SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ code, redirect_uri: TT_REDIRECT_URI })
   })
   if (!res.ok) {
     const txt = await res.text().catch(() => res.statusText)
