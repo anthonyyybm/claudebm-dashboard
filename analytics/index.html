@@ -9,8 +9,29 @@
   <script src="../assets/js/analytics-api.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
-    /* ─── BM dark palette — always dark on this page ─────────── */
-    :root,
+    /* ─── BM light palette (default) ────────────────────────── */
+    :root {
+      --bg:           #f4f7f4;
+      --surface:      #ffffff;
+      --surface2:     #eaf0ea;
+      --border:       #cfdbd0;
+      --text:         #1a2e1e;
+      --text2:        #4a6a52;
+      --text3:        #7a9a82;
+      --accent:       #16a34a;
+      --accent-hover: #15803d;
+      --accent-light: #dcfce7;
+      --accent-text:  #15803d;
+      --danger:       #dc2626;
+      --danger-light: #fef2f2;
+      --amber:        #d97706;
+      --amber-light:  #fffbeb;
+      --success:      #16a34a;
+      --success-light:#f0fdf4;
+      --shadow:       0 1px 4px rgba(0,0,0,.1);
+    }
+
+    /* ─── BM dark palette ────────────────────────────────────── */
     body.dark {
       --bg:           #0f1410;
       --surface:      #161e18;
@@ -369,6 +390,34 @@
     .ag5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; margin-bottom: 14px; }
     @media (max-width: 1000px) { .ag5 { grid-template-columns: repeat(3,1fr); } }
     @media (max-width: 600px)  { .ag5 { grid-template-columns: repeat(2,1fr); } }
+
+    /* ─── Theme toggle ── */
+    .theme-toggle {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 4px 10px 4px 6px;
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      color: var(--text2); transition: background .15s, border-color .15s, color .15s;
+    }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+    .theme-toggle-icon { font-size: 14px; line-height: 1; }
+
+    /* ─── Footer ── */
+    .analytics-footer {
+      margin-top: 32px; padding: 20px 24px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px;
+      font-size: 12px; color: var(--text3);
+    }
+    .footer-links { display: flex; align-items: center; gap: 14px; }
+    .footer-links a {
+      color: var(--text3); text-decoration: none; font-weight: 500;
+      transition: color .15s;
+    }
+    .footer-links a:hover { color: var(--accent); }
+    .footer-sep { color: var(--border); }
+    .footer-copy { color: var(--text3); }
   </style>
 </head>
 <body>
@@ -391,11 +440,34 @@
 <!-- ─── Content ─────────────────────────────────────────────── -->
 <main class="content">
   <div id="analytics-root"></div>
+
+  <footer class="analytics-footer">
+    <div class="footer-links">
+      <a href="../legal/terms.html">Terms of Service</a>
+      <span class="footer-sep">·</span>
+      <a href="../legal/privacy.html">Privacy Policy</a>
+      <span class="footer-sep">·</span>
+      <a href="mailto:anthony@boostedmovers.com">Contact</a>
+    </div>
+    <div class="footer-copy">© 2026 Boosted Movers. All rights reserved.</div>
+  </footer>
 </main>
 
 <script>
-// ─── FORCE DARK MODE ─────────────────────────────────────────────
-document.body.classList.add('dark')
+// ─── THEME ───────────────────────────────────────────────────────
+const savedTheme = localStorage.getItem('bm_theme') || 'dark'
+if (savedTheme === 'dark') document.body.classList.add('dark')
+
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark')
+  localStorage.setItem('bm_theme', isDark ? 'dark' : 'light')
+  const btn = document.getElementById('theme-toggle-btn')
+  if (btn) {
+    btn.querySelector('.theme-toggle-icon').textContent = isDark ? '🌙' : '☀️'
+    btn.querySelector('.theme-toggle-label').textContent = isDark ? 'Dark' : 'Light'
+  }
+}
+window.toggleTheme = toggleTheme
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────────
 const SUPABASE_URL     = 'https://bmtbzcnrlojacvafyrxi.supabase.co'
@@ -1726,6 +1798,10 @@ function renderDashboard(isLoading) {
       </div>
       <div class="analytics-header-right">
         <span class="last-refreshed" id="last-refreshed-label">${lastRefreshedTime ? 'Last fetched: ' + lastRefreshedTime : ''}</span>
+        <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()">
+          <span class="theme-toggle-icon">${document.body.classList.contains('dark') ? '🌙' : '☀️'}</span>
+          <span class="theme-toggle-label">${document.body.classList.contains('dark') ? 'Dark' : 'Light'}</span>
+        </button>
         <button class="refresh-btn" onclick="refreshAnalytics()" id="refresh-btn">
           <span class="refresh-icon">↻</span> Refresh
         </button>
