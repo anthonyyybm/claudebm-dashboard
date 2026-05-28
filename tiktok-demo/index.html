@@ -460,20 +460,16 @@
 </main>
 
 <script>
-// ─── CONFIG — fill in your TikTok sandbox credentials ─────────────────────
-// CLIENT_KEY is safe to expose (it's public). CLIENT_SECRET must be kept
-// server-side in production; for this sandbox demo it's embedded here.
-// Replace these placeholders after creating your app in TikTok Developer Portal.
-const TIKTOK_CLIENT_KEY    = 'sbawiohwdjglaeadzv'
-const TIKTOK_CLIENT_SECRET = '91aIEKkTLZddgTouMrtTakXngqMumqcz'
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+// CLIENT_KEY is public (appears in the OAuth redirect URL — that's fine).
+// CLIENT_SECRET never lives in browser code; the Edge Function holds it.
+const TIKTOK_CLIENT_KEY = 'sbawiohwdjglaeadzv'
 
 // Redirect URI — must match exactly what's registered in TikTok Developer Portal
 const REDIRECT_URI = 'https://anthonyyybm.github.io/claudebm-dashboard/tiktok-demo'
 
-// Optional: set to a proxy URL if TikTok's token endpoint blocks CORS.
-// Leave as '' to attempt a direct browser request first.
-// Example: 'https://bmtbzcnrlojacvafyrxi.supabase.co/functions/v1/tiktok-token'
-const TOKEN_PROXY_URL = ''
+// Token exchange goes through the Supabase Edge Function — secret stays server-side
+const TOKEN_PROXY_URL = 'https://bmtbzcnrlojacvafyrxi.supabase.co/functions/v1/tiktok-token-exchange'
 
 // TikTok API base
 const TT_API = 'https://open.tiktokapis.com/v2'
@@ -544,20 +540,10 @@ window.disconnect = disconnect
 
 // ─── Token exchange ───────────────────────────────────────────────────────
 async function exchangeCode(code) {
-  const body = new URLSearchParams({
-    client_key:    TIKTOK_CLIENT_KEY,
-    client_secret: TIKTOK_CLIENT_SECRET,
-    code,
-    grant_type:    'authorization_code',
-    redirect_uri:  REDIRECT_URI
-  })
-
-  const endpoint = TOKEN_PROXY_URL || `${TT_API}/oauth/token/`
-
-  const res = await fetch(endpoint, {
+  const res = await fetch(TOKEN_PROXY_URL, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ code, redirect_uri: REDIRECT_URI })
   })
 
   if (!res.ok) {
@@ -566,7 +552,7 @@ async function exchangeCode(code) {
   }
 
   const data = await res.json()
-  if (data.error) throw new Error(`${data.error}: ${data.error_description || ''}`)
+  if (data.error) throw new Error(`${data.error}: ${data.detail || ''}`)
   return data
 }
 
