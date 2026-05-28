@@ -453,13 +453,13 @@ const analyticsData = {
       goals: [{ label: "3 reels with 1,000+ views", current: 1, target: 3 }]
     },
     youtube: {
-      subscribers: 122, subscribers_change: 6.1,
-      avg_views: 385,   avg_views_change: 13.2,
-      videos_this_week: 2, videos_change: -33.3,
-      engagement_rate: 2.7, engagement_change: 8.0,
+      subscribers: 480, subscribers_change: null,
+      avg_views: 44,    avg_views_change: null,
+      videos_this_week: 7, videos_change: null,
+      engagement_rate: 1.6, engagement_change: null,
       weekly_data: {
-        subscribers: [98,103,108,112,116,119,122],
-        views: [290,310,340,355,360,372,385]
+        subscribers: [320, 360, 395, 420, 445, 462, 480],
+        views: [120, 80, 55, 45, 60, 50, 44]
       },
       goals: [{ label: "3 videos with 1,000+ views", current: 0, target: 3 }]
     },
@@ -1324,7 +1324,8 @@ function summaryCfgCards() {
   const ig = d.platforms.instagram
   const yt = d.platforms.youtube
   const tt = d.platforms.tiktok
-  const totalFollowers = ig.followers + yt.subscribers + tt.followers
+  const ytSubs = tiktokLiveData.user ? tt.followers : tt.followers
+  const totalFollowers = (ig.followers || 0) + yt.subscribers + tt.followers
   const totalPosts     = ig.posts_this_week + yt.videos_this_week + tt.videos_this_week
   const bestPlatform   = [
     { name: 'Instagram', eng: ig.engagement_rate },

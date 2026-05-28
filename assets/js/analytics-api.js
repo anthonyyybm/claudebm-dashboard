@@ -1,5 +1,5 @@
-const YOUTUBE_API_KEY = '%%YOUTUBE_API_KEY%%'
-const YOUTUBE_CHANNEL_ID = '%%YOUTUBE_CHANNEL_ID%%'
+const YOUTUBE_API_KEY = 'AIzaSyB1LzlQ1T7dp_KV7uQ0ykX2-TCdoDZ_IJ4'
+const YOUTUBE_CHANNEL_ID = 'UCPiNQP9QaD2v_5JLiDC90Bw'
 
 async function fetchYouTubeData() {
   try {
@@ -11,15 +11,16 @@ async function fetchYouTubeData() {
     const channelData = await channelRes.json()
     const stats = channelData.items[0].statistics
 
-    const searchRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/search` +
-      `?part=snippet&channelId=${YOUTUBE_CHANNEL_ID}` +
-      `&type=video&order=date&maxResults=10` +
-      `&key=${YOUTUBE_API_KEY}`
+    const uploadsPlaylistId = 'UU' + YOUTUBE_CHANNEL_ID.slice(2)
+    const playlistRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/playlistItems` +
+      `?part=contentDetails&playlistId=${uploadsPlaylistId}` +
+      `&maxResults=10&key=${YOUTUBE_API_KEY}`
     )
-    const searchData = await searchRes.json()
-    const videoIds = searchData.items
-      .map(v => v.id.videoId).join(',')
+    const playlistData = await playlistRes.json()
+    if (!playlistData.items?.length) throw new Error('No playlist items returned')
+    const videoIds = playlistData.items
+      .map(v => v.contentDetails.videoId).join(',')
 
     const videoRes = await fetch(
       `https://www.googleapis.com/youtube/v3/videos` +
@@ -64,7 +65,7 @@ async function fetchYouTubeData() {
 async function fetchTikTokData() {
   try {
     const res = await fetch(
-      '../analytics-data/tiktok-parsed.json'
+      'analytics-data/tiktok-parsed.json'
     )
     if (!res.ok) throw new Error('TikTok data not found')
     const data = await res.json()
