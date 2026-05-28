@@ -480,6 +480,7 @@ async function sbGetToken() {
   const { data, error } = await sb.from('tiktok_tokens')
     .select('*').eq('account_name', 'boosted_movers').maybeSingle()
   if (error) console.error('[sb] getToken error:', error)
+  if (!data && !error) console.warn('[sb] getToken: no data returned — RLS may be blocking SELECT for anon')
   return data
 }
 
@@ -505,6 +506,7 @@ async function sbGetCache() {
   const { data, error } = await sb.from('tiktok_cache')
     .select('*').eq('account_name', 'boosted_movers').maybeSingle()
   if (error) console.error('[sb] getCache error:', error)
+  if (!data && !error) console.warn('[sb] getCache: no data returned — RLS may be blocking SELECT for anon. Run: ALTER TABLE tiktok_cache DISABLE ROW LEVEL SECURITY;')
   return data
 }
 
