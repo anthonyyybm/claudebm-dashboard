@@ -9,30 +9,27 @@
   <script src="../assets/js/analytics-api.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
-    /* ─── MoverMetrics dark palette — always dark on this page ── */
-    /* Override both :root and body.dark so main.css can't clobber them.
-       body.dark (element+class specificity) beats :root, so we need both.
-       Our <style> block loads after main.css, so same-specificity = our values win. */
+    /* ─── BM dark palette — always dark on this page ─────────── */
     :root,
     body.dark {
-      --bg:           #0d1117;
-      --surface:      #161b22;
-      --surface2:     #21262d;
-      --border:       #30363d;
-      --text:         #e6edf3;
-      --text2:        #8b949e;
-      --text3:        #484f58;
+      --bg:           #0f1410;
+      --surface:      #161e18;
+      --surface2:     #1e2a20;
+      --border:       #2a3c2e;
+      --text:         #e8f0ea;
+      --text2:        #7a9a82;
+      --text3:        #4a6a52;
       --accent:       #22c55e;
       --accent-hover: #16a34a;
-      --accent-light: #0d2818;
+      --accent-light: #1a2e1e;
       --accent-text:  #4ade80;
-      --danger:       #f85149;
+      --danger:       #f87171;
       --danger-light: #2d1b1b;
       --amber:        #fbbf24;
       --amber-light:  #2d2010;
       --success:      #22c55e;
-      --success-light:#0d2818;
-      --shadow:       0 1px 4px rgba(0,0,0,.25);
+      --success-light:#1a2e1e;
+      --shadow:       0 1px 4px rgba(0,0,0,.3);
     }
 
     /* ─── Analytics-specific ─────────────────────────────────── */
@@ -329,7 +326,7 @@
     .tt-stat-val { font-size: 16px; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 3px; }
     .tt-stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); font-weight: 600; }
 
-    /* ─── Social overview top card ── */
+    /* ─── Social overview / platform selector ── */
     .social-top-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 20px; }
     .social-top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
     .social-top-title { font-size: 13px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .5px; }
@@ -339,7 +336,10 @@
       display: flex; align-items: center; gap: 10px;
       padding: 10px 12px; background: var(--surface2);
       border: 1px solid var(--border); border-radius: 8px;
+      cursor: pointer; transition: border-color .15s, background .15s;
     }
+    .social-platform-cell:hover:not(.active) { border-color: var(--text3); background: var(--surface); }
+    .social-platform-cell.active { border-color: var(--accent) !important; background: var(--accent-light) !important; }
     .social-platform-cell.coming-soon-cell { opacity: 0.45; filter: grayscale(0.2); }
     .social-cell-badge { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 9px; font-weight: 700; letter-spacing: .4px; flex-shrink: 0; }
     .social-cell-info { min-width: 0; }
@@ -495,7 +495,9 @@ const analyticsData = {
 }
 
 // ─── STATE ──────────────────────────────────────────────────────
+let activePlatform    = 'tiktok'    // currently shown platform
 let ytVideos          = []          // array of video objects from YouTube API
+let ytVideoTab        = 'last5'     // 'last5' | 'last10'
 let ytDataStatus      = 'default'   // 'default' | 'live' | 'cached'
 let ttConnectionState = 'checking'  // 'checking' | 'live' | 'expired' | 'no-data'
 let ttLastFetchedAt   = null        // ISO string from tiktok_cache.last_fetched_at
@@ -765,6 +767,30 @@ function renderYTVideoTable(videos) {
   }).join('')
 }
 
+function ytMomDelta(arr) {
+  if (!arr || arr.length < 2) return null
+  const prev = arr[arr.length - 2], cur = arr[arr.length - 1]
+  return prev ? (((cur - prev) / prev) * 100).toFixed(1) : null
+}
+function ytTrendStr(d) {
+  if (d === null) return ''
+  return +d >= 0 ? `Up ${d}% recently.` : `Down ${Math.abs(d)}% recently.`
+}
+
+function switchYtVideoTab(tab) {
+  ytVideoTab = tab
+  const el = document.getElementById('yt-video-table')
+  if (!el) return
+  el.innerHTML = renderYTVideoTable(ytVideos.slice(0, tab === 'last10' ? 10 : 5))
+  document.querySelectorAll('[data-yttab]').forEach(btn => {
+    const active = btn.dataset.yttab === tab
+    btn.classList.toggle('active', active)
+    btn.style.background  = active ? '#FF0000' : ''
+    btn.style.borderColor = active ? '#FF0000' : ''
+  })
+}
+window.switchYtVideoTab = switchYtVideoTab
+
 function youtubeBlock(isLoading) {
   const cfg = PLATFORMS.youtube
   const d   = analyticsData.platforms.youtube
@@ -776,21 +802,70 @@ function youtubeBlock(isLoading) {
     else if (ytDataStatus === 'cached') statusBadge = '<span class="data-badge-cached">Cached data</span>'
   }
 
-  const metricsHtml = `<div class="ag5">
-    ${metricCard('SUBSCRIBERS', d.subscribers, d.subscribers_change, d.weekly_data.subscribers, c, isLoading)}
-    ${metricCard('TOTAL VIEWS', d.total_views, null, null, c, isLoading)}
-    ${metricCard('AVG VIEWS (7D)', d.avg_views, d.avg_views_change, d.weekly_data.views, c, isLoading)}
-    ${metricCard('VIDEOS/WEEK', d.videos_this_week, d.videos_change, null, c, isLoading)}
-    ${metricCard('ENGAGEMENT', (d.engagement_rate || 0) + '%', d.engagement_change, null, c, isLoading)}
-  </div>`
+  let metricsHtml
+  if (isLoading) {
+    metricsHtml = `<div class="ag5">${Array(5).fill('<div class="a-metric">' + skeletonVal() + '</div>').join('')}</div>`
+  } else {
+    const sDelta = ytMomDelta(d.weekly_data.subscribers)
+    const vDelta = ytMomDelta(d.weekly_data.views)
+    const engRate = d.engagement_rate || 0
+    const tipSubs  = `${ytFmtN(d.subscribers)} subscribers. ${ytTrendStr(sDelta)} Total across the full channel.`
+    const tipTotal = `${ytFmtN(d.total_views)} total views across all channel videos since creation.`
+    const tipAvg   = `${ytFmtN(d.avg_views)} avg views per video in the last 7 days. ${ytTrendStr(vDelta)} ${d.avg_views > 1000 ? 'Solid reach.' : 'Focus on stronger hooks in the first 3 seconds.'}`
+    const tipVids  = `${d.videos_this_week} video${d.videos_this_week !== 1 ? 's' : ''} posted in the last 7 days.`
+    const tipEng   = `${engRate}% engagement on recent videos. ${engRate > 3 ? '✅ Above YouTube average (1-3%).' : engRate > 1 ? 'Within normal range (1-3%).' : '⚠ Below average. Try stronger CTAs and end screens.'}`
+    metricsHtml = `<div class="ag5">
+      <div class="a-metric" data-tooltip="${tipSubs}">
+        <div class="metric-label">SUBSCRIBERS</div>
+        <div class="tt-metric-inner">
+          <div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.subscribers)}</div><div class="metric-sub">${d.weekly_data.subscribers.length} day history</div></div>
+          ${ttSparkline(d.weekly_data.subscribers, c)}
+        </div>
+      </div>
+      <div class="a-metric" data-tooltip="${tipTotal}">
+        <div class="metric-label">TOTAL VIEWS</div>
+        <div class="tt-metric-inner">
+          <div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.total_views)}</div><div class="metric-sub">channel total</div></div>
+        </div>
+      </div>
+      <div class="a-metric" data-tooltip="${tipAvg}">
+        <div class="metric-label">AVG VIEWS (7D)</div>
+        <div class="tt-metric-inner">
+          <div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.avg_views)}</div><div class="metric-sub">per video</div></div>
+          ${ttSparkline(d.weekly_data.views, c)}
+        </div>
+      </div>
+      <div class="a-metric" data-tooltip="${tipVids}">
+        <div class="metric-label">VIDEOS/WEEK</div>
+        <div class="tt-metric-inner">
+          <div><div class="metric-val" style="margin-top:4px">${d.videos_this_week}</div><div class="metric-sub">last 7 days</div></div>
+        </div>
+      </div>
+      <div class="a-metric" data-tooltip="${tipEng}">
+        <div class="metric-label">ENGAGEMENT</div>
+        <div class="tt-metric-inner">
+          <div><div class="metric-val" style="margin-top:4px">${engRate}%</div><div class="metric-sub">(likes+comments)/views</div></div>
+        </div>
+      </div>
+    </div>`
+  }
 
   let chartSection = ''
   if (!isLoading && ytVideos.length > 0) {
+    const tabVids = ytVideoTab === 'last10' ? ytVideos.slice(0, 10) : ytVideos.slice(0, 5)
     chartSection = `<div class="tt-video-section" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
       <div class="tt-video-section-title">Recent Videos — Views</div>
       <div class="tt-chart-wrap" style="margin-bottom:14px">${renderYTBarChart(ytVideos)}</div>
-      <div class="tt-video-section-title" style="margin-top:12px">Last ${Math.min(5, ytVideos.length)} Videos</div>
-      ${renderYTVideoTable(ytVideos.slice(0, 5))}
+      <div class="tt-tabs" style="margin-bottom:8px">
+        <button class="tt-tab${ytVideoTab==='last5'?' active':''}" data-yttab="last5"
+          onclick="switchYtVideoTab('last5')"
+          style="${ytVideoTab==='last5'?`background:${c};border-color:${c};`:''}">Last 5</button>
+        <button class="tt-tab${ytVideoTab==='last10'?' active':''}" data-yttab="last10"
+          onclick="switchYtVideoTab('last10')"
+          style="${ytVideoTab==='last10'?`background:${c};border-color:${c};`:''}">Last 10</button>
+        <span style="margin-left:auto;font-size:10px;color:var(--text3);align-self:center">${ytVideos.length} videos</span>
+      </div>
+      <div id="yt-video-table">${renderYTVideoTable(tabVids)}</div>
     </div>`
   }
 
@@ -802,7 +877,7 @@ function youtubeBlock(isLoading) {
     </div>
     ${metricsHtml}
     ${chartSection}
-    ${goalsCard(d.goals, c)}
+    ${isLoading ? '' : goalsCard(d.goals, c)}
   </div>`
 }
 
@@ -1393,13 +1468,17 @@ function socialTopCard(isLoading) {
   const yt = analyticsData.platforms.youtube
   const tt = analyticsData.platforms.tiktok
 
+  const igActive = activePlatform === 'instagram'
+  const ytActive = activePlatform === 'youtube'
+  const ttActive = activePlatform === 'tiktok'
+
   return `<div class="social-top-card">
     <div class="social-top-header">
       <span class="social-top-title">Social Media Overview</span>
       <span class="last-refreshed" id="last-refreshed-inline">${lastRefreshedTime ? 'Updated ' + lastRefreshedTime : ''}</span>
     </div>
     <div class="social-platforms-row">
-      <div class="social-platform-cell coming-soon-cell">
+      <div class="social-platform-cell${igActive ? ' active' : ' coming-soon-cell'}" onclick="setActivePlatform('instagram')">
         <div class="social-cell-badge" style="background:#E1306C">IG</div>
         <div class="social-cell-info">
           <div class="social-cell-name">Instagram</div>
@@ -1407,7 +1486,7 @@ function socialTopCard(isLoading) {
           <div class="social-cell-sub">Coming Soon</div>
         </div>
       </div>
-      <div class="social-platform-cell">
+      <div class="social-platform-cell${ytActive ? ' active' : ''}" onclick="setActivePlatform('youtube')">
         <div class="social-cell-badge" style="background:#FF0000">YT</div>
         <div class="social-cell-info">
           <div class="social-cell-name">YouTube</div>
@@ -1415,7 +1494,7 @@ function socialTopCard(isLoading) {
           <div class="social-cell-sub">subscribers${ytDataStatus === 'live' ? ' · live' : ''}</div>
         </div>
       </div>
-      <div class="social-platform-cell">
+      <div class="social-platform-cell${ttActive ? ' active' : ''}" onclick="setActivePlatform('tiktok')">
         <div class="social-cell-badge" style="background:#00C2A8">TT</div>
         <div class="social-cell-info">
           <div class="social-cell-name">TikTok</div>
@@ -1448,15 +1527,16 @@ function renderDashboard(isLoading) {
     ${socialTopCard(isLoading)}
 
     <div class="card" style="margin-bottom:20px">
-      <div class="card-title" style="margin-bottom:14px">PLATFORM BREAKDOWN</div>
-      ${['youtube', 'tiktok', 'instagram'].map(k => platformBlock(k, isLoading)).join('')}
-    </div>
-
-    <div class="metrics-grid" style="margin-bottom:28px">
-      ${summaryCfgCards()}
+      ${platformBlock(activePlatform, isLoading)}
     </div>
   `
 }
+
+function setActivePlatform(platform) {
+  activePlatform = platform
+  renderDashboard(false)
+}
+window.setActivePlatform = setActivePlatform
 
 function summaryCfgCards() {
   const d  = analyticsData
