@@ -352,6 +352,23 @@
       display: inline-block; width: 3px; height: 18px;
       background: var(--accent); border-radius: 2px; margin-right: 8px; vertical-align: middle;
     }
+
+    /* ─── YouTube video table (16:9 thumbs) ── */
+    .yt-vt-thumb {
+      width: 56px; height: 32px; border-radius: 4px; object-fit: cover; flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+    .yt-vt-thumb-placeholder {
+      width: 56px; height: 32px; border-radius: 4px; flex-shrink: 0;
+      background: var(--surface2); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; color: var(--text3);
+    }
+
+    /* ─── YouTube 5-col stats grid ── */
+    .ag5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; margin-bottom: 14px; }
+    @media (max-width: 1000px) { .ag5 { grid-template-columns: repeat(3,1fr); } }
+    @media (max-width: 600px)  { .ag5 { grid-template-columns: repeat(2,1fr); } }
   </style>
 </head>
 <body>
@@ -478,6 +495,7 @@ const analyticsData = {
 }
 
 // ─── STATE ──────────────────────────────────────────────────────
+let ytVideos          = []          // array of video objects from YouTube API
 let ytDataStatus      = 'default'   // 'default' | 'live' | 'cached'
 let ttConnectionState = 'checking'  // 'checking' | 'live' | 'expired' | 'no-data'
 let ttLastFetchedAt   = null        // ISO string from tiktok_cache.last_fetched_at
@@ -599,6 +617,7 @@ function platformBlock(key, isLoading) {
 
   if (isIG) return instagramBlock(isLoading)
   if (isTT) return tiktokBlock(isLoading)
+  if (isYT) return youtubeBlock(isLoading)
 
   const fLabel = isYT ? 'SUBSCRIBERS' : 'FOLLOWERS'
   const fVal   = isYT ? d.subscribers  : d.followers
@@ -664,6 +683,126 @@ function instagramBlock(isLoading) {
       <div class="check-item pending">⬜ API tokens generated</div>
       <div class="check-item pending">⬜ Live data connected</div>
     </div>
+  </div>`
+}
+
+// ─── YOUTUBE HELPERS ─────────────────────────────────────────────
+function ytFmtN(n) {
+  if (!n && n !== 0) return '—'
+  const v = Number(n)
+  if (v >= 1000000) return (v/1000000).toFixed(1).replace(/\.0$/,'')+'M'
+  if (v >= 1000) return (v/1000).toFixed(1).replace(/\.0$/,'')+'K'
+  return String(v)
+}
+
+function ytEscH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+function renderYTBarChart(videos) {
+  if (!videos || videos.length === 0) return '<div class="tt-loading-state">No video data yet.</div>'
+  const W = 500, H = 90, PL = 28, PR = 4, PT = 8, PB = 20
+  const cw = W - PL - PR, ch = H - PT - PB
+  const maxViews = Math.max(...videos.map(v => v.views), 1)
+  const n = videos.length
+  const slotW = cw / n
+  const barW = Math.max(4, slotW - 4)
+
+  const bars = videos.map((v, i) => {
+    const barH = Math.max(2, (v.views / maxViews) * ch)
+    const x = PL + i * slotW + (slotW - barW) / 2
+    const y = PT + ch - barH
+    const fv = ytFmtN(v.views)
+    const dateStr = v.published_at
+      ? new Date(v.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : ''
+    const tipTitle = (v.title || '').substring(0, 28) + ((v.title || '').length > 28 ? '…' : '')
+    const tip = (tipTitle + ' · ' + fv + ' views').replace(/'/g, '&#39;')
+    const cx = (x + barW / 2).toFixed(1)
+    return `<g onmouseover="showChartTip(event,'${tip}')" onmouseout="hideChartTip()" style="cursor:pointer">
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}"
+        fill="#FF0000" fill-opacity="${v.views > 0 ? 0.75 : 0.15}" rx="2"/>
+      <text x="${cx}" y="${(H - PB + 11).toFixed(1)}" text-anchor="middle"
+        font-size="5" fill="var(--text3)" font-family="system-ui">${dateStr}</text>
+    </g>`
+  }).join('')
+
+  const yTicks = [0, 0.5, 1].map(t => {
+    const y = (PT + (1 - t) * ch).toFixed(1)
+    const lbl = ytFmtN(Math.round(maxViews * t))
+    return `<line x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
+            <text x="${PL - 4}" y="${(+y + 2).toFixed(1)}" text-anchor="end" font-size="5" fill="var(--text3)" font-family="system-ui">${lbl}</text>`
+  }).join('')
+
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">
+    ${yTicks}${bars}
+  </svg>`
+}
+
+function renderYTVideoTable(videos) {
+  if (!videos || videos.length === 0) return ''
+  const maxViews = Math.max(...ytVideos.map(v => v.views), 1)
+  return videos.map(v => {
+    const barPct = Math.round((v.views / maxViews) * 100)
+    const title = ytEscH(v.title || '(No title)')
+    const date = v.published_at
+      ? new Date(v.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : ''
+    const thumb = v.thumbnail
+      ? `<img src="${ytEscH(v.thumbnail)}" class="yt-vt-thumb" alt="">`
+      : `<div class="yt-vt-thumb-placeholder">▶</div>`
+    return `<div class="tt-vt-row">
+      ${thumb}
+      <div class="tt-vt-meta">
+        <div class="tt-vt-title" title="${title}">${title}</div>
+        <div class="tt-vt-stats">
+          <span>👁 ${ytFmtN(v.views)}</span>
+          <span>♥ ${ytFmtN(v.likes)}</span>
+          <span>💬 ${ytFmtN(v.comments)}</span>
+        </div>
+        <div class="tt-vt-bar-wrap"><div class="tt-vt-bar" style="width:${barPct}%;background:#FF0000"></div></div>
+      </div>
+      <div class="tt-vt-date">${date}</div>
+    </div>`
+  }).join('')
+}
+
+function youtubeBlock(isLoading) {
+  const cfg = PLATFORMS.youtube
+  const d   = analyticsData.platforms.youtube
+  const c   = cfg.color
+
+  let statusBadge = ''
+  if (!isLoading) {
+    if (ytDataStatus === 'live')   statusBadge = '<span class="data-badge-live">● Live</span>'
+    else if (ytDataStatus === 'cached') statusBadge = '<span class="data-badge-cached">Cached data</span>'
+  }
+
+  const metricsHtml = `<div class="ag5">
+    ${metricCard('SUBSCRIBERS', d.subscribers, d.subscribers_change, d.weekly_data.subscribers, c, isLoading)}
+    ${metricCard('TOTAL VIEWS', d.total_views, null, null, c, isLoading)}
+    ${metricCard('AVG VIEWS (7D)', d.avg_views, d.avg_views_change, d.weekly_data.views, c, isLoading)}
+    ${metricCard('VIDEOS/WEEK', d.videos_this_week, d.videos_change, null, c, isLoading)}
+    ${metricCard('ENGAGEMENT', (d.engagement_rate || 0) + '%', d.engagement_change, null, c, isLoading)}
+  </div>`
+
+  let chartSection = ''
+  if (!isLoading && ytVideos.length > 0) {
+    chartSection = `<div class="tt-video-section" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+      <div class="tt-video-section-title">Recent Videos — Views</div>
+      <div class="tt-chart-wrap" style="margin-bottom:14px">${renderYTBarChart(ytVideos)}</div>
+      <div class="tt-video-section-title" style="margin-top:12px">Last ${Math.min(5, ytVideos.length)} Videos</div>
+      ${renderYTVideoTable(ytVideos.slice(0, 5))}
+    </div>`
+  }
+
+  return `<div class="platform-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+      <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      ${statusBadge}
+    </div>
+    ${metricsHtml}
+    ${chartSection}
+    ${goalsCard(d.goals, c)}
   </div>`
 }
 
@@ -1555,6 +1694,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     analyticsData.platforms.youtube.avg_views        = data.youtube.avg_views
     analyticsData.platforms.youtube.videos_this_week = data.youtube.videos_this_week
     analyticsData.platforms.youtube.engagement_rate  = data.youtube.engagement_rate
+    analyticsData.platforms.youtube.total_views      = data.youtube.total_views
+    ytVideos     = data.youtube.videos || []
     ytDataStatus = 'live'
   } else {
     ytDataStatus = 'cached'
@@ -1583,6 +1724,8 @@ async function refreshAnalytics() {
     analyticsData.platforms.youtube.avg_views        = data.youtube.avg_views
     analyticsData.platforms.youtube.videos_this_week = data.youtube.videos_this_week
     analyticsData.platforms.youtube.engagement_rate  = data.youtube.engagement_rate
+    analyticsData.platforms.youtube.total_views      = data.youtube.total_views
+    ytVideos     = data.youtube.videos || []
     ytDataStatus = 'live'
   } else {
     ytDataStatus = 'cached'

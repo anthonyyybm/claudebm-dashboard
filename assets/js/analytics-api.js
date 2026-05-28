@@ -47,6 +47,16 @@ async function fetchYouTubeData() {
       ? ((totalLikes + totalComments) /
          totalViews * 100).toFixed(1) : 0
 
+    const videos = videoData.items.map(v => ({
+      id: v.id,
+      title: v.snippet.title,
+      published_at: v.snippet.publishedAt,
+      thumbnail: v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url || null,
+      views: parseInt(v.statistics.viewCount || 0),
+      likes: parseInt(v.statistics.likeCount || 0),
+      comments: parseInt(v.statistics.commentCount || 0),
+    }))
+
     return {
       success: true,
       subscribers: parseInt(stats.subscriberCount),
@@ -54,6 +64,7 @@ async function fetchYouTubeData() {
       videos_this_week: recentVideos.length,
       engagement_rate: parseFloat(engagementRate),
       total_views: parseInt(stats.viewCount),
+      videos,
       source: 'youtube_api'
     }
   } catch (error) {
