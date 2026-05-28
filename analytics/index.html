@@ -1880,10 +1880,9 @@ function tiktokBlock(isLoading) {
       ${metricCard('AVG VIEWS', d.avg_views, d.avg_views_change, d.weekly_data.views, c, isLoading)}
       ${metricCard('VIDEOS POSTED', d.videos_this_week, d.videos_change, null, c, isLoading)}
     </div>
-    <div class="ag3" style="margin-bottom:14px">
+    <div class="ag3">
       ${metricCard('ENGAGEMENT RATE', d.engagement_rate + '%', d.engagement_change, null, c, isLoading)}
     </div>
-    ${goalsCard(d.goals, c)}
   </div>`
 }
 
