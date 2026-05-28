@@ -798,7 +798,7 @@ window.switchYtVideoTab = switchYtVideoTab
 
 function renderYTLineChart(values, color) {
   if (!values || values.length < 2) return '<div class="tt-loading-state">Not enough data for trend.</div>'
-  const W = 500, H = 95, PL = 36, PR = 8, PT = 10, PB = 24
+  const W = 500, H = 68, PL = 34, PR = 6, PT = 6, PB = 18
   const cw = W - PL - PR, ch = H - PT - PB
   const maxV = Math.max(...values, 1)
   const minV = Math.min(...values, 0)
@@ -814,34 +814,41 @@ function renderYTLineChart(values, color) {
     const daysAgo = n - 1 - i
     const dt = new Date(); dt.setDate(dt.getDate() - daysAgo)
     const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    const tip = `${dateStr}: ${ytFmtN(v)}`.replace(/'/g, '&#39;')
-    return `<circle cx="${x}" cy="${y}" r="3" fill="${color}" stroke="var(--bg)" stroke-width="1.5"
+    const prev = values[i - 1]
+    let pctStr = ''
+    if (i > 0 && prev) {
+      const pct = (((v - prev) / prev) * 100).toFixed(0)
+      pctStr = ` · ${pct >= 0 ? '+' : ''}${pct}% vs prev`
+    }
+    const tip = `${dateStr}: ${ytFmtN(v)}${pctStr}`.replace(/'/g, '&#39;')
+    return `<circle cx="${x}" cy="${y}" r="2.5" fill="${color}" stroke="var(--bg)" stroke-width="1.2"
       onmouseover="showChartTip(event,'${tip}')" onmouseout="hideChartTip()" style="cursor:pointer"/>`
   }).join('')
-  const yTicks = [0, 0.5, 1].map(t => {
+  const yTicks = [0, 1].map(t => {
     const y = (PT + (1 - t) * ch).toFixed(1)
     const lbl = ytFmtN(Math.round(minV + range * t))
     return `<line x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
             <text x="${PL - 4}" y="${(+y + 2).toFixed(1)}" text-anchor="end" font-size="5" fill="var(--text3)" font-family="system-ui">${lbl}</text>`
   }).join('')
   const xLabels = values.map((v, i) => {
-    if (n > 7 && i % 2 !== 0 && i !== n - 1) return ''
+    if (n > 5 && i % 2 !== 0 && i !== n - 1) return ''
     const x = xOf(i).toFixed(1)
     const daysAgo = n - 1 - i
     const dt = new Date(); dt.setDate(dt.getDate() - daysAgo)
     const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    return `<text x="${x}" y="${H - PB + 13}" text-anchor="middle" font-size="5" fill="var(--text3)" font-family="system-ui">${dateStr}</text>`
+    return `<text x="${x}" y="${H - 3}" text-anchor="middle" font-size="4.5" fill="var(--text3)" font-family="system-ui">${dateStr}</text>`
   }).join('')
+  const gradId = `yt-lg-${color.replace('#','')}`
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">
     <defs>
-      <linearGradient id="yt-area-grad-${color.replace('#','')}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${color}" stop-opacity="0.28"/>
-        <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
+      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0.01"/>
       </linearGradient>
     </defs>
     ${yTicks}${xLabels}
-    <polygon points="${areaPoints}" fill="url(#yt-area-grad-${color.replace('#','')})"/>
-    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+    <polygon points="${areaPoints}" fill="url(#${gradId})"/>
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
     ${dots}
   </svg>`
 }
