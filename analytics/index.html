@@ -570,8 +570,10 @@ const analyticsData = {
 let activePlatform    = 'tiktok'    // currently shown platform
 let ytVideos          = []          // array of video objects from YouTube API
 let ytVideoTab        = 'last5'     // 'last5' | 'last10'
-let ytChartMetric     = 'views'     // 'views' | 'subscribers' | 'engagement'
-let ytChartType       = 'bar'       // 'bar' | 'line'
+let ytMainTab         = 'overview'  // 'overview' | 'trends'
+let ytChartMetric     = 'views'     // metric for trends tab
+let ytChartRange      = 'all'       // 'all' | '6m' | '3m'
+let ytMonthFilter     = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` })()
 let ytDataStatus      = 'default'   // 'default' | 'live' | 'cached'
 let ttConnectionState = 'checking'  // 'checking' | 'live' | 'expired' | 'no-data'
 let ttLastFetchedAt   = null        // ISO string from tiktok_cache.last_fetched_at
@@ -866,9 +868,90 @@ function switchYtVideoTab(tab) {
 }
 window.switchYtVideoTab = switchYtVideoTab
 
+// ─── YOUTUBE GROUP HELPERS ────────────────────────────────────────
+function groupYTByMonth(videos) {
+  const map = {}
+  videos.forEach(v => {
+    if (!v.published_at) return
+    const d   = new Date(v.published_at)
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    const lbl = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+    if (!map[key]) map[key] = { key, label: lbl, videos: [], views: 0, likes: 0, comments: 0, count: 0 }
+    map[key].videos.push(v)
+    map[key].views    += v.views    || 0
+    map[key].likes    += v.likes    || 0
+    map[key].comments += v.comments || 0
+    map[key].count    += 1
+  })
+  return Object.values(map).sort((a, b) => a.key.localeCompare(b.key))
+}
+function enrichYTData(data) {
+  return data.map(m => ({
+    ...m,
+    avg: m.count ? Math.round(m.views / m.count) : 0,
+    eng: m.views > 0 ? +((m.likes + m.comments) / m.views * 100).toFixed(2) : 0
+  }))
+}
+function getYTChartData(videos, range) {
+  const now     = new Date()
+  const byMonth = enrichYTData(groupYTByMonth(videos))
+  if (range === 'all') return byMonth
+  const n = range === '6m' ? 6 : 3
+  const cutoff = new Date(now)
+  cutoff.setMonth(cutoff.getMonth() - n)
+  const cutKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}`
+  return byMonth.filter(m => m.key >= cutKey)
+}
+
+// ─── YOUTUBE TOP VIDEO ───────────────────────────────────────────
+function renderYTTopVideo(videos, selectedMonth) {
+  const byMonth = groupYTByMonth(videos)
+  if (!byMonth.length) return '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text3)">No video data available</div>'
+  const opts = byMonth.slice().reverse().map(m =>
+    `<option value="${m.key}"${m.key === selectedMonth ? ' selected' : ''}>${m.label}</option>`
+  ).join('')
+  const monthData = byMonth.find(m => m.key === selectedMonth)
+  let cardHtml
+  if (!monthData || !monthData.videos.length) {
+    cardHtml = `<div style="padding:14px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">No videos posted this month</div>`
+  } else {
+    const top  = monthData.videos.reduce((a, b) => (b.views||0) > (a.views||0) ? b : a)
+    const date = top.published_at ? new Date(top.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
+    const eng  = top.views > 0 ? ((top.likes + top.comments) / top.views * 100).toFixed(1) : '0.0'
+    const thumb = top.thumbnail
+      ? `<img src="${ytEscH(top.thumbnail)}" style="width:56px;height:78px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)" alt="">`
+      : `<div style="width:56px;height:78px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;color:var(--text3)">▶</div>`
+    cardHtml = `<div class="tt-top-video-card">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div class="tt-top-video-badge">🏆 Top Video — ${monthData.label}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:7px;line-height:1.4">${ytEscH(top.title || '(No title)')}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text2)">👁 <strong>${ytFmtN(top.views)}</strong> views</span>
+          <span style="font-size:11px;color:var(--text2)">♥ <strong>${ytFmtN(top.likes)}</strong> likes</span>
+          <span style="font-size:11px;color:var(--text2)">💬 <strong>${ytFmtN(top.comments)}</strong> comments</span>
+          <span style="font-size:11px;color:var(--text2)">📊 <strong>${eng}%</strong> eng</span>
+          ${date ? `<span style="font-size:11px;color:var(--text3)">${date}</span>` : ''}
+        </div>
+      </div>
+    </div>`
+  }
+  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:700">🏆 Top Video of the Month</div>
+    <select onchange="setYTMonthFilter(this.value)" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;outline:none">${opts}</select>
+  </div>
+  ${cardHtml}`
+}
+function setYTMonthFilter(val) {
+  ytMonthFilter = val
+  const el = document.getElementById('yt-monthly-top')
+  if (el) el.innerHTML = renderYTTopVideo(ytVideos, ytMonthFilter)
+}
+window.setYTMonthFilter = setYTMonthFilter
+
 // ─── YOUTUBE CHART RENDERERS ──────────────────────────────────────
 
-function renderYTLineChart(values, color) {
+function renderYTLineChartSmall(values, color) {
   if (!values || values.length < 2) return '<div class="tt-loading-state">Not enough data for trend.</div>'
   const W = 500, H = 68, PL = 34, PR = 6, PT = 6, PB = 18
   const cw = W - PL - PR, ch = H - PT - PB
@@ -925,6 +1008,145 @@ function renderYTLineChart(values, color) {
   </svg>`
 }
 
+// ─── YOUTUBE OVERVIEW + TRENDS ────────────────────────────────────
+
+function renderYTTrendsTab(videos) {
+  const metricCfg = [
+    { key: 'views',    label: 'Views',           color: '#FF0000' },
+    { key: 'likes',    label: 'Likes',            color: '#f43f5e' },
+    { key: 'comments', label: 'Comments',         color: '#8b5cf6' },
+    { key: 'avg',      label: 'Avg Views',        color: '#f59e0b' },
+    { key: 'eng',      label: 'Engagement Rate',  color: '#3b82f6' },
+  ]
+  const rangeCfg = [
+    { key: 'all', label: 'All Time' },
+    { key: '6m',  label: 'Last 6 Mo' },
+    { key: '3m',  label: 'Last 3 Mo' },
+  ]
+  const data = getYTChartData(videos, ytChartRange)
+  const mc   = metricCfg.find(m => m.key === ytChartMetric) || metricCfg[0]
+  const metricTabs = metricCfg.map(m =>
+    `<button class="tt-tab${ytChartMetric === m.key ? ' active' : ''}"
+      onclick="switchYTChartMetric('${m.key}')"
+      style="${ytChartMetric === m.key ? `background:${m.color};border-color:${m.color};color:#fff;` : ''}">${m.label}</button>`
+  ).join('')
+  const rangeBtns = rangeCfg.map(r =>
+    `<button class="tt-range-btn${ytChartRange === r.key ? ' active' : ''}" onclick="switchYTChartRange('${r.key}')">${r.label}</button>`
+  ).join('')
+  const rangeLbl = rangeCfg.find(r => r.key === ytChartRange)?.label || ''
+  const insight  = data.length >= 2 ? generateChartInsight(data, mc.key, mc.label) : ''
+  const legend   = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${insight ? '5px' : '6px'}">
+    <span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);font-weight:600">
+      <span style="width:14px;height:2px;background:${mc.color};border-radius:1px;display:inline-block"></span>
+      ${mc.label}
+    </span>
+    <span style="font-size:10px;color:var(--text3)">·</span>
+    <span style="font-size:10px;color:var(--text3)">${rangeLbl}</span>
+    <span style="font-size:10px;color:var(--text3)">·</span>
+    <span style="font-size:10px;color:var(--text3)">${data.length} data point${data.length !== 1 ? 's' : ''}</span>
+  </div>
+  ${insight ? `<p style="font-size:10px;font-style:italic;color:var(--text3);margin:0 0 7px;line-height:1.5">${ytEscH(insight)}</p>` : ''}`
+  const chartHtml = data.length < 2
+    ? `<div style="padding:20px;text-align:center;font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">Not enough data for this time range</div>`
+    : `<div class="tt-chart-wrap">${legend}${renderLineChart(data, mc.key, mc.color)}</div>`
+  return `<div class="tt-tabs" style="flex-wrap:wrap;gap:5px;margin-bottom:10px">${metricTabs}</div>
+    <div class="tt-range-wrap">${rangeBtns}</div>
+    ${chartHtml}`
+}
+
+function switchYTChartMetric(metric) {
+  ytChartMetric = metric
+  const el = document.getElementById('yt-main-content')
+  if (el) el.innerHTML = renderYTTrendsTab(ytVideos)
+}
+window.switchYTChartMetric = switchYTChartMetric
+
+function switchYTChartRange(range) {
+  ytChartRange = range
+  const el = document.getElementById('yt-main-content')
+  if (el) el.innerHTML = renderYTTrendsTab(ytVideos)
+}
+window.switchYTChartRange = switchYTChartRange
+
+function switchYtMainTab(tab) {
+  ytMainTab = tab
+  const d  = analyticsData.platforms.youtube
+  const el = document.getElementById('yt-main-content')
+  if (el) el.innerHTML = tab === 'trends' ? renderYTTrendsTab(ytVideos) : renderYTOverview(ytVideos, d)
+  document.querySelectorAll('[data-ytmaintab]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.ytmaintab === tab)
+  })
+}
+window.switchYtMainTab = switchYtMainTab
+
+function renderYTOverview(videos, d) {
+  const byMonth    = enrichYTData(groupYTByMonth(videos))
+  const mViews     = byMonth.map(m => m.views)
+  const mLikes     = byMonth.map(m => m.likes)
+  const mComments  = byMonth.map(m => m.comments)
+  const mAvg       = byMonth.map(m => m.avg)
+  const mEng       = byMonth.map(m => m.eng)
+  const totalLikes    = videos.reduce((s, v) => s + (v.likes    || 0), 0)
+  const totalComments = videos.reduce((s, v) => s + (v.comments || 0), 0)
+  const engRate       = d.engagement_rate || 0
+  const sDelta = ytMomDelta(d.weekly_data.subscribers)
+  const vDelta = ytMomDelta(mViews.length >= 2 ? mViews : [])
+  const eDelta = ytMomDelta(mEng.length   >= 2 ? mEng   : [])
+  const aDelta = ytMomDelta(mAvg.length   >= 2 ? mAvg   : [])
+  const tipSubs     = `${ytFmtN(d.subscribers)} subscribers. ${ytTrendStr(sDelta)} Total across full channel.`
+  const tipViews    = `${ytFmtN(d.total_views)} total views all time. ${ytTrendStr(vDelta)}`
+  const tipLikes    = `${ytFmtN(totalLikes)} likes on recent ${videos.length} videos. Like rate: ${d.total_views > 0 ? ((totalLikes/d.total_views)*100).toFixed(1) : 0}%. Industry avg is 3–5%.`
+  const tipComments = `${ytFmtN(totalComments)} comments on recent ${videos.length} videos. Comments signal strong audience connection.`
+  const tipAvg      = `${ytFmtN(d.avg_views)} avg views/video (7-day). ${ytTrendStr(aDelta)} ${d.avg_views > 1000 ? 'Solid reach.' : 'Focus on stronger hooks in the first 3 seconds.'}`
+  const tipEng      = `${engRate}% engagement rate. ${engRate > 3 ? '✅ Above YouTube average (1–3%).' : engRate > 1 ? 'Within normal range.' : '⚠ Add stronger CTAs and end screens.'} ${ytTrendStr(eDelta)}`
+
+  const metrics = `<div class="ag6" style="margin-bottom:14px">
+    <div class="a-metric" data-tooltip="${tipSubs}">
+      <div class="metric-label">SUBSCRIBERS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.subscribers)}</div><div class="metric-sub">channel total</div></div>${ttSparkline(d.weekly_data.subscribers,'#22c55e')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipViews}">
+      <div class="metric-label">TOTAL VIEWS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.total_views)}</div><div class="metric-sub">all time</div></div>${ttSparkline(mViews,'#FF0000')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipLikes}">
+      <div class="metric-label">TOTAL LIKES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(totalLikes)}</div><div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(mLikes,'#f43f5e')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipComments}">
+      <div class="metric-label">TOTAL COMMENTS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(totalComments)}</div><div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(mComments,'#8b5cf6')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipAvg}">
+      <div class="metric-label">AVG VIEWS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.avg_views)}</div><div class="metric-sub">7-day window</div></div>${ttSparkline(d.weekly_data.views,'#f59e0b')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipEng}">
+      <div class="metric-label">ENGAGEMENT RATE</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div><div class="metric-sub">(likes+comments)/views</div></div>${ttSparkline(mEng,'#3b82f6')}</div>
+    </div>
+  </div>`
+
+  const topVideo = videos.length
+    ? `<div id="yt-monthly-top" style="margin-bottom:16px">${renderYTTopVideo(videos, ytMonthFilter)}</div>`
+    : ''
+
+  const chart = videos.length
+    ? `<div class="tt-chart-wrap" style="margin-bottom:14px">${renderYTBarChart(videos)}</div>`
+    : ''
+
+  const tabVids = ytVideoTab === 'last10' ? videos.slice(0, 10) : videos.slice(0, 5)
+  const table = `<div class="tt-tabs" style="margin-bottom:8px">
+    <button class="tt-tab${ytVideoTab==='last5'?' active':''}" data-yttab="last5" onclick="switchYtVideoTab('last5')" style="${ytVideoTab==='last5'?'background:#FF0000;border-color:#FF0000;color:#fff;':''}">Last 5</button>
+    <button class="tt-tab${ytVideoTab==='last10'?' active':''}" data-yttab="last10" onclick="switchYtVideoTab('last10')" style="${ytVideoTab==='last10'?'background:#FF0000;border-color:#FF0000;color:#fff;':''}">Last 10</button>
+    <span style="margin-left:auto;font-size:10px;color:var(--text3);align-self:center">${videos.length} videos</span>
+  </div>
+  <div id="yt-video-table">${renderYTVideoTable(tabVids)}</div>`
+
+  return metrics + topVideo + chart + table
+}
+
+// ─── OLD RENDERERS (kept for renderYTBarChart) ────────────────────
 function renderYTEngBarChart(videos) {
   if (!videos || videos.length === 0) return '<div class="tt-loading-state">No video data yet.</div>'
   const W = 500, H = 95, PL = 32, PR = 4, PT = 8, PB = 22
@@ -992,48 +1214,6 @@ function renderYTSubsDeltaBarChart(weekly) {
   </svg>`
 }
 
-function renderYTChart(metric, type) {
-  const d = analyticsData.platforms.youtube
-  if (metric === 'views') {
-    if (type === 'line') return renderYTLineChart(d.weekly_data.views, '#FF0000')
-    return renderYTBarChart(ytVideos)
-  }
-  if (metric === 'subscribers') {
-    if (type === 'line') return renderYTLineChart(d.weekly_data.subscribers, '#22c55e')
-    return renderYTSubsDeltaBarChart(d.weekly_data.subscribers)
-  }
-  if (metric === 'engagement') {
-    if (type === 'line') {
-      const vals = ytVideos.map(v => v.views > 0 ? parseFloat(((v.likes + v.comments) / v.views * 100).toFixed(2)) : 0)
-      return renderYTLineChart(vals, '#fbbf24')
-    }
-    return renderYTEngBarChart(ytVideos)
-  }
-  return ''
-}
-
-function switchYtChart(metric, type) {
-  if (metric) ytChartMetric = metric
-  if (type)   ytChartType   = type
-  const chartEl = document.getElementById('yt-chart-area')
-  if (chartEl) chartEl.innerHTML = renderYTChart(ytChartMetric, ytChartType)
-  document.querySelectorAll('[data-ytmetric]').forEach(btn => {
-    const active = btn.dataset.ytmetric === ytChartMetric
-    btn.classList.toggle('active', active)
-    btn.style.background  = active ? '#FF0000' : ''
-    btn.style.borderColor = active ? '#FF0000' : ''
-    btn.style.color       = active ? '#fff' : ''
-  })
-  document.querySelectorAll('[data-ytcharttype]').forEach(btn => {
-    const active = btn.dataset.ytcharttype === ytChartType
-    btn.classList.toggle('active', active)
-    btn.style.background  = active ? '#FF0000' : ''
-    btn.style.borderColor = active ? '#FF0000' : ''
-    btn.style.color       = active ? '#fff' : ''
-  })
-}
-window.switchYtChart = switchYtChart
-
 function youtubeBlock(isLoading) {
   const cfg = PLATFORMS.youtube
   const d   = analyticsData.platforms.youtube
@@ -1045,109 +1225,9 @@ function youtubeBlock(isLoading) {
     else if (ytDataStatus === 'cached') statusBadge = '<span class="data-badge-cached">Cached data</span>'
   }
 
-  let metricsHtml
-  if (isLoading) {
-    metricsHtml = `<div class="ag5">${Array(5).fill('<div class="a-metric">' + skeletonVal() + '</div>').join('')}</div>`
-  } else {
-    const sDelta = ytMomDelta(d.weekly_data.subscribers)
-    const vDelta = ytMomDelta(d.weekly_data.views)
-    const engRate = d.engagement_rate || 0
-    const tipSubs  = `${ytFmtN(d.subscribers)} subscribers. ${ytTrendStr(sDelta)} Total across the full channel.`
-    const tipTotal = `${ytFmtN(d.total_views)} total views across all channel videos since creation.`
-    const tipAvg   = `${ytFmtN(d.avg_views)} avg views per video in the last 7 days. ${ytTrendStr(vDelta)} ${d.avg_views > 1000 ? 'Solid reach.' : 'Focus on stronger hooks in the first 3 seconds.'}`
-    const tipVids  = `${d.videos_this_week} video${d.videos_this_week !== 1 ? 's' : ''} posted in the last 7 days.`
-    const tipEng   = `${engRate}% engagement on recent videos. ${engRate > 3 ? '✅ Above YouTube average (1-3%).' : engRate > 1 ? 'Within normal range (1-3%).' : '⚠ Below average. Try stronger CTAs and end screens.'}`
-    metricsHtml = `<div class="ag5">
-      <div class="a-metric" data-tooltip="${tipSubs}">
-        <div class="metric-label">SUBSCRIBERS</div>
-        <div class="tt-metric-inner">
-          <div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.subscribers)}</div><div class="metric-sub">${d.weekly_data.subscribers.length} day history</div></div>
-          ${ttSparkline(d.weekly_data.subscribers, c)}
-        </div>
-      </div>
-      <div class="a-metric" data-tooltip="${tipTotal}">
-        <div class="metric-label">TOTAL VIEWS</div>
-        <div class="tt-metric-inner">
-          <div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.total_views)}</div><div class="metric-sub">channel total</div></div>
-        </div>
-      </div>
-      <div class="a-metric" data-tooltip="${tipAvg}">
-        <div class="metric-label">AVG VIEWS (7D)</div>
-        <div class="tt-metric-inner">
-          <div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.avg_views)}</div><div class="metric-sub">per video</div></div>
-          ${ttSparkline(d.weekly_data.views, c)}
-        </div>
-      </div>
-      <div class="a-metric" data-tooltip="${tipVids}">
-        <div class="metric-label">VIDEOS/WEEK</div>
-        <div class="tt-metric-inner">
-          <div><div class="metric-val" style="margin-top:4px">${d.videos_this_week}</div><div class="metric-sub">last 7 days</div></div>
-        </div>
-      </div>
-      <div class="a-metric" data-tooltip="${tipEng}">
-        <div class="metric-label">ENGAGEMENT</div>
-        <div class="tt-metric-inner">
-          <div><div class="metric-val" style="margin-top:4px">${engRate}%</div><div class="metric-sub">(likes+comments)/views</div></div>
-        </div>
-      </div>
-    </div>`
-  }
-
-  let chartSection = ''
-  if (!isLoading && ytVideos.length > 0) {
-    const tabVids = ytVideoTab === 'last10' ? ytVideos.slice(0, 10) : ytVideos.slice(0, 5)
-    const YR = '#FF0000'
-    const metricLabel = { views: 'Views per Video', subscribers: 'Subscriber Change', engagement: 'Engagement Rate %' }[ytChartMetric]
-    const chartTypeLabel = ytChartType === 'line' ? 'Trend Line' : 'Bar Chart'
-    chartSection = `<div class="tt-video-section" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
-
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
-        <span style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;width:52px;flex-shrink:0">Metric</span>
-        <div class="tt-tabs">
-          <button class="tt-tab${ytChartMetric==='views'?' active':''}" data-ytmetric="views"
-            onclick="switchYtChart('views',null)"
-            style="${ytChartMetric==='views'?`background:${YR};border-color:${YR};color:#fff;`:''}">Views</button>
-          <button class="tt-tab${ytChartMetric==='subscribers'?' active':''}" data-ytmetric="subscribers"
-            onclick="switchYtChart('subscribers',null)"
-            style="${ytChartMetric==='subscribers'?`background:${YR};border-color:${YR};color:#fff;`:''}">Subscribers</button>
-          <button class="tt-tab${ytChartMetric==='engagement'?' active':''}" data-ytmetric="engagement"
-            onclick="switchYtChart('engagement',null)"
-            style="${ytChartMetric==='engagement'?`background:${YR};border-color:${YR};color:#fff;`:''}">Engagement</button>
-        </div>
-      </div>
-
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-        <span style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;width:52px;flex-shrink:0">Chart</span>
-        <div class="tt-tabs">
-          <button class="tt-tab${ytChartType==='bar'?' active':''}" data-ytcharttype="bar"
-            onclick="switchYtChart(null,'bar')"
-            style="${ytChartType==='bar'?`background:${YR};border-color:${YR};color:#fff;`:''}">Bar</button>
-          <button class="tt-tab${ytChartType==='line'?' active':''}" data-ytcharttype="line"
-            onclick="switchYtChart(null,'line')"
-            style="${ytChartType==='line'?`background:${YR};border-color:${YR};color:#fff;`:''}">Line</button>
-        </div>
-        <span style="font-size:10px;color:var(--text3);margin-left:4px">${metricLabel} — ${chartTypeLabel}</span>
-      </div>
-
-      <div class="tt-chart-wrap" style="margin-bottom:14px">
-        <div id="yt-chart-area">${renderYTChart(ytChartMetric, ytChartType)}</div>
-      </div>
-
-      <div style="border-top:1px solid var(--border);padding-top:10px">
-        <div class="tt-tabs" style="margin-bottom:8px">
-          <button class="tt-tab${ytVideoTab==='last5'?' active':''}" data-yttab="last5"
-            onclick="switchYtVideoTab('last5')"
-            style="${ytVideoTab==='last5'?`background:${YR};border-color:${YR};color:#fff;`:''}">Last 5</button>
-          <button class="tt-tab${ytVideoTab==='last10'?' active':''}" data-yttab="last10"
-            onclick="switchYtVideoTab('last10')"
-            style="${ytVideoTab==='last10'?`background:${YR};border-color:${YR};color:#fff;`:''}">Last 10</button>
-          <span style="margin-left:auto;font-size:10px;color:var(--text3);align-self:center">${ytVideos.length} videos</span>
-        </div>
-        <div id="yt-video-table">${renderYTVideoTable(tabVids)}</div>
-      </div>
-
-    </div>`
-  }
+  const mainContent = isLoading
+    ? `<div class="ag6">${Array(6).fill('<div class="a-metric">' + skeletonVal() + '</div>').join('')}</div>`
+    : ytMainTab === 'trends' ? renderYTTrendsTab(ytVideos) : renderYTOverview(ytVideos, d)
 
   return `<div class="platform-section">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -1155,11 +1235,15 @@ function youtubeBlock(isLoading) {
       <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
       ${statusBadge}
     </div>
-    ${metricsHtml}
-    ${chartSection}
-    ${isLoading ? '' : goalsCard(d.goals, c)}
+    <div class="tt-main-tabs">
+      <button class="tt-main-tab${ytMainTab==='overview'?' active':''}" data-ytmaintab="overview" onclick="switchYtMainTab('overview')">Overview</button>
+      <button class="tt-main-tab${ytMainTab==='trends'?' active':''}" data-ytmaintab="trends" onclick="switchYtMainTab('trends')">📈 Trends</button>
+    </div>
+    <div id="yt-main-content">${mainContent}</div>
   </div>`
 }
+
+// ─── OLD (unused stub — keep renderYTBarChart alive) ──────────────
 
 // ─── TIKTOK HELPERS ─────────────────────────────────────────────
 function ttEscH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
