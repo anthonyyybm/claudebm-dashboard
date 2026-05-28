@@ -1676,7 +1676,16 @@ function tiktokBlock(isLoading) {
       : `<div class="tt-avatar tt-avatar-placeholder">TT</div>`
 
     const errorBanner = tiktokLiveData.error
-      ? `<div class="tt-error-state">⚠ ${ttEscH(tiktokLiveData.error)}</div>`
+      ? `<div class="tt-error-state" style="margin-bottom:12px;border-radius:8px">
+           <div style="font-weight:700;margin-bottom:4px">⚠ TikTok connection failed</div>
+           <div style="font-size:11px;opacity:.85;word-break:break-word">${ttEscH(tiktokLiveData.error)}</div>
+           <div style="margin-top:8px;font-size:11px;color:var(--text2)">
+             <strong>Sandbox checklist:</strong>
+             1) Your TikTok account must be added as a <em>Sandbox User</em> in the TikTok Developer Portal under your app.
+             2) The redirect URI <code style="background:var(--surface2);padding:1px 4px;border-radius:3px">${TT_REDIRECT_URI}</code> must be registered exactly (including trailing slash).
+             3) The Edge Function <code style="background:var(--surface2);padding:1px 4px;border-radius:3px">tiktok-token-exchange</code> must be deployed to Supabase.
+           </div>
+         </div>`
       : ''
 
     const actionBtn = ttConnectionState === 'live'
@@ -2035,9 +2044,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderDashboard(true)  // show skeletons immediately
 
   const urlParams = new URLSearchParams(window.location.search)
-  const ttCode = urlParams.get('code')
+  const ttCode    = urlParams.get('code')
+  const ttError   = urlParams.get('error')
+  const ttErrDesc = urlParams.get('error_description')
 
-  if (ttCode) {
+  if (ttError) {
+    history.replaceState({}, '', window.location.pathname)
+    tiktokLiveData.error  = `TikTok denied authorization: ${ttError}${ttErrDesc ? ' — ' + ttErrDesc : ''}`
+    ttConnectionState     = 'no-data'
+    await initTikTokFromSupabase()
+  } else if (ttCode) {
     history.replaceState({}, '', window.location.pathname)
     document.getElementById('analytics-root').innerHTML =
       `<div class="tt-loader-wrap">
