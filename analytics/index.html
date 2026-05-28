@@ -10,25 +10,29 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     /* ─── MoverMetrics dark palette — always dark on this page ── */
-    :root {
-      --bg:           #0d1117 !important;
-      --surface:      #161b22 !important;
-      --surface2:     #21262d !important;
-      --border:       #30363d !important;
-      --text:         #e6edf3 !important;
-      --text2:        #8b949e !important;
-      --text3:        #484f58 !important;
-      --accent:       #22c55e !important;
-      --accent-hover: #16a34a !important;
-      --accent-light: #0d2818 !important;
-      --accent-text:  #4ade80 !important;
-      --danger:       #f85149 !important;
-      --danger-light: #2d1b1b !important;
-      --amber:        #fbbf24 !important;
-      --amber-light:  #2d2010 !important;
-      --success:      #22c55e !important;
-      --success-light:#0d2818 !important;
-      --shadow:       0 1px 4px rgba(0,0,0,.25) !important;
+    /* Override both :root and body.dark so main.css can't clobber them.
+       body.dark (element+class specificity) beats :root, so we need both.
+       Our <style> block loads after main.css, so same-specificity = our values win. */
+    :root,
+    body.dark {
+      --bg:           #0d1117;
+      --surface:      #161b22;
+      --surface2:     #21262d;
+      --border:       #30363d;
+      --text:         #e6edf3;
+      --text2:        #8b949e;
+      --text3:        #484f58;
+      --accent:       #22c55e;
+      --accent-hover: #16a34a;
+      --accent-light: #0d2818;
+      --accent-text:  #4ade80;
+      --danger:       #f85149;
+      --danger-light: #2d1b1b;
+      --amber:        #fbbf24;
+      --amber-light:  #2d2010;
+      --success:      #22c55e;
+      --success-light:#0d2818;
+      --shadow:       0 1px 4px rgba(0,0,0,.25);
     }
 
     /* ─── Analytics-specific ─────────────────────────────────── */
