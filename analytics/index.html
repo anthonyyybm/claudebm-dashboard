@@ -1296,9 +1296,8 @@ function ttStatusBanner() {
   if (ttConnectionState === 'expired') {
     const ts = ttLastFetchedAt ? toPhilippineTime(ttLastFetchedAt) : 'unknown time'
     return `<div class="tt-status-expired">
-      <span style="font-size:12px;font-weight:600;color:var(--amber)">⚠ Token expired — showing data from ${ts}</span>
-      ${reconnectBtn}
-      <div style="width:100%;margin-top:4px">${note}</div>
+      <span style="font-size:12px;font-weight:600;color:var(--amber)">⚠ Showing cached data from ${ts}</span>
+      <span style="margin-left:auto">${note}</span>
     </div>`
   }
   return ''
