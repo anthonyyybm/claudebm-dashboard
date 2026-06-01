@@ -14,6 +14,7 @@
       const { data, error } = await window.sb
         .from('scripts')
         .select('id', { count: 'exact', head: true })
+        .eq('is_archived', false)
         .eq('status', 'Ready')
       if (error) throw error
       const count = data === null ? 0 : (Array.isArray(data) ? data.length : 0)
@@ -104,6 +105,7 @@
       const { data, error } = await window.sb
         .from('scripts')
         .select('id, topic, series, status, consistency_check')
+        .eq('is_archived', false)
         .order('created_at', { ascending: false })
         .limit(8)
       if (error) throw error

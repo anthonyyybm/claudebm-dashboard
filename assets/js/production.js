@@ -302,10 +302,12 @@
           .eq('summary_date', date).maybeSingle(),
         window.sb.from('scripts')
           .select('id,topic,series,status')
+          .eq('is_archived', false)
           .eq('planned_date', date)
           .order('plan_order', { ascending: true, nullsFirst: false }),
         window.sb.from('scripts')
           .select('id,topic,series,status')
+          .eq('is_archived', false)
           .not('used_at', 'is', null)
           .gte('used_at', date + 'T00:00:00')
           .lte('used_at', date + 'T23:59:59'),

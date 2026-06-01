@@ -89,6 +89,7 @@
       const { data, error } = await window.sb
         .from('scripts')
         .select('*')
+        .eq('is_archived', false)
         .order('created_at', { ascending: false })
       if (error) throw error
       allScripts = data || []
