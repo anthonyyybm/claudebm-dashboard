@@ -1,0 +1,10 @@
+
+# Vite / Node
+node_modules/
+dist/
+*.local
+
+# Migration scripts
+migrate.js
+migrate.py
+supabase/.temp/
