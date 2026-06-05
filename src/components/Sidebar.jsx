@@ -20,8 +20,6 @@ export default function Sidebar({ active, setActive, theme, toggleTheme }) {
   }, [])
 
   const timeClass = secs < 900 ? 'shift-mini-time alert' : secs < 3600 ? 'shift-mini-time warn' : 'shift-mini-time'
-  const h = Math.floor(secs / 3600)
-  const display = h > 0 ? formatCountdown(secs) : formatCountdown(secs)
 
   return (
     <aside className="sidebar">
@@ -41,25 +39,22 @@ export default function Sidebar({ active, setActive, theme, toggleTheme }) {
             <span className="nav-label">{label}</span>
           </button>
         ))}
-        <a
-          className="nav-item"
-          href="analytics/"
-          target="_blank"
-          rel="noopener"
-        >
+        <a className="nav-item" href="analytics/" target="_blank" rel="noopener">
           <IconExternal />
           <span className="nav-label">Analytics ↗</span>
         </a>
       </nav>
 
       <div className="sidebar-bottom">
+        {/* Clock icon always visible; full time fades in on hover */}
         <div className="shift-mini">
-          <span className={timeClass}>{display}</span>
-          <span className="shift-mini-label">SHIFT ENDS</span>
+          <span className="shift-mini-icon">⏱</span>
+          <span className={timeClass}>{formatCountdown(secs)}</span>
         </div>
-        <button className="theme-toggle" onClick={toggleTheme} title="Toggle light/dark mode">
-          <span className="theme-toggle-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
-          <span className="nav-label" style={{ fontSize: 11 }}>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+        {/* Theme toggle — icon only when collapsed */}
+        <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
+          <span className="theme-toggle-icon">{theme === 'dark' ? '☀' : '☾'}</span>
+          <span className="theme-toggle-label">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
         </button>
       </div>
     </aside>

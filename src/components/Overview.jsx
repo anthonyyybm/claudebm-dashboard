@@ -161,12 +161,30 @@ function QuickCapture({ setActive }) {
 
 /* ─── Shift Timer ────────────────────────────────────────────── */
 function ShiftTimer() {
-  const [secs, setSecs] = useState(secsUntilShiftEnd())
+  const [secs,    setSecs]    = useState(secsUntilShiftEnd())
+  const [active,  setActive]  = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+  const elapsedRef = useRef(null)
 
+  // Wall-clock countdown
   useEffect(() => {
     const id = setInterval(() => setSecs(secsUntilShiftEnd()), 1000)
     return () => clearInterval(id)
   }, [])
+
+  // Elapsed timer when shift is active
+  useEffect(() => {
+    if (active) {
+      elapsedRef.current = setInterval(() => setElapsed(e => e + 1), 1000)
+    } else {
+      clearInterval(elapsedRef.current)
+    }
+    return () => clearInterval(elapsedRef.current)
+  }, [active])
+
+  function startShift()  { setActive(true);  setElapsed(0) }
+  function pauseShift()  { setActive(false) }
+  function endShift()    { setActive(false);  setElapsed(0) }
 
   const cls = secs < 900 ? 'shift-big alert' : secs < 3600 ? 'shift-big warn' : 'shift-big'
 
@@ -174,8 +192,23 @@ function ShiftTimer() {
     <div className="card">
       <div className="shift-big-label">SHIFT ENDS</div>
       <div className={cls}>{formatCountdown(secs)}</div>
-      <div style={{ marginTop: 6, fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--text3)' }}>
-        5:00 AM PHT
+      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>5:00 AM PHT</div>
+
+      {active && (
+        <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(0,254,250,0.06)', borderRadius: 6, border: '1px solid rgba(0,254,250,0.15)' }}>
+          <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 }}>Shift active — elapsed</div>
+          <div style={{ fontFamily: 'var(--font)', fontWeight: 600, fontSize: 22, color: 'var(--cyan)' }}>{formatCountdown(elapsed)}</div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
+        {!active
+          ? <button className="btn" style={{ flex: 1, fontSize: 11 }} onClick={startShift}>▶ Start Shift</button>
+          : <>
+              <button className="btn btn-ghost" style={{ flex: 1, fontSize: 11 }} onClick={pauseShift}>⏸ Pause</button>
+              <button className="btn btn-danger" style={{ fontSize: 11 }} onClick={endShift}>■ End</button>
+            </>
+        }
       </div>
     </div>
   )
