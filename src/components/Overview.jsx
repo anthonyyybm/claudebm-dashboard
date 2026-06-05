@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
-import { secsUntilShiftEnd, formatCountdown } from '../lib/utils.js'
+import { secsUntilShiftEnd, formatCountdown, fmtDate, daysBetween, fmtN } from '../lib/utils.js'
+import { loadAllAnalytics } from '../lib/analytics.js'
 
 export default function Overview({ active, setActive }) {
   const style = { display: active ? 'block' : 'none' }
@@ -12,11 +13,16 @@ export default function Overview({ active, setActive }) {
         <div>
           <PulseCards />
           <QuickCapture setActive={setActive} />
+          <UpcomingDeadlines setActive={setActive} />
+          <RecentActivity setActive={setActive} />
         </div>
         <div>
           <ShiftTimer />
           <div style={{ marginTop: 20 }}>
             <Pomodoro />
+          </div>
+          <div style={{ marginTop: 20 }}>
+            <SocialSnapshot />
           </div>
         </div>
       </div>
@@ -161,30 +167,29 @@ function QuickCapture({ setActive }) {
 
 /* ─── Shift Timer ────────────────────────────────────────────── */
 function ShiftTimer() {
-  const [secs,    setSecs]    = useState(secsUntilShiftEnd())
-  const [active,  setActive]  = useState(false)
-  const [elapsed, setElapsed] = useState(0)
+  const [secs,       setSecs]       = useState(secsUntilShiftEnd())
+  const [shiftState, setShiftState] = useState('idle') // 'idle' | 'running' | 'paused'
+  const [elapsed,    setElapsed]    = useState(0)
   const elapsedRef = useRef(null)
 
-  // Wall-clock countdown
   useEffect(() => {
     const id = setInterval(() => setSecs(secsUntilShiftEnd()), 1000)
     return () => clearInterval(id)
   }, [])
 
-  // Elapsed timer when shift is active
   useEffect(() => {
-    if (active) {
+    if (shiftState === 'running') {
       elapsedRef.current = setInterval(() => setElapsed(e => e + 1), 1000)
     } else {
       clearInterval(elapsedRef.current)
     }
     return () => clearInterval(elapsedRef.current)
-  }, [active])
+  }, [shiftState])
 
-  function startShift()  { setActive(true);  setElapsed(0) }
-  function pauseShift()  { setActive(false) }
-  function endShift()    { setActive(false);  setElapsed(0) }
+  function startShift()  { setShiftState('running'); setElapsed(0) }
+  function resumeShift() { setShiftState('running') }
+  function pauseShift()  { setShiftState('paused') }
+  function endShift()    { setShiftState('idle');   setElapsed(0) }
 
   const cls = secs < 900 ? 'shift-big alert' : secs < 3600 ? 'shift-big warn' : 'shift-big'
 
@@ -194,21 +199,33 @@ function ShiftTimer() {
       <div className={cls}>{formatCountdown(secs)}</div>
       <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>5:00 AM PHT</div>
 
-      {active && (
+      {shiftState !== 'idle' && (
         <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(0,254,250,0.06)', borderRadius: 6, border: '1px solid rgba(0,254,250,0.15)' }}>
-          <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 }}>Shift active — elapsed</div>
-          <div style={{ fontFamily: 'var(--font)', fontWeight: 600, fontSize: 22, color: 'var(--cyan)' }}>{formatCountdown(elapsed)}</div>
+          <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 }}>
+            {shiftState === 'running' ? 'Shift active — elapsed' : 'Shift paused — elapsed'}
+          </div>
+          <div style={{ fontWeight: 600, fontSize: 22, color: shiftState === 'paused' ? 'var(--text3)' : 'var(--cyan)' }}>
+            {formatCountdown(elapsed)}
+          </div>
         </div>
       )}
 
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
-        {!active
-          ? <button className="btn" style={{ flex: 1, fontSize: 11 }} onClick={startShift}>▶ Start Shift</button>
-          : <>
-              <button className="btn btn-ghost" style={{ flex: 1, fontSize: 11 }} onClick={pauseShift}>⏸ Pause</button>
-              <button className="btn btn-danger" style={{ fontSize: 11 }} onClick={endShift}>■ End</button>
-            </>
-        }
+        {shiftState === 'idle' && (
+          <button className="btn" style={{ flex: 1, fontSize: 11 }} onClick={startShift}>▶ Start Shift</button>
+        )}
+        {shiftState === 'running' && (
+          <>
+            <button className="btn btn-ghost" style={{ flex: 1, fontSize: 11 }} onClick={pauseShift}>⏸ Pause</button>
+            <button className="btn btn-danger" style={{ fontSize: 11 }} onClick={endShift}>■ End</button>
+          </>
+        )}
+        {shiftState === 'paused' && (
+          <>
+            <button className="btn" style={{ flex: 1, fontSize: 11 }} onClick={resumeShift}>▶ Resume</button>
+            <button className="btn btn-danger" style={{ fontSize: 11 }} onClick={endShift}>■ End</button>
+          </>
+        )}
       </div>
     </div>
   )
@@ -278,6 +295,134 @@ function Pomodoro() {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ─── Upcoming Deadlines ─────────────────────────────────────── */
+function UpcomingDeadlines({ setActive }) {
+  const [goals, setGoals] = useState([])
+
+  useEffect(() => {
+    async function load() {
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() + 14)
+      const { data } = await sb.from('goals')
+        .select('id,title,deadline,status')
+        .neq('status', 'hit')
+        .not('deadline', 'is', null)
+        .lte('deadline', cutoff.toISOString().slice(0, 10))
+        .order('deadline', { ascending: true })
+        .limit(5)
+      if (data) setGoals(data)
+    }
+    load()
+  }, [])
+
+  if (goals.length === 0) return null
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div className="section-title">Upcoming Deadlines</div>
+      <div className="card" style={{ padding: '12px 20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {goals.map(g => {
+            const daysAgo  = daysBetween(g.deadline)
+            const daysLeft = daysAgo !== null ? -daysAgo : null
+            const overdue  = daysLeft !== null && daysLeft < 0
+            const urgent   = daysLeft !== null && daysLeft <= 3 && !overdue
+            const color    = overdue ? 'var(--danger)' : urgent ? 'var(--yellow)' : 'var(--text3)'
+            const label    = overdue ? `${Math.abs(daysLeft)}d overdue`
+              : daysLeft === 0 ? 'Today'
+              : daysLeft === 1 ? 'Tomorrow'
+              : `${daysLeft}d left`
+            return (
+              <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</div>
+                <span style={{ fontSize: 11, fontWeight: 600, color, whiteSpace: 'nowrap' }}>{label}</span>
+              </div>
+            )
+          })}
+        </div>
+        <button className="btn btn-ghost" style={{ fontSize: 11, marginTop: 12, width: '100%' }} onClick={() => setActive('goals')}>
+          View all goals →
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Recent Activity ────────────────────────────────────────── */
+function RecentActivity() {
+  const [items, setItems] = useState([])
+
+  useEffect(() => {
+    async function load() {
+      const [{ data: tasks }, { data: scripts }] = await Promise.all([
+        sb.from('tasks').select('id,title,state,updated_at').order('updated_at', { ascending: false }).limit(4),
+        sb.from('scripts').select('id,topic,status,created_at').eq('is_archived', false).order('created_at', { ascending: false }).limit(3),
+      ])
+      const merged = [
+        ...(tasks || []).map(t => ({ id: 'task-' + t.id, label: t.title, meta: t.state.replace(/_/g, ' '), time: t.updated_at, type: 'task' })),
+        ...(scripts || []).map(s => ({ id: 'scr-' + s.id, label: s.topic || 'Untitled script', meta: s.status, time: s.created_at, type: 'script' })),
+      ].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 6)
+      setItems(merged)
+    }
+    load()
+  }, [])
+
+  if (items.length === 0) return null
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div className="section-title">Recent Activity</div>
+      <div className="card" style={{ padding: '12px 20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {items.map(item => (
+            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 9, color: item.type === 'task' ? 'var(--teal)' : 'var(--cyan)', flexShrink: 0 }}>
+                {item.type === 'task' ? '◆' : '▶'}
+              </span>
+              <div style={{ flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</div>
+              <span style={{ fontSize: 10, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{item.meta}</span>
+              <span style={{ fontSize: 10, color: 'var(--text3)', whiteSpace: 'nowrap', minWidth: 58, textAlign: 'right' }}>{fmtDate(item.time)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Social Snapshot ────────────────────────────────────────── */
+function SocialSnapshot() {
+  const [data,    setData]    = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadAllAnalytics().then(d => { setData(d); setLoading(false) })
+  }, [])
+
+  const rows = [
+    { name: 'TikTok',    abbr: 'TT', color: '#00C2A8', followers: data?.tiktok?.followers,    avg: data?.tiktok?.avg_views,   ok: data?.tiktok?.success },
+    { name: 'YouTube',   abbr: 'YT', color: '#FF0000', followers: data?.youtube?.subscribers, avg: data?.youtube?.avg_views,  ok: data?.youtube?.success },
+    { name: 'Instagram', abbr: 'IG', color: '#E1306C', followers: null,                       avg: null,                      ok: false },
+  ]
+
+  return (
+    <div className="card">
+      <div className="card-title">Social Snapshot</div>
+      {loading
+        ? <div className="skeleton" style={{ height: 70 }} />
+        : rows.map(r => (
+          <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ width: 22, height: 22, borderRadius: 5, background: r.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>{r.abbr}</span>
+            <span style={{ flex: 1, fontSize: 12 }}>{r.name}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', minWidth: 44, textAlign: 'right' }}>{r.followers != null ? fmtN(r.followers) : '—'}</span>
+            <span style={{ fontSize: 11, color: 'var(--text3)', minWidth: 52, textAlign: 'right' }}>{r.avg != null ? fmtN(r.avg) + ' avg' : '—'}</span>
+          </div>
+        ))
+      }
     </div>
   )
 }
