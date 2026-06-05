@@ -13,6 +13,17 @@ export default function App() {
   const [active, setActive]   = useState('overview')
   const [toasts, setToasts]   = useState([])
   const [fontsReady, setFontsReady] = useState(false)
+  const [theme, setTheme]     = useState(() => localStorage.getItem('theme') || 'dark')
+
+  // Apply theme to <html>
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  function toggleTheme() {
+    setTheme(t => t === 'dark' ? 'light' : 'dark')
+  }
 
   // Wait for fonts then hide loading screen
   useEffect(() => {
@@ -59,7 +70,7 @@ export default function App() {
   return (
     <>
       <div className="app-layout">
-        <Sidebar active={active} setActive={setActive} />
+        <Sidebar active={active} setActive={setActive} theme={theme} toggleTheme={toggleTheme} />
         <main className="main-content">
           {/* All panels always in DOM — toggled by display */}
           <Overview active={active === 'overview'} setActive={setActive} />

@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { id: 'reels',    label: 'Reels',     icon: IconFilm },
 ]
 
-export default function Sidebar({ active, setActive }) {
+export default function Sidebar({ active, setActive, theme, toggleTheme }) {
   const [secs, setSecs] = useState(secsUntilShiftEnd())
 
   useEffect(() => {
@@ -57,6 +57,10 @@ export default function Sidebar({ active, setActive }) {
           <span className={timeClass}>{display}</span>
           <span className="shift-mini-label">SHIFT ENDS</span>
         </div>
+        <button className="theme-toggle" onClick={toggleTheme} title="Toggle light/dark mode">
+          <span className="theme-toggle-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
+          <span className="nav-label" style={{ fontSize: 11 }}>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+        </button>
       </div>
     </aside>
   )

@@ -25,9 +25,11 @@ export default function Board({ active }) {
   const [loading,    setLoading]    = useState(true)
   const [draggedId,  setDraggedId]  = useState(null)
   const [dragOver,   setDragOver]   = useState(null)
-  const [blockModal, setBlockModal] = useState(null) // task being blocked
-  const [blockReason, setBlockReason] = useState('')
+  const [blockModal,   setBlockModal]   = useState(null)
+  const [blockReason,  setBlockReason]  = useState('')
   const [blockWaiting, setBlockWaiting] = useState('')
+  const [addModal,     setAddModal]     = useState(null) // { state } when open
+  const [addForm,      setAddForm]      = useState({ title: '', category: 'admin', priority: 'medium', description: '' })
 
   useEffect(() => { if (active) loadTasks() }, [active])
 
@@ -127,10 +129,71 @@ export default function Board({ active }) {
             onMarkWin={markWin}
             onBlock={resolveBlock}
             onUpdateTask={updateTask}
-            onCreate={(fields) => createTask(col.state, fields)}
+            onAddCard={() => { setAddForm({ title: '', category: 'admin', priority: 'medium', description: '' }); setAddModal({ state: col.state }) }}
           />
         ))}
       </div>
+
+      {/* Add Card modal */}
+      {addModal && (
+        <div className="modal-overlay" onClick={() => setAddModal(null)}>
+          <div className="modal-card" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">New Task — <span style={{ color: 'var(--cyan)', textTransform: 'uppercase', fontSize: 13 }}>{addModal.state.replace('_', ' ')}</span></div>
+              <button className="modal-close" onClick={() => setAddModal(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div>
+                <div className="detail-label">Title <span style={{ color: 'var(--danger)' }}>*</span></div>
+                <input
+                  className="input w-full"
+                  autoFocus
+                  value={addForm.title}
+                  onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="What needs to be done?"
+                  style={{ marginTop: 6 }}
+                  onKeyDown={e => { if (e.key === 'Enter' && addForm.title.trim()) { createTask(addModal.state, addForm); setAddModal(null) } }}
+                />
+              </div>
+              <div>
+                <div className="detail-label">Description</div>
+                <textarea className="textarea" value={addForm.description} onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))} placeholder="Optional details…" rows={3} style={{ marginTop: 6 }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <div className="detail-label">Category</div>
+                  <select className="input w-full" value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))} style={{ marginTop: 6 }}>
+                    <option value="granny_reels">Granny Reels</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="automation">Automation</option>
+                    <option value="analytics">Analytics</option>
+                    <option value="strategy">Strategy</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="detail-label">Priority</div>
+                  <select className="input w-full" value={addForm.priority} onChange={e => setAddForm(f => ({ ...f, priority: e.target.value }))} style={{ marginTop: 6 }}>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setAddModal(null)}>Cancel</button>
+              <button
+                className="btn"
+                disabled={!addForm.title.trim()}
+                onClick={() => { createTask(addModal.state, addForm); setAddModal(null) }}
+              >
+                Create Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Block modal */}
       {blockModal && (
@@ -165,18 +228,7 @@ export default function Board({ active }) {
 }
 
 /* ─── Column ─────────────────────────────────────────────────── */
-function KanbanColumn({ col, tasks, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onFlagPlan, onMarkWin, onBlock, onUpdateTask, onCreate }) {
-  const [adding, setAdding] = useState(false)
-  const [form, setForm]     = useState({ title: '', category: 'admin', priority: 'medium' })
-
-  function submitAdd(e) {
-    e.preventDefault()
-    if (!form.title.trim()) return
-    onCreate(form)
-    setForm({ title: '', category: 'admin', priority: 'medium' })
-    setAdding(false)
-  }
-
+function KanbanColumn({ col, tasks, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onFlagPlan, onMarkWin, onBlock, onUpdateTask, onAddCard }) {
   return (
     <div
       className={`kanban-col${isDragOver ? ' drag-over' : ''}`}
@@ -201,39 +253,9 @@ function KanbanColumn({ col, tasks, isDragOver, onDragStart, onDragOver, onDrop,
         />
       ))}
 
-      {adding ? (
-        <form className="add-card-form" onSubmit={submitAdd}>
-          <input
-            className="input w-full"
-            autoFocus
-            placeholder="Task title..."
-            value={form.title}
-            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            onKeyDown={e => e.key === 'Escape' && setAdding(false)}
-          />
-          <select className="input w-full" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-            <option value="granny_reels">Granny Reels</option>
-            <option value="youtube">YouTube</option>
-            <option value="automation">Automation</option>
-            <option value="analytics">Analytics</option>
-            <option value="strategy">Strategy</option>
-            <option value="admin">Admin</option>
-          </select>
-          <select className="input w-full" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn" type="submit" style={{ flex: 1 }}>Add</button>
-            <button className="btn btn-ghost" type="button" onClick={() => setAdding(false)}>Cancel</button>
-          </div>
-        </form>
-      ) : (
-        <button className="add-card-btn" onClick={() => setAdding(true)}>
-          <span>+</span> Add card
-        </button>
-      )}
+      <button className="add-card-btn" onClick={onAddCard}>
+        <span>+</span> Add card
+      </button>
     </div>
   )
 }
