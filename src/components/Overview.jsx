@@ -169,35 +169,96 @@ function QuickCapture({ setActive }) {
 function ShiftTimer() {
   const [secs,       setSecs]       = useState(secsUntilShiftEnd())
   const [shiftState, setShiftState] = useState('idle') // 'idle' | 'running' | 'paused'
-  const [elapsed,    setElapsed]    = useState(0)
-  const elapsedRef = useRef(null)
+  const [startTime,  setStartTime]  = useState(null)   // Date when shift started
+  const [pausedAt,   setPausedAt]   = useState(null)   // Date when paused
+  const [pausedSecs, setPausedSecs] = useState(0)      // accumulated paused seconds
+  const [tick,       setTick]       = useState(0)      // forces re-render every second
+  const [editingStart, setEditingStart] = useState(false)
+  const [editValue,    setEditValue]    = useState('')  // "HH:MM" string
+  const tickRef = useRef(null)
 
+  // Wall-clock countdown
   useEffect(() => {
     const id = setInterval(() => setSecs(secsUntilShiftEnd()), 1000)
     return () => clearInterval(id)
   }, [])
 
+  // Re-render tick while running
   useEffect(() => {
     if (shiftState === 'running') {
-      elapsedRef.current = setInterval(() => setElapsed(e => e + 1), 1000)
+      tickRef.current = setInterval(() => setTick(t => t + 1), 1000)
     } else {
-      clearInterval(elapsedRef.current)
+      clearInterval(tickRef.current)
     }
-    return () => clearInterval(elapsedRef.current)
+    return () => clearInterval(tickRef.current)
   }, [shiftState])
 
-  function startShift()  { setShiftState('running'); setElapsed(0) }
-  function resumeShift() { setShiftState('running') }
-  function pauseShift()  { setShiftState('paused') }
-  function endShift()    { setShiftState('idle');   setElapsed(0) }
+  // Elapsed = now - startTime - accumulated paused seconds
+  function getElapsed() {
+    if (!startTime) return 0
+    const base = Math.floor((Date.now() - startTime.getTime()) / 1000)
+    const paused = pausedSecs + (pausedAt ? Math.floor((Date.now() - pausedAt.getTime()) / 1000) : 0)
+    return Math.max(0, base - paused)
+  }
 
+  function startShift() {
+    const now = new Date()
+    setStartTime(now)
+    setPausedSecs(0)
+    setPausedAt(null)
+    setShiftState('running')
+  }
+
+  function pauseShift() {
+    setPausedAt(new Date())
+    setShiftState('paused')
+  }
+
+  function resumeShift() {
+    if (pausedAt) {
+      const extra = Math.floor((Date.now() - pausedAt.getTime()) / 1000)
+      setPausedSecs(s => s + extra)
+      setPausedAt(null)
+    }
+    setShiftState('running')
+  }
+
+  function endShift() {
+    setShiftState('idle')
+    setStartTime(null)
+    setPausedAt(null)
+    setPausedSecs(0)
+    setEditingStart(false)
+  }
+
+  function openEditStart() {
+    if (!startTime) return
+    const h = String(startTime.getHours()).padStart(2, '0')
+    const m = String(startTime.getMinutes()).padStart(2, '0')
+    setEditValue(`${h}:${m}`)
+    setEditingStart(true)
+  }
+
+  function saveEditStart() {
+    const [h, m] = editValue.split(':').map(Number)
+    if (isNaN(h) || isNaN(m)) { setEditingStart(false); return }
+    const newStart = new Date()
+    newStart.setHours(h, m, 0, 0)
+    // If the entered time is in the future, assume it was yesterday
+    if (newStart > new Date()) newStart.setDate(newStart.getDate() - 1)
+    setStartTime(newStart)
+    setPausedSecs(0)
+    setPausedAt(null)
+    setEditingStart(false)
+  }
+
+  const elapsed = getElapsed()
   const cls = secs < 900 ? 'shift-big alert' : secs < 3600 ? 'shift-big warn' : 'shift-big'
 
   return (
     <div className="card">
       <div className="shift-big-label">SHIFT ENDS</div>
 
-      {/* Countdown only visible once shift has started */}
       {shiftState === 'idle'
         ? <div style={{ fontSize: 32, fontWeight: 600, color: 'var(--text3)', letterSpacing: 2, margin: '4px 0' }}>—</div>
         : <div className={cls}>{formatCountdown(secs)}</div>
@@ -205,9 +266,35 @@ function ShiftTimer() {
       <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>5:00 AM PHT</div>
 
       {shiftState !== 'idle' && (
-        <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(0,254,250,0.06)', borderRadius: 6, border: '1px solid rgba(0,254,250,0.15)' }}>
+        <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(0,254,250,0.06)', borderRadius: 6, border: '1px solid rgba(0,254,250,0.15)' }}>
+          {/* Start time row with edit */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            {editingStart ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                <span style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1 }}>Started at</span>
+                <input
+                  type="time"
+                  value={editValue}
+                  onChange={e => setEditValue(e.target.value)}
+                  style={{ fontFamily: 'var(--font)', fontSize: 12, background: 'var(--deeper)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 6px', color: 'var(--text)', width: 90 }}
+                  autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter') saveEditStart(); if (e.key === 'Escape') setEditingStart(false) }}
+                />
+                <button className="copy-btn" onClick={saveEditStart}>Save</button>
+                <button className="copy-btn" onClick={() => setEditingStart(false)}>✕</button>
+              </div>
+            ) : (
+              <>
+                <span style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1 }}>
+                  Started at {startTime ? `${String(startTime.getHours()).padStart(2,'0')}:${String(startTime.getMinutes()).padStart(2,'0')}` : '—'}
+                </span>
+                <button className="copy-btn" style={{ fontSize: 10 }} onClick={openEditStart}>Edit</button>
+              </>
+            )}
+          </div>
+          {/* Elapsed */}
           <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 }}>
-            {shiftState === 'running' ? 'Shift active — elapsed' : 'Shift paused'}
+            {shiftState === 'running' ? 'Elapsed' : 'Paused'}
           </div>
           <div style={{ fontWeight: 600, fontSize: 22, color: shiftState === 'paused' ? 'var(--text3)' : 'var(--cyan)' }}>
             {formatCountdown(elapsed)}
