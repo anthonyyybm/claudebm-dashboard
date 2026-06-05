@@ -196,13 +196,18 @@ function ShiftTimer() {
   return (
     <div className="card">
       <div className="shift-big-label">SHIFT ENDS</div>
-      <div className={cls}>{formatCountdown(secs)}</div>
+
+      {/* Countdown only visible once shift has started */}
+      {shiftState === 'idle'
+        ? <div style={{ fontSize: 32, fontWeight: 600, color: 'var(--text3)', letterSpacing: 2, margin: '4px 0' }}>—</div>
+        : <div className={cls}>{formatCountdown(secs)}</div>
+      }
       <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>5:00 AM PHT</div>
 
       {shiftState !== 'idle' && (
         <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(0,254,250,0.06)', borderRadius: 6, border: '1px solid rgba(0,254,250,0.15)' }}>
           <div style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 }}>
-            {shiftState === 'running' ? 'Shift active — elapsed' : 'Shift paused — elapsed'}
+            {shiftState === 'running' ? 'Shift active — elapsed' : 'Shift paused'}
           </div>
           <div style={{ fontWeight: 600, fontSize: 22, color: shiftState === 'paused' ? 'var(--text3)' : 'var(--cyan)' }}>
             {formatCountdown(elapsed)}
