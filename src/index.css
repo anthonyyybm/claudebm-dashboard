@@ -1440,17 +1440,16 @@ tr:last-child td { border-bottom: none; }
   /* Collapse when closed */
   .sidebar:not(.menu-open) { width: 0px !important; min-width: 0 !important; overflow: hidden; }
 
-  /* Main content: offset from fixed topbar */
+  /* Main content: let body scroll on mobile, just offset for fixed topbar */
   .main-content {
     padding-top: 52px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: visible;
     height: auto;
     min-height: calc(100vh - 52px);
   }
 
   /* Panels */
-  .tab-panel { padding: 16px 14px; }
+  .tab-panel { padding: 16px 14px; min-height: auto; }
   .board-panel { padding-bottom: 16px; }
 
   /* Board */
