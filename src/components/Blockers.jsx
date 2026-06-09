@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
 import { fmtDate, daysBetween } from '../lib/utils.js'
+import TaskModal from './TaskModal.jsx'
 
 export default function Blockers({ active }) {
-  const [blockers, setBlockers] = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [resolving, setResolving] = useState(null) // id of task asking "log as win?"
+  const [blockers,   setBlockers]   = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [resolving,  setResolving]  = useState(null)
+  const [selectedTask, setSelectedTask] = useState(null)
 
   useEffect(() => { if (active) load() }, [active])
 
@@ -16,6 +18,21 @@ export default function Blockers({ active }) {
     if (!error) setBlockers(data || [])
     else showToast('Failed to load blockers', 'error')
     setLoading(false)
+  }
+
+  async function updateBlocker(id, patch) {
+    setBlockers(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b))
+    setSelectedTask(prev => prev?.id === id ? { ...prev, ...patch } : prev)
+    const { error } = await sb.from('tasks').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { showToast('Update failed', 'error'); load() }
+  }
+
+  async function deleteBlocker(id) {
+    setBlockers(prev => prev.filter(b => b.id !== id))
+    setSelectedTask(null)
+    const { error } = await sb.from('tasks').delete().eq('id', id)
+    if (error) { showToast('Delete failed', 'error'); load() }
+    else showToast('Deleted', 'success')
   }
 
   async function resolve(task) {
@@ -63,13 +80,13 @@ export default function Blockers({ active }) {
                 {blockers.map(b => {
                   const days = daysBetween(b.created_at) ?? 0
                   return (
-                    <tr key={b.id}>
+                    <tr key={b.id} className="blocker-row" onClick={() => setSelectedTask(b)} style={{ cursor: 'pointer' }}>
                       <td style={{ fontWeight: 500, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</td>
                       <td style={{ fontSize: 12, color: 'var(--text2)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.waiting_on || '—'}</td>
                       <td style={{ fontSize: 12, color: 'var(--text3)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.blocking_reason || '—'}</td>
                       <td><span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'var(--text3)' }}>{fmtDate(b.created_at)}</span></td>
                       <td><span className="days-badge">{days}d</span></td>
-                      <td>
+                      <td onClick={e => e.stopPropagation()}>
                         {resolving === b.id ? (
                           <span style={{ display: 'flex', gap: 6 }}>
                             <button className="btn" style={{ fontSize: 11 }} onClick={() => logAsWin(b)}>Yes, Win</button>
@@ -86,6 +103,15 @@ export default function Blockers({ active }) {
             </table>
           </div>
         </div>
+      )}
+
+      {selectedTask && (
+        <TaskModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={updateBlocker}
+          onDelete={deleteBlocker}
+        />
       )}
     </div>
   )

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
-import { fmtDate } from '../lib/utils.js'
+import TaskModal from './TaskModal.jsx'
 
 const COLUMNS = [
   { state: 'idea',        label: 'IDEA',        color: 'var(--text3)' },
@@ -18,18 +18,25 @@ const CAT_COLOR = {
   analytics: 'yellow', strategy: 'coral', admin: 'gray',
 }
 
-const PLAN_STATUS_OPTIONS = ['draft', 'submitted', 'awaiting', 'approved', 'deferred', 'on_hold']
+const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
+
+const CAT_OPTIONS = ['all', 'granny_reels', 'youtube', 'automation', 'analytics', 'strategy', 'admin']
 
 export default function Board({ active }) {
-  const [tasks,      setTasks]      = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [draggedId,  setDraggedId]  = useState(null)
-  const [dragOver,   setDragOver]   = useState(null)
-  const [blockModal,   setBlockModal]   = useState(null)
-  const [blockReason,  setBlockReason]  = useState('')
-  const [blockWaiting, setBlockWaiting] = useState('')
-  const [addModal,     setAddModal]     = useState(null) // { state } when open
-  const [addForm,      setAddForm]      = useState({ title: '', category: 'admin', priority: 'medium', description: '' })
+  const [tasks,       setTasks]       = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [draggedId,   setDraggedId]   = useState(null)
+  const [dragOver,    setDragOver]    = useState(null)
+  const [blockModal,  setBlockModal]  = useState(null)
+  const [blockReason, setBlockReason] = useState('')
+  const [blockWaiting,setBlockWaiting]= useState('')
+  const [addModal,    setAddModal]    = useState(null)
+  const [addForm,     setAddForm]     = useState({ title: '', category: 'admin', priority: 'medium', description: '' })
+  const [selectedTask,setSelectedTask]= useState(null)
+  const [sortBy,      setSortBy]      = useState('created')
+  const [filterCat,   setFilterCat]   = useState('all')
+  const [filterPeriod,setFilterPeriod]= useState('all')
+  const [search,      setSearch]      = useState('')
 
   useEffect(() => { if (active) loadTasks() }, [active])
 
@@ -43,77 +50,104 @@ export default function Board({ active }) {
 
   async function updateTask(id, patch) {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t))
+    setSelectedTask(prev => prev?.id === id ? { ...prev, ...patch } : prev)
     const { error } = await sb.from('tasks').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
     if (error) { showToast('Update failed', 'error'); loadTasks() }
   }
 
-  async function createTask(state, { title, category, priority }) {
+  async function createTask(state, form) {
     const { data, error } = await sb.from('tasks')
-      .insert({ title, state, category, priority, created_at: new Date().toISOString() })
+      .insert({ title: form.title, state, category: form.category, priority: form.priority, description: form.description || null, created_at: new Date().toISOString() })
       .select().single()
     if (error) { showToast('Failed to create task', 'error'); return }
     setTasks(prev => [data, ...prev])
     showToast('Task created', 'success')
   }
 
-  async function flagPlan(task) {
-    await updateTask(task.id, { is_plan: true, plan_status: 'draft' })
-  }
-
-  async function markWin(task) {
-    await updateTask(task.id, { is_win: true })
-    try {
-      await sb.from('wins').insert({ title: task.title, category: 'content', linked_task_id: task.id })
-      showToast('Logged as Win', 'success')
-    } catch { showToast('Win logged on task only', 'info') }
-  }
-
-  async function resolveBlock(task) {
-    setBlockModal(task)
+  async function deleteTask(id) {
+    setTasks(prev => prev.filter(t => t.id !== id))
+    setSelectedTask(null)
+    const { error } = await sb.from('tasks').delete().eq('id', id)
+    if (error) { showToast('Delete failed', 'error'); loadTasks() }
+    else showToast('Task deleted', 'success')
   }
 
   async function confirmBlock() {
     if (!blockModal) return
-    await updateTask(blockModal.id, {
-      state: 'blocked',
-      blocking_reason: blockReason,
-      waiting_on: blockWaiting,
-    })
+    await updateTask(blockModal.id, { state: 'blocked', blocking_reason: blockReason, waiting_on: blockWaiting })
     setBlockModal(null); setBlockReason(''); setBlockWaiting('')
   }
 
   // Drag & drop
-  function onDragStart(e, id) {
-    setDraggedId(id)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-  function onDragOver(e, state) {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    setDragOver(state)
-  }
+  function onDragStart(e, id) { setDraggedId(id); e.dataTransfer.effectAllowed = 'move' }
+  function onDragOver(e, state) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver(state) }
   function onDrop(e, state) {
     e.preventDefault()
     if (!draggedId) return
     const task = tasks.find(t => t.id === draggedId)
     if (task && task.state !== state) {
-      if (state === 'blocked') {
-        setBlockModal(task)
-      } else {
-        updateTask(draggedId, { state })
-      }
+      if (state === 'blocked') { setBlockModal(task) }
+      else { updateTask(draggedId, { state }) }
     }
     setDraggedId(null); setDragOver(null)
   }
   function onDragEnd() { setDraggedId(null); setDragOver(null) }
 
-  const byState = (state) => tasks.filter(t => t.state === state)
+  // Filter + sort
+  const filteredTasks = useMemo(() => {
+    let list = tasks
+    if (filterCat !== 'all') list = list.filter(t => t.category === filterCat)
+    if (filterPeriod === 'week') {
+      const cutoff = Date.now() - 7 * 86400000
+      list = list.filter(t => new Date(t.created_at).getTime() >= cutoff)
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      list = list.filter(t => (t.title || '').toLowerCase().includes(q))
+    }
+    const sorted = [...list]
+    if (sortBy === 'priority') sorted.sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3))
+    else if (sortBy === 'title') sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+    else sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    return sorted
+  }, [tasks, filterCat, filterPeriod, search, sortBy])
+
+  const byState = (state) => filteredTasks.filter(t => t.state === state)
 
   if (!active) return null
 
   return (
-    <div className="tab-panel" style={{ paddingBottom: 0 }}>
-      {loading && <div className="skeleton h-big" style={{ marginBottom: 16 }} />}
+    <div className="tab-panel board-panel">
+
+      {/* Controls */}
+      <div className="board-controls">
+        <div className="filter-bar" style={{ margin: 0, flex: 1, flexWrap: 'wrap' }}>
+          {CAT_OPTIONS.map(c => (
+            <button key={c} className={`filter-btn${filterCat === c ? ' active' : ''}`} onClick={() => setFilterCat(c)}>
+              {c === 'all' ? 'All' : c.replace(/_/g, ' ')}
+            </button>
+          ))}
+          <button className={`filter-btn${filterPeriod === 'week' ? ' active' : ''}`} onClick={() => setFilterPeriod(p => p === 'week' ? 'all' : 'week')}>
+            This Week
+          </button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input
+            className="input"
+            style={{ fontSize: 11, padding: '4px 10px', width: 140 }}
+            placeholder="Search..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <span style={{ fontSize: 10, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1 }}>Sort</span>
+          {[['created','Date'],['priority','Priority'],['title','Title']].map(([k,l]) => (
+            <button key={k} className={`filter-btn${sortBy === k ? ' active' : ''}`} onClick={() => setSortBy(k)}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {loading && <div className="skeleton h-big" style={{ marginBottom: 12 }} />}
+
       <div className="board-wrap">
         {COLUMNS.map(col => (
           <KanbanColumn
@@ -122,36 +156,38 @@ export default function Board({ active }) {
             tasks={byState(col.state)}
             isDragOver={dragOver === col.state}
             onDragStart={onDragStart}
-            onDragOver={(e) => onDragOver(e, col.state)}
-            onDrop={(e) => onDrop(e, col.state)}
+            onDragOver={e => onDragOver(e, col.state)}
+            onDrop={e => onDrop(e, col.state)}
             onDragEnd={onDragEnd}
-            onFlagPlan={flagPlan}
-            onMarkWin={markWin}
-            onBlock={resolveBlock}
-            onUpdateTask={updateTask}
+            onOpenTask={setSelectedTask}
             onAddCard={() => { setAddForm({ title: '', category: 'admin', priority: 'medium', description: '' }); setAddModal({ state: col.state }) }}
           />
         ))}
       </div>
 
-      {/* Add Card modal */}
+      {/* Task detail modal */}
+      {selectedTask && (
+        <TaskModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={updateTask}
+          onDelete={deleteTask}
+        />
+      )}
+
+      {/* Add card modal */}
       {addModal && (
         <div className="modal-overlay" onClick={() => setAddModal(null)}>
           <div className="modal-card" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div className="modal-title">New Task — <span style={{ color: 'var(--cyan)', textTransform: 'uppercase', fontSize: 13 }}>{addModal.state.replace('_', ' ')}</span></div>
+              <div className="modal-title">New Task — <span style={{ color: 'var(--cyan)', textTransform: 'uppercase', fontSize: 13 }}>{addModal.state.replace(/_/g, ' ')}</span></div>
               <button className="modal-close" onClick={() => setAddModal(null)}>✕</button>
             </div>
             <div className="modal-body">
               <div>
                 <div className="detail-label">Title <span style={{ color: 'var(--danger)' }}>*</span></div>
-                <input
-                  className="input w-full"
-                  autoFocus
-                  value={addForm.title}
-                  onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
-                  placeholder="What needs to be done?"
-                  style={{ marginTop: 6 }}
+                <input className="input w-full" autoFocus value={addForm.title} onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="What needs to be done?" style={{ marginTop: 6 }}
                   onKeyDown={e => { if (e.key === 'Enter' && addForm.title.trim()) { createTask(addModal.state, addForm); setAddModal(null) } }}
                 />
               </div>
@@ -183,11 +219,7 @@ export default function Board({ active }) {
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setAddModal(null)}>Cancel</button>
-              <button
-                className="btn"
-                disabled={!addForm.title.trim()}
-                onClick={() => { createTask(addModal.state, addForm); setAddModal(null) }}
-              >
+              <button className="btn" disabled={!addForm.title.trim()} onClick={() => { createTask(addModal.state, addForm); setAddModal(null) }}>
                 Create Task
               </button>
             </div>
@@ -204,9 +236,7 @@ export default function Board({ active }) {
               <button className="modal-close" onClick={() => setBlockModal(null)}>✕</button>
             </div>
             <div className="modal-body">
-              <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>
-                "{blockModal.title}"
-              </div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>"{blockModal.title}"</div>
               <div style={{ marginBottom: 10 }}>
                 <div className="detail-label">Blocking Reason</div>
                 <input className="input w-full" value={blockReason} onChange={e => setBlockReason(e.target.value)} placeholder="What's blocking this?" style={{ marginTop: 4 }} />
@@ -228,132 +258,40 @@ export default function Board({ active }) {
 }
 
 /* ─── Column ─────────────────────────────────────────────────── */
-function KanbanColumn({ col, tasks, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onFlagPlan, onMarkWin, onBlock, onUpdateTask, onAddCard }) {
+function KanbanColumn({ col, tasks, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onOpenTask, onAddCard }) {
   return (
-    <div
-      className={`kanban-col${isDragOver ? ' drag-over' : ''}`}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-    >
+    <div className={`kanban-col${isDragOver ? ' drag-over' : ''}`} onDragOver={onDragOver} onDrop={onDrop}>
       <div className="col-header">
         <span className="col-name" style={{ color: col.color }}>{col.label}</span>
         <span className="col-count">{tasks.length}</span>
       </div>
-
       {tasks.map(task => (
-        <TaskCard
-          key={task.id}
-          task={task}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-          onFlagPlan={onFlagPlan}
-          onMarkWin={onMarkWin}
-          onBlock={onBlock}
-          onUpdate={onUpdateTask}
-        />
+        <TaskCard key={task.id} task={task} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpenTask} />
       ))}
-
-      <button className="add-card-btn" onClick={onAddCard}>
-        <span>+</span> Add card
-      </button>
+      <button className="add-card-btn" onClick={onAddCard}><span>+</span> Add card</button>
     </div>
   )
 }
 
 /* ─── Task Card ──────────────────────────────────────────────── */
-function TaskCard({ task, onDragStart, onDragEnd, onFlagPlan, onMarkWin, onBlock, onUpdate }) {
-  const [expanded, setExpanded]       = useState(false)
-  const [editNotes, setEditNotes]     = useState(false)
-  const [notesVal, setNotesVal]       = useState(task.notes || '')
-  const [planDropdown, setPlanDropdown] = useState(false)
-
-  async function saveNotes() {
-    await onUpdate(task.id, { notes: notesVal })
-    setEditNotes(false)
-    showToast('Saved', 'success')
-  }
-
-  async function setPlanStatus(status) {
-    await onUpdate(task.id, { plan_status: status })
-    setPlanDropdown(false)
-  }
-
+function TaskCard({ task, onDragStart, onDragEnd, onOpen }) {
   return (
     <div
-      className={`task-card${task.id === undefined ? ' dragging' : ''}`}
+      className="task-card"
       draggable
-      onDragStart={e => onDragStart(e, task.id)}
+      onDragStart={e => { e.stopPropagation(); onDragStart(e, task.id) }}
       onDragEnd={onDragEnd}
+      onClick={() => onOpen(task)}
     >
-      <div className="task-title" onClick={() => setExpanded(e => !e)}>
-        {task.title}
-      </div>
-
+      <div className="task-title">{task.title}</div>
       <div className="task-meta">
-        {task.category && (
-          <span className={`badge ${CAT_COLOR[task.category] || 'gray'}`}>{task.category.replace('_', ' ')}</span>
-        )}
+        {task.category && <span className={`badge ${CAT_COLOR[task.category] || 'gray'}`}>{task.category.replace(/_/g, ' ')}</span>}
         <span className={`priority-dot ${task.priority || 'medium'}`} title={task.priority} />
         {task.is_plan && <span className="badge yellow">PLAN</span>}
         {task.is_win  && <span className="badge accent">WIN</span>}
       </div>
-
-      <div className="task-actions">
-        <button className="task-action-btn" title="Flag as Plan" onClick={() => { onFlagPlan(task); setPlanDropdown(true) }}>⚑</button>
-        <button className="task-action-btn" title="Mark as Win" onClick={() => onMarkWin(task)}>🏆</button>
-        <button className="task-action-btn" title="Mark Blocked" onClick={() => onBlock(task)}>⊘</button>
-      </div>
-
-      {planDropdown && (
-        <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {PLAN_STATUS_OPTIONS.map(s => (
-            <button key={s} className="task-action-btn" style={{ fontSize: 10 }} onClick={() => setPlanStatus(s)}>
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {expanded && (
-        <div className="task-expand">
-          {task.description && (
-            <div className="task-expand-field">
-              <div className="task-expand-label">Description</div>
-              <div style={{ fontSize: 12, color: 'var(--text2)' }}>{task.description}</div>
-            </div>
-          )}
-          {task.blocking_reason && (
-            <div className="task-expand-field">
-              <div className="task-expand-label">Blocking Reason</div>
-              <div style={{ fontSize: 12, color: 'var(--danger)' }}>{task.blocking_reason}</div>
-            </div>
-          )}
-          {task.waiting_on && (
-            <div className="task-expand-field">
-              <div className="task-expand-label">Waiting On</div>
-              <div style={{ fontSize: 12, color: 'var(--amber)' }}>{task.waiting_on}</div>
-            </div>
-          )}
-          <div className="task-expand-field">
-            <div className="task-expand-label">Notes</div>
-            {editNotes ? (
-              <>
-                <textarea className="field-textarea" value={notesVal} onChange={e => setNotesVal(e.target.value)} rows={3} />
-                <div className="edit-actions">
-                  <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setEditNotes(false)}>Cancel</button>
-                  <button className="btn" style={{ fontSize: 11 }} onClick={saveNotes}>Save</button>
-                </div>
-              </>
-            ) : (
-              <div style={{ fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }} onClick={() => setEditNotes(true)}>
-                {task.notes || <span style={{ fontStyle: 'italic' }}>Add notes…</span>}
-              </div>
-            )}
-          </div>
-          <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'DM Mono, monospace', marginTop: 4 }}>
-            {fmtDate(task.created_at)}
-          </div>
-        </div>
+      {task.description && (
+        <div className="task-card-desc">{task.description}</div>
       )}
     </div>
   )

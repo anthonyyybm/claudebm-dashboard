@@ -1,4 +1,4 @@
-import { secsUntilShiftEnd, formatCountdown } from '../lib/utils.js'
+import { secsUntilShiftEnd, formatCountdown, phtNow } from '../lib/utils.js'
 import { useEffect, useState } from 'react'
 
 const NAV_ITEMS = [
@@ -12,14 +12,24 @@ const NAV_ITEMS = [
 ]
 
 export default function Sidebar({ active, setActive, theme, toggleTheme }) {
-  const [secs, setSecs] = useState(secsUntilShiftEnd())
+  const [secs,      setSecs]      = useState(secsUntilShiftEnd())
+  const [inShift,   setInShift]   = useState(false)
 
   useEffect(() => {
-    const id = setInterval(() => setSecs(secsUntilShiftEnd()), 1000)
+    function tick() {
+      setSecs(secsUntilShiftEnd())
+      // Shift = midnight–5 AM PHT
+      const h = phtNow().getHours()
+      setInShift(h >= 0 && h < 5)
+    }
+    tick()
+    const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [])
 
   const timeClass = secs < 900 ? 'shift-mini-time alert' : secs < 3600 ? 'shift-mini-time warn' : 'shift-mini-time'
+  // Label changes based on whether we're inside the shift window
+  const timerLabel = inShift ? 'shift ends' : 'next shift'
 
   return (
     <aside className="sidebar">
@@ -30,11 +40,7 @@ export default function Sidebar({ active, setActive, theme, toggleTheme }) {
 
       <nav className="sidebar-nav">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            className={`nav-item${active === id ? ' active' : ''}`}
-            onClick={() => setActive(id)}
-          >
+          <button key={id} className={`nav-item${active === id ? ' active' : ''}`} onClick={() => setActive(id)}>
             <Icon />
             <span className="nav-label">{label}</span>
           </button>
@@ -46,12 +52,13 @@ export default function Sidebar({ active, setActive, theme, toggleTheme }) {
       </nav>
 
       <div className="sidebar-bottom">
-        {/* Clock icon always visible; full time fades in on hover */}
-        <div className="shift-mini">
+        <div className="shift-mini" title={inShift ? 'Time until shift ends (5 AM PHT)' : 'Time until next shift ends'}>
           <span className="shift-mini-icon">⏱</span>
-          <span className={timeClass}>{formatCountdown(secs)}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <span className={timeClass}>{formatCountdown(secs)}</span>
+            <span className="shift-mini-label">{timerLabel}</span>
+          </div>
         </div>
-        {/* Theme toggle — icon only when collapsed */}
         <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
           <span className="theme-toggle-icon">{theme === 'dark' ? '☀' : '☾'}</span>
           <span className="theme-toggle-label">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
