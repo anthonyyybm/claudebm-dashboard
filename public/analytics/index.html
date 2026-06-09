@@ -707,39 +707,40 @@ function renderIGOverviewContent(profile, media) {
     const prev = arr[arr.length-2], cur = arr[arr.length-1]
     return prev ? (((cur-prev)/prev)*100).toFixed(1) : null
   }
-  const dL = momDelta(mLikes), dC = momDelta(mComments), dE = momDelta(mEng)
+  const mAvgComments = byMonth.map(m => m.count ? Math.round(m.comments / m.count) : 0)
+  const dL = momDelta(mLikes), dC = momDelta(mComments), dE = momDelta(mEng), dAvg = momDelta(mAvg), dAvgC = momDelta(mAvgComments)
 
   const tipFollowers  = `${igFmtN(followers)} followers. ${media.length} posts tracked.`
   const tipLikes      = `${igFmtN(totalLikes)} total likes across ${media.length} posts.${dL !== null ? ' ' + (dL >= 0 ? `Up ${dL}%` : `Down ${Math.abs(dL)}%`) + ' from last month.' : ''}`
   const tipComments   = `${igFmtN(totalComments)} total comments. Avg ${igFmtN(avgComments)}/post.${dC !== null ? ' ' + (dC >= 0 ? `Up ${dC}%` : `Down ${Math.abs(dC)}%`) + ' from last month.' : ''}`
-  const tipAvgLikes   = `${igFmtN(avgLikes)} avg likes per post.${dL !== null ? ' ' + (dL >= 0 ? `Trending up.` : `Trending down.`) : ''}`
+  const tipAvgLikes   = `${igFmtN(avgLikes)} avg likes per post.${dAvg !== null ? ' ' + (dAvg >= 0 ? `Trending up.` : `Trending down.`) : ''}`
   const tipAvgComments = `${igFmtN(avgComments)} avg comments per post.`
   const tipEng        = `${engRate}% engagement rate (likes+comments / followers). ${+engRate > 3 ? '✅ Above average (2–3%).' : '⚠ Try stronger CTAs and reels.'}`
 
   const metrics = `<div class="ag6" style="margin-bottom:14px">
     <div class="a-metric" data-tooltip="${tipFollowers}">
       <div class="metric-label">FOLLOWERS</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(followers)}</div><div class="metric-sub">account total</div></div>${ttSparkline([], '#E1306C')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(followers)}</div><div class="a-chg-nil">account total</div></div>${ttSparkline([], '#E1306C')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipLikes}">
       <div class="metric-label">TOTAL LIKES</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalLikes)}</div><div class="metric-sub">${media.length} posts</div></div>${ttSparkline(mLikes,'#E1306C')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalLikes)}</div>${changeEl(dL)}<div class="metric-sub">${media.length} posts</div></div>${ttSparkline(mLikes,'#E1306C')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipComments}">
       <div class="metric-label">TOTAL COMMENTS</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalComments)}</div><div class="metric-sub">${media.length} posts</div></div>${ttSparkline(mComments,'#8b5cf6')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalComments)}</div>${changeEl(dC)}<div class="metric-sub">${media.length} posts</div></div>${ttSparkline(mComments,'#8b5cf6')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipAvgLikes}">
       <div class="metric-label">AVG LIKES</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(avgLikes)}</div><div class="metric-sub">per post</div></div>${ttSparkline(mAvg,'#f43f5e')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(avgLikes)}</div>${changeEl(dAvg)}<div class="metric-sub">per post</div></div>${ttSparkline(mAvg,'#f43f5e')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipAvgComments}">
       <div class="metric-label">AVG COMMENTS</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(avgComments)}</div><div class="metric-sub">per post</div></div>${ttSparkline(mEng,'#f59e0b')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(avgComments)}</div>${changeEl(dAvgC)}<div class="metric-sub">per post</div></div>${ttSparkline(mEng,'#f59e0b')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipEng}">
       <div class="metric-label">ENGAGEMENT RATE</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div><div class="metric-sub">(likes+comments)/followers</div></div>${ttSparkline(mEng,'#3b82f6')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div>${changeEl(dE)}<div class="metric-sub">(likes+comments)/followers</div></div>${ttSparkline(mEng,'#3b82f6')}</div>
     </div>
   </div>`
 
@@ -1585,9 +1586,11 @@ function renderYTOverview(videos, d) {
   const totalComments = videos.reduce((s, v) => s + (v.comments || 0), 0)
   const engRate       = d.engagement_rate || 0
   const sDelta = ytMomDelta(d.weekly_data.subscribers)
-  const vDelta = ytMomDelta(mViews.length >= 2 ? mViews : [])
-  const eDelta = ytMomDelta(mEng.length   >= 2 ? mEng   : [])
-  const aDelta = ytMomDelta(mAvg.length   >= 2 ? mAvg   : [])
+  const vDelta = ytMomDelta(mViews.length    >= 2 ? mViews    : [])
+  const eDelta = ytMomDelta(mEng.length      >= 2 ? mEng      : [])
+  const aDelta = ytMomDelta(mAvg.length      >= 2 ? mAvg      : [])
+  const lDelta = ytMomDelta(mLikes.length    >= 2 ? mLikes    : [])
+  const cDelta = ytMomDelta(mComments.length >= 2 ? mComments : [])
   const tipSubs     = `${ytFmtN(d.subscribers)} subscribers. ${ytTrendStr(sDelta)} Total across full channel.`
   const tipViews    = `${ytFmtN(d.total_views)} total views all time. ${ytTrendStr(vDelta)}`
   const tipLikes    = `${ytFmtN(totalLikes)} likes on recent ${videos.length} videos. Like rate: ${d.total_views > 0 ? ((totalLikes/d.total_views)*100).toFixed(1) : 0}%. Industry avg is 3–5%.`
@@ -1598,27 +1601,27 @@ function renderYTOverview(videos, d) {
   const metrics = `<div class="ag6" style="margin-bottom:14px">
     <div class="a-metric" data-tooltip="${tipSubs}">
       <div class="metric-label">SUBSCRIBERS</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.subscribers)}</div><div class="metric-sub">channel total</div></div>${ttSparkline(d.weekly_data.subscribers,'#22c55e')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.subscribers)}</div>${changeEl(sDelta)}<div class="metric-sub">channel total</div></div>${ttSparkline(d.weekly_data.subscribers,'#22c55e')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipViews}">
       <div class="metric-label">TOTAL VIEWS</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.total_views)}</div><div class="metric-sub">all time</div></div>${ttSparkline(pvViews.length >= 2 ? pvViews : mViews,'#FF0000')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.total_views)}</div>${changeEl(vDelta)}<div class="metric-sub">all time</div></div>${ttSparkline(pvViews.length >= 2 ? pvViews : mViews,'#FF0000')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipLikes}">
       <div class="metric-label">TOTAL LIKES</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(totalLikes)}</div><div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(pvLikes.length >= 2 ? pvLikes : mLikes,'#f43f5e')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(totalLikes)}</div>${changeEl(lDelta)}<div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(pvLikes.length >= 2 ? pvLikes : mLikes,'#f43f5e')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipComments}">
       <div class="metric-label">TOTAL COMMENTS</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(totalComments)}</div><div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(pvComments.length >= 2 ? pvComments : mComments,'#8b5cf6')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(totalComments)}</div>${changeEl(cDelta)}<div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(pvComments.length >= 2 ? pvComments : mComments,'#8b5cf6')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipAvg}">
       <div class="metric-label">AVG VIEWS</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.avg_views)}</div><div class="metric-sub">7-day window</div></div>${ttSparkline(pvAvg.length >= 2 ? pvAvg : d.weekly_data.views,'#f59e0b')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.avg_views)}</div>${changeEl(aDelta)}<div class="metric-sub">7-day window</div></div>${ttSparkline(pvAvg.length >= 2 ? pvAvg : d.weekly_data.views,'#f59e0b')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipEng}">
       <div class="metric-label">ENGAGEMENT RATE</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div><div class="metric-sub">(likes+comments)/views</div></div>${ttSparkline(pvEng.length >= 2 ? pvEng : mEng,'#3b82f6')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div>${changeEl(eDelta)}<div class="metric-sub">(likes+comments)/views</div></div>${ttSparkline(pvEng.length >= 2 ? pvEng : mEng,'#3b82f6')}</div>
     </div>
   </div>`
 
@@ -2104,9 +2107,10 @@ function renderOverviewContent(user, videos) {
     return prev ? (((cur-prev)/prev)*100).toFixed(1) : null
   }
   function trendLine(d) { return d === null ? '' : d >= 0 ? `Up ${d}% from last month.` : `Down ${Math.abs(d)}% from last month.` }
-  const dv = momDelta(mViews), de = momDelta(mEng), da = momDelta(mAvg)
+  const dv = momDelta(mViews), de = momDelta(mEng), da = momDelta(mAvg), dl = momDelta(mLikes), dc = momDelta(mComments)
   const fHistory   = getFollowerHistory()
   const mFollowers = fHistory.length >= 2 ? fHistory.map(h => h.count) : []
+  const df = mFollowers.length >= 2 ? momDelta(mFollowers) : null
   const fTrendNote = fHistory.length >= 2 ? ` Tracking since ${fHistory[0].date}.` : ' Sparkline builds as you revisit.'
   const tipFollowers = `${ttFmtN(user.follower_count)} total followers.${fTrendNote} Keep posting daily to accelerate growth.`
   const tipViews     = `${ttFmtN(totalViews)} views across ${videos.length} videos. ${trendLine(dv)}`
@@ -2122,29 +2126,29 @@ function renderOverviewContent(user, videos) {
     <div class="a-metric" data-tooltip="${tipFollowers}">
       <div class="metric-label">FOLLOWERS</div>
       <div class="tt-metric-inner">
-        <div><div class="metric-val" style="margin-top:4px">${ttFmtN(user.follower_count)}</div><div class="metric-sub">${mFollowers.length >= 2 ? mFollowers.length + ' day history' : 'account total'}</div></div>
+        <div><div class="metric-val" style="margin-top:4px">${ttFmtN(user.follower_count)}</div>${changeEl(df)}<div class="metric-sub">${mFollowers.length >= 2 ? mFollowers.length + ' day history' : 'account total'}</div></div>
         ${mFollowers.length >= 2 ? ttSparkline(mFollowers, '#00C2A8') : ''}
       </div>
     </div>
     <div class="a-metric" data-tooltip="${tipViews}">
       <div class="metric-label">TOTAL VIEWS</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalViews)}</div><div class="metric-sub">all ${videos.length} videos</div></div>${ttSparkline(mViews,'#00C2A8')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalViews)}</div>${changeEl(dv)}<div class="metric-sub">all ${videos.length} videos</div></div>${ttSparkline(mViews,'#00C2A8')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipLikes}">
       <div class="metric-label">TOTAL LIKES</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalLikes)}</div><div class="metric-sub">all videos</div></div>${ttSparkline(mLikes,'#f43f5e')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalLikes)}</div>${changeEl(dl)}<div class="metric-sub">all videos</div></div>${ttSparkline(mLikes,'#f43f5e')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipComments}">
       <div class="metric-label">TOTAL COMMENTS</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalComments)}</div><div class="metric-sub">all videos</div></div>${ttSparkline(mComments,'#8b5cf6')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalComments)}</div>${changeEl(dc)}<div class="metric-sub">all videos</div></div>${ttSparkline(mComments,'#8b5cf6')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipAvg}">
       <div class="metric-label">AVG VIEWS</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(avgViews)}</div><div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(mAvg,'#f59e0b')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(avgViews)}</div>${changeEl(da)}<div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(mAvg,'#f59e0b')}</div>
     </div>
     <div class="a-metric" data-tooltip="${tipEng}">
       <div class="metric-label">ENGAGEMENT RATE</div>
-      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div><div class="metric-sub">(likes+comments)/views</div></div>${ttSparkline(mEng,'#3b82f6')}</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div>${changeEl(de)}<div class="metric-sub">(likes+comments)/views</div></div>${ttSparkline(mEng,'#3b82f6')}</div>
     </div>
   </div>
   <div id="tt-monthly-top" style="margin-bottom:16px">${renderMonthlyTopVideoInner(videos, ttMonthFilter)}</div>
