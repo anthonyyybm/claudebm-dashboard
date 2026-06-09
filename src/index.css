@@ -1321,70 +1321,163 @@ tr:last-child td { border-bottom: none; }
 }
 .sidebar:hover .shift-mini-label { opacity: 1; }
 
-/* ─── Mobile responsive ──────────────────────────────────────── */
+/* ─── Hamburger button (hidden on desktop) ───────────────────── */
+.hamburger-btn {
+  display: none;
+  width: 36px;
+  height: 36px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid rgba(0,254,250,0.15);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.hamburger-btn span {
+  display: block;
+  width: 16px;
+  height: 2px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 2px;
+  transition: background 0.15s;
+}
+.hamburger-btn:hover { border-color: var(--cyan); }
+.hamburger-btn:hover span { background: var(--cyan); }
+
+/* ─── Mobile topbar (hidden on desktop) ─────────────────────── */
+.mobile-topbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 52px;
+  background: #010d14;
+  border-bottom: 1px solid rgba(0,254,250,0.08);
+  padding: 0 14px;
+  z-index: 100;
+}
+.mobile-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mobile-topbar-brand-mark {
+  width: 28px; height: 28px;
+  background: #042a38;
+  border: 1px solid rgba(0,254,250,0.2);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: 11px;
+  color: #00fefa;
+}
+.mobile-topbar-brand-text {
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 13px;
+  color: #ffffff;
+}
+
+/* ─── Mobile drawer overlay ──────────────────────────────────── */
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 190;
+  backdrop-filter: blur(1px);
+  animation: fadeIn .2s ease;
+}
+
+/* ─── Responsive breakpoints ─────────────────────────────────── */
 @media (max-width: 900px) {
-  .overview-cols {
-    grid-template-columns: 1fr;
-  }
-  .pulse-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  .goals-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  .overview-cols  { grid-template-columns: 1fr; }
+  .pulse-grid     { grid-template-columns: repeat(3, 1fr); }
+  .goals-grid     { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 768px) {
+  /* Allow page to scroll */
   body { overflow: auto; }
+  html, body, #root { height: auto; min-height: 100%; }
 
-  .app-layout {
-    flex-direction: column;
-    height: auto;
-    min-height: 100vh;
-  }
+  /* App layout: full-width column */
+  .app-layout { flex-direction: column; height: auto; }
 
+  /* Show mobile topbar */
+  .mobile-topbar { display: flex; }
+  .hamburger-btn { display: flex; }
+  .mobile-overlay { display: block; }
+
+  /* Sidebar: hidden slide-in drawer */
   .sidebar {
-    width: 100% !important;
-    min-width: 100%;
-    flex-direction: row;
+    position: fixed !important;
+    top: 0;
+    left: -260px;
+    height: 100vh;
+    width: 240px !important;
+    min-width: 240px !important;
+    z-index: 200;
+    transition: left 0.25s ease;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid rgba(0,254,250,0.12);
+  }
+  .sidebar.menu-open { left: 0; }
+
+  /* Always show labels inside open drawer */
+  .sidebar .nav-label,
+  .sidebar .sidebar-logo-text,
+  .sidebar .theme-toggle-label { opacity: 1 !important; }
+  .sidebar .shift-mini-label   { opacity: 1 !important; }
+  /* Expand sidebar to full label width inside drawer */
+  .sidebar:not(.menu-open) { width: 60px !important; }
+
+  /* Main content: offset from fixed topbar */
+  .main-content {
+    padding-top: 52px;
+    overflow-y: auto;
+    overflow-x: hidden;
     height: auto;
-    border-right: none;
-    border-bottom: 1px solid rgba(0,254,250,0.08);
-    overflow: visible;
+    min-height: calc(100vh - 52px);
   }
-  .sidebar-logo { padding: 10px 14px; border-bottom: none; border-right: 1px solid rgba(0,254,250,0.08); }
-  .sidebar-logo-text { opacity: 1; }
-  .sidebar-nav { flex-direction: row; flex: 1; overflow-x: auto; padding: 4px 6px; gap: 0; }
-  .nav-label { opacity: 1; font-size: 11px; }
-  .sidebar-bottom { border-top: none; border-left: 1px solid rgba(0,254,250,0.08); flex-direction: row; gap: 10px; padding: 8px 12px; align-items: center; }
-  .shift-mini-label { opacity: 1; }
-  .theme-toggle-label { opacity: 1; }
 
-  .main-content { overflow-y: auto; overflow-x: hidden; }
+  /* Panels */
+  .tab-panel { padding: 16px 14px; }
+  .board-panel { padding-bottom: 16px; }
 
-  .tab-panel { padding: 16px; }
+  /* Board */
+  .board-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .kanban-col { min-width: 200px; max-width: 200px; }
+  .board-controls { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .board-controls > div:last-child { width: 100%; flex-wrap: wrap; }
 
-  .board-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  .kanban-col { min-width: 200px; }
-
-  .goals-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .pulse-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  /* Overview */
+  .overview-cols { grid-template-columns: 1fr; gap: 0; }
+  .pulse-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .pulse-card { padding: 12px 10px; }
-  .pulse-num { font-size: 20px; }
+  .pulse-num  { font-size: 20px; }
 
-  .modal-card { margin: 8px; max-height: 95vh; }
-  .task-detail-modal { max-height: 95vh; }
+  /* Goals */
+  .goals-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
 
-  .board-controls { gap: 6px; }
+  /* Modals */
+  .modal-overlay { padding: 8px; align-items: flex-end; }
+  .modal-card { border-radius: 12px 12px 0 0; max-height: 92vh; width: 100%; margin: 0; }
+  .task-detail-modal { max-height: 92vh; }
 }
 
 @media (max-width: 480px) {
-  .goals-grid { grid-template-columns: 1fr; }
-  .pulse-grid { grid-template-columns: repeat(2, 1fr); }
-  .overview-cols > div:last-child { display: contents; }
-  .task-props { gap: 4px; }
+  .goals-grid  { grid-template-columns: 1fr; }
+  .pulse-grid  { grid-template-columns: repeat(2, 1fr); }
   .task-prop-label { min-width: 72px; font-size: 10px; }
+  .tab-panel { padding: 12px 10px; }
+  .kanban-col { min-width: 180px; max-width: 180px; }
 }

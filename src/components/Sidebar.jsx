@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { id: 'reels',    label: 'Reels',     icon: IconFilm },
 ]
 
-export default function Sidebar({ active, setActive, theme, toggleTheme }) {
+export default function Sidebar({ active, setActive, theme, toggleTheme, menuOpen }) {
   const [secs,      setSecs]      = useState(secsUntilShiftEnd())
   const [inShift,   setInShift]   = useState(false)
 
@@ -32,7 +32,7 @@ export default function Sidebar({ active, setActive, theme, toggleTheme }) {
   const timerLabel = inShift ? 'shift ends' : 'next shift'
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${menuOpen ? ' menu-open' : ''}`}>
       <div className="sidebar-logo">
         <div className="sidebar-logo-mark">BM</div>
         <span className="sidebar-logo-text">Boosted Movers</span>
