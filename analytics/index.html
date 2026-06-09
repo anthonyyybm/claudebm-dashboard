@@ -527,6 +527,113 @@ function isTokenExpired(tokenRow) {
   return (Date.now() - new Date(tokenRow.updated_at).getTime()) > 24 * 3600 * 1000
 }
 
+// ─── SUPABASE INSTAGRAM FUNCTIONS ────────────────────────────────
+async function sbGetIGToken() {
+  const { data, error } = await sb.from('instagram_tokens')
+    .select('*').eq('account_name', 'boostedgranny').maybeSingle()
+  if (error) console.error('[sb] getIGToken error:', error)
+  return data
+}
+
+async function sbGetIGCache() {
+  const { data, error } = await sb.from('instagram_cache')
+    .select('*').eq('account_name', 'boostedgranny').maybeSingle()
+  if (error) console.error('[sb] getIGCache error:', error)
+  return data
+}
+
+async function sbSaveIGCache(profile_data, media_data, insights_data) {
+  const now = new Date().toISOString()
+  const { error } = await sb.from('instagram_cache').upsert({
+    account_name: 'boostedgranny',
+    profile_data,
+    media_data,
+    insights_data,
+    last_fetched_at: now,
+    updated_at: now
+  }, { onConflict: 'account_name' })
+  if (error) console.error('[sb] saveIGCache error:', error)
+}
+
+// ─── INSTAGRAM API FUNCTIONS ─────────────────────────────────────
+function igEscH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+function igFmtN(n) {
+  if (!n && n !== 0) return '—'
+  const v = Number(n)
+  if (v >= 1000000) return (v/1000000).toFixed(1).replace(/\.0$/,'')+'M'
+  if (v >= 1000) return (v/1000).toFixed(1).replace(/\.0$/,'')+'K'
+  return String(v)
+}
+function igFmtDate(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+async function fetchIGProfile(accountId, token) {
+  const fields = 'followers_count,media_count,username,profile_picture_url,biography'
+  const res = await fetch(`${IG_API_BASE}/${accountId}?fields=${fields}&access_token=${token}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`IG profile failed (${res.status}): ${err.error?.message || res.statusText}`)
+  }
+  return res.json()
+}
+
+async function fetchIGMedia(accountId, token) {
+  const fields = 'id,caption,media_type,timestamp,like_count,comments_count,media_url,thumbnail_url'
+  const res = await fetch(`${IG_API_BASE}/${accountId}/media?fields=${fields}&limit=20&access_token=${token}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`IG media failed (${res.status}): ${err.error?.message || res.statusText}`)
+  }
+  const data = await res.json()
+  return data.data || []
+}
+
+async function fetchIGInsights(accountId, token) {
+  try {
+    const res = await fetch(`${IG_API_BASE}/${accountId}/insights?metric=impressions,reach,profile_views&period=day&access_token=${token}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.data || null
+  } catch { return null }
+}
+
+async function initInstagramFromSupabase() {
+  const tokenRow = await sbGetIGToken()
+  const cacheRow = await sbGetIGCache()
+
+  if (cacheRow?.last_fetched_at) igLastFetchedAt = cacheRow.last_fetched_at
+
+  if (tokenRow?.page_access_token && tokenRow?.instagram_account_id) {
+    try {
+      const [profile, media, insights] = await Promise.all([
+        fetchIGProfile(tokenRow.instagram_account_id, tokenRow.page_access_token),
+        fetchIGMedia(tokenRow.instagram_account_id, tokenRow.page_access_token),
+        fetchIGInsights(tokenRow.instagram_account_id, tokenRow.page_access_token)
+      ])
+      igData = { profile, media, insights }
+      igLastFetchedAt = new Date().toISOString()
+      await sbSaveIGCache(profile, media, insights)
+      igState = 'live'
+    } catch (err) {
+      console.error('IG fetch error:', err)
+      if (cacheRow?.profile_data) {
+        igData = { profile: cacheRow.profile_data, media: cacheRow.media_data || [], insights: cacheRow.insights_data || null }
+        igState = 'expired'
+      } else {
+        igData = { profile: null, media: [], insights: null }
+        igState = 'no-data'
+      }
+    }
+  } else if (cacheRow?.profile_data) {
+    igData = { profile: cacheRow.profile_data, media: cacheRow.media_data || [], insights: cacheRow.insights_data || null }
+    igState = 'expired'
+  } else {
+    igState = 'no-data'
+  }
+}
+
 // ─── DATA LAYER ─────────────────────────────────────────────────
 const analyticsData = {
   week_label:   "W3 April",
@@ -588,6 +695,12 @@ let ttChartMetric     = 'views'
 let ttChartRange      = 'all'
 let ttVideoPage       = 0
 let ttMonthFilter     = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` })()
+
+// ─── INSTAGRAM STATE ─────────────────────────────────────────────
+const IG_API_BASE   = 'https://graph.facebook.com/v20.0'
+let igState         = 'checking'   // 'checking' | 'live' | 'expired' | 'no-data'
+let igLastFetchedAt = null
+let igData          = { profile: null, media: [], insights: null }
 
 // ─── TIKTOK OAUTH CONFIG ────────────────────────────────────────
 const TT_CLIENT_KEY   = 'sbawiohwdjglaeadzv'
@@ -733,38 +846,144 @@ function platformBlock(key, isLoading) {
 
 function instagramBlock(isLoading) {
   const cfg = PLATFORMS.instagram
-  const d   = analyticsData.platforms.instagram
   const c   = cfg.color
 
-  return `<div class="platform-section coming-soon-section" style="position:relative">
-    <div class="coming-soon-overlay"></div>
+  if (isLoading) {
+    return `<div class="platform-section">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="platform-badge" style="background:${c}">IG</div>
+        <span style="font-size:17px;font-weight:700;color:var(--text)">Instagram</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+        ${Array(4).fill(`<div class="a-metric">${skeletonVal()}</div>`).join('')}
+      </div>
+    </div>`
+  }
 
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
-      <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
-      <span class="coming-soon-badge">Coming Soon</span>
-    </div>
+  if (igState === 'no-data' || !igData.profile) {
+    return `<div class="platform-section">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="platform-badge" style="background:${c}">IG</div>
+        <span style="font-size:17px;font-weight:700;color:var(--text)">Instagram</span>
+      </div>
+      <div style="padding:24px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">
+        No Instagram data available. Check <code>instagram_tokens</code> in Supabase.
+      </div>
+    </div>`
+  }
 
-    <div class="ag3">
-      ${metricCard('FOLLOWERS', '—', null, null, c, false)}
-      ${metricCard('AVG VIEWS', '—', null, null, c, false)}
-      ${metricCard('REELS POSTED', '—', null, null, c, false)}
-    </div>
+  const profile = igData.profile
+  const media   = igData.media || []
 
-    <div class="ag3" style="margin-bottom:14px">
-      ${metricCard('ENGAGEMENT RATE', '—', null, null, c, false)}
-    </div>
+  let statusBanner = ''
+  if (igState === 'live') {
+    const ts = igLastFetchedAt ? toPhilippineTime(igLastFetchedAt) : '—'
+    statusBanner = `<div class="tt-status-live" style="margin-bottom:12px">
+      <span class="data-badge-live" style="margin-left:0">● Live</span>
+      <span style="font-size:11px;color:var(--text2)">Last updated: ${ts}</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--text3)">Instagram token expires in 60 days. Update META_PAGE_ACCESS_TOKEN in .env and Supabase to refresh.</span>
+    </div>`
+  } else if (igState === 'expired') {
+    const ts = igLastFetchedAt ? toPhilippineTime(igLastFetchedAt) : 'unknown time'
+    statusBanner = `<div class="tt-status-expired" style="margin-bottom:12px">
+      <span style="font-size:12px;font-weight:600;color:var(--amber)">⚠ Token expired — showing cached data from ${ts}</span>
+      <a href="#" style="margin-left:auto;font-size:11px;color:var(--amber);font-weight:600;text-decoration:none" onclick="showIGReconnectInstructions(event)">Reconnect</a>
+    </div>`
+  }
 
-    <div class="coming-soon-checklist">
-      <div class="card-title" style="margin-bottom:8px">SETUP PROGRESS</div>
-      <div class="check-item done">✅ Meta Business Suite connected</div>
-      <div class="check-item done">✅ Facebook account setup</div>
-      <div class="check-item pending">⬜ Developer app approval</div>
-      <div class="check-item pending">⬜ API tokens generated</div>
-      <div class="check-item pending">⬜ Live data connected</div>
+  const totalLikes    = media.reduce((s, p) => s + (p.like_count      || 0), 0)
+  const totalComments = media.reduce((s, p) => s + (p.comments_count  || 0), 0)
+  const followers     = profile.followers_count || 0
+  const engRate       = followers > 0 ? ((totalLikes + totalComments) / followers * 100).toFixed(2) : '0.00'
+
+  const avatarEl = profile.profile_picture_url
+    ? `<img src="${igEscH(profile.profile_picture_url)}" class="tt-avatar" alt="">`
+    : `<div class="tt-avatar" style="background:#E1306C;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">IG</div>`
+
+  const profileCard = `<div class="tt-profile-card" style="margin-bottom:14px">
+    <div class="tt-profile-left">
+      ${avatarEl}
+      <div>
+        <div class="tt-display-name">@${igEscH(profile.username || 'boostedgranny')}</div>
+        <div class="tt-profile-handle">${igFmtN(profile.followers_count)} followers · ${igFmtN(profile.media_count)} posts</div>
+        ${profile.biography ? `<div style="font-size:10px;color:var(--text3);max-width:300px;line-height:1.4;margin-top:3px">${igEscH(profile.biography)}</div>` : ''}
+      </div>
     </div>
   </div>`
+
+  const statsRow = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+    <div class="a-metric">
+      <div class="metric-label">FOLLOWERS</div>
+      <div class="metric-val" style="margin-top:4px">${igFmtN(followers)}</div>
+      <div class="metric-sub">account total</div>
+    </div>
+    <div class="a-metric">
+      <div class="metric-label">TOTAL LIKES</div>
+      <div class="metric-val" style="margin-top:4px">${igFmtN(totalLikes)}</div>
+      <div class="metric-sub">${media.length} recent posts</div>
+    </div>
+    <div class="a-metric">
+      <div class="metric-label">TOTAL COMMENTS</div>
+      <div class="metric-val" style="margin-top:4px">${igFmtN(totalComments)}</div>
+      <div class="metric-sub">${media.length} recent posts</div>
+    </div>
+    <div class="a-metric">
+      <div class="metric-label">ENGAGEMENT RATE</div>
+      <div class="metric-val" style="margin-top:4px">${engRate}%</div>
+      <div class="metric-sub">(likes+comments)/followers</div>
+    </div>
+  </div>`
+
+  const recentPosts = media.slice(0, 10)
+  const postRows = recentPosts.length === 0
+    ? '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text3)">No posts found</div>'
+    : recentPosts.map(p => {
+        const caption   = igEscH((p.caption || '').substring(0, 80) + ((p.caption || '').length > 80 ? '…' : ''))
+        const typeLabel = p.media_type === 'VIDEO' ? 'REEL' : (p.media_type === 'CAROUSEL_ALBUM' ? 'CAROUSEL' : 'IMAGE')
+        const typeColor = typeLabel === 'REEL' ? '#E1306C' : typeLabel === 'CAROUSEL' ? '#8b5cf6' : '#3b82f6'
+        const thumbSrc  = p.thumbnail_url || (p.media_type !== 'VIDEO' ? p.media_url : null)
+        const thumb     = thumbSrc
+          ? `<img src="${igEscH(thumbSrc)}" class="tt-vt-thumb" alt="">`
+          : `<div class="tt-vt-thumb" style="background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3)">📷</div>`
+        return `<div class="tt-vt-row">
+          ${thumb}
+          <div class="tt-vt-meta">
+            <div style="margin-bottom:3px">
+              <span style="font-size:8px;font-weight:700;background:${typeColor};color:#fff;padding:1px 5px;border-radius:3px">${typeLabel}</span>
+            </div>
+            <div class="tt-vt-title" title="${igEscH(p.caption || '')}">${caption || '(no caption)'}</div>
+            <div class="tt-vt-stats">
+              <span>♥ ${igFmtN(p.like_count)}</span>
+              <span>💬 ${igFmtN(p.comments_count)}</span>
+            </div>
+          </div>
+          <div class="tt-vt-date">${igFmtDate(p.timestamp)}</div>
+        </div>`
+      }).join('')
+
+  const postsSection = `<div class="tt-video-section">
+    <div class="tt-video-section-title">Recent Posts — last 10</div>
+    ${postRows}
+  </div>`
+
+  return `<div class="platform-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div class="platform-badge" style="background:${c}">IG</div>
+      <span style="font-size:17px;font-weight:700;color:var(--text)">Instagram</span>
+      ${igState === 'live' ? '<span class="data-badge-live">● Live</span>' : igState === 'expired' ? '<span class="data-badge-cached">Cached</span>' : ''}
+    </div>
+    ${statusBanner}
+    ${profileCard}
+    ${statsRow}
+    ${postsSection}
+  </div>`
 }
+
+function showIGReconnectInstructions(evt) {
+  evt.preventDefault()
+  alert('To refresh the Instagram token:\n\n1. Go to Meta Business Suite or Graph API Explorer\n2. Generate a new long-lived Page Access Token\n3. Update META_PAGE_ACCESS_TOKEN in .env\n4. Update page_access_token in Supabase instagram_tokens table\n   (account_name = boostedgranny)')
+}
+window.showIGReconnectInstructions = showIGReconnectInstructions
 
 // ─── YOUTUBE HELPERS ─────────────────────────────────────────────
 function ytFmtN(n) {
@@ -1900,12 +2119,12 @@ function socialTopCard(isLoading) {
       <span class="last-refreshed" id="last-refreshed-inline">${lastRefreshedTime ? 'Updated ' + lastRefreshedTime : ''}</span>
     </div>
     <div class="social-platforms-row">
-      <div class="social-platform-cell${igActive ? ' active' : ' coming-soon-cell'}" onclick="setActivePlatform('instagram')">
+      <div class="social-platform-cell${igActive ? ' active' : ''}" onclick="setActivePlatform('instagram')">
         <div class="social-cell-badge" style="background:#E1306C">IG</div>
         <div class="social-cell-info">
           <div class="social-cell-name">Instagram</div>
-          <div class="social-cell-val">—</div>
-          <div class="social-cell-sub">Coming Soon</div>
+          <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : igFmtN(igData.profile?.followers_count ?? '—')}</div>
+          <div class="social-cell-sub">followers${igState === 'live' ? ' · live' : igState === 'expired' ? ' · cached' : ''}</div>
         </div>
       </div>
       <div class="social-platform-cell${ytActive ? ' active' : ''}" onclick="setActivePlatform('youtube')">
@@ -2189,7 +2408,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     history.replaceState({}, '', window.location.pathname)
     tiktokLiveData.error  = `TikTok denied authorization: ${ttError}${ttErrDesc ? ' — ' + ttErrDesc : ''}`
     ttConnectionState     = 'no-data'
-    await initTikTokFromSupabase()
+    await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase()])
   } else if (ttCode) {
     history.replaceState({}, '', window.location.pathname)
     document.getElementById('analytics-root').innerHTML =
@@ -2198,9 +2417,9 @@ document.addEventListener('DOMContentLoaded', async () => {
          <div class="tt-loader-msg" id="tt-loading-msg">Connecting to TikTok...</div>
          <div class="tt-loader-sub">Fetching all videos — this may take a moment</div>
        </div>`
-    await handleTikTokCallback(ttCode)
+    await Promise.all([handleTikTokCallback(ttCode), initInstagramFromSupabase()])
   } else {
-    await initTikTokFromSupabase()
+    await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase()])
   }
 
   showLoadingState()
@@ -2231,7 +2450,7 @@ async function refreshAnalytics() {
   const btn = document.getElementById('refresh-btn')
   if (btn) { btn.classList.add('spinning'); btn.disabled = true }
 
-  await initTikTokFromSupabase()
+  await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase()])
 
   showLoadingState()
   const data = await loadAllAnalytics()
