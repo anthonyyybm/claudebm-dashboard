@@ -933,9 +933,20 @@ async function initInstagramFromSupabase() {
 }
 
 // ─── DATA LAYER ─────────────────────────────────────────────────
+function computeWeekLabel() {
+  const now = new Date()
+  const startOfYear = new Date(now.getFullYear(), 0, 1)
+  const weekNum = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
+  const month = now.toLocaleDateString('en-US', { month: 'long' })
+  return `W${weekNum} ${month}`
+}
+function computeLastUpdated() {
+  return new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+}
+
 const analyticsData = {
-  week_label:   "W3 April",
-  last_updated: "April 15, 2026",
+  week_label:   computeWeekLabel(),
+  last_updated: computeLastUpdated(),
   platforms: {
     instagram: {
       followers: 1362, followers_change: 2.0,
