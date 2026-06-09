@@ -1420,10 +1420,10 @@ tr:last-child td { border-bottom: none; }
   .sidebar {
     position: fixed !important;
     top: 0;
-    left: -260px;
+    left: -220px;
     height: 100vh;
-    width: 240px !important;
-    min-width: 240px !important;
+    width: 200px !important;
+    min-width: 200px !important;
     z-index: 200;
     transition: left 0.25s ease;
     overflow-y: auto;
@@ -1437,8 +1437,8 @@ tr:last-child td { border-bottom: none; }
   .sidebar .sidebar-logo-text,
   .sidebar .theme-toggle-label { opacity: 1 !important; }
   .sidebar .shift-mini-label   { opacity: 1 !important; }
-  /* Expand sidebar to full label width inside drawer */
-  .sidebar:not(.menu-open) { width: 60px !important; }
+  /* Collapse when closed */
+  .sidebar:not(.menu-open) { width: 0px !important; min-width: 0 !important; overflow: hidden; }
 
   /* Main content: offset from fixed topbar */
   .main-content {
@@ -1474,10 +1474,40 @@ tr:last-child td { border-bottom: none; }
   .task-detail-modal { max-height: 92vh; }
 }
 
-@media (max-width: 480px) {
-  .goals-grid  { grid-template-columns: 1fr; }
-  .pulse-grid  { grid-template-columns: repeat(2, 1fr); }
-  .task-prop-label { min-width: 72px; font-size: 10px; }
-  .tab-panel { padding: 12px 10px; }
-  .kanban-col { min-width: 180px; max-width: 180px; }
+/* iPhone 11 and similar (≤ 430px) */
+@media (max-width: 430px) {
+  .tab-panel     { padding: 12px 10px; }
+  .board-panel   { padding: 10px 10px 12px; }
+
+  .page-title    { font-size: 18px; margin-bottom: 14px; }
+
+  /* Pulse: 2-col grid — 5 cards wrap to 3+2 */
+  .pulse-grid    { grid-template-columns: repeat(2, 1fr); gap: 7px; }
+  .pulse-card    { padding: 10px 8px; }
+  .pulse-num     { font-size: 18px; }
+  .pulse-label   { font-size: 9px; }
+
+  /* Goals single column */
+  .goals-grid    { grid-template-columns: 1fr; gap: 8px; }
+
+  /* Kanban columns slightly narrower */
+  .kanban-col    { min-width: 168px; max-width: 168px; }
+
+  /* Board controls: full-width search, tighter filter chips */
+  .filter-btn    { padding: 3px 8px; font-size: 10px; }
+  .board-controls input { width: 100% !important; }
+
+  /* Task / goal cards */
+  .task-card     { padding: 10px 12px; }
+  .goal-card     { padding: 14px; }
+
+  /* Task modal props */
+  .task-prop-label { min-width: 70px; font-size: 10px; }
+  .task-prop-select { font-size: 11px; }
+
+  /* Modals take full screen height on small phones */
+  .modal-card    { max-height: 95vh; }
+
+  /* Social snapshot grid tighter */
+  .card-title    { font-size: 9px; }
 }
