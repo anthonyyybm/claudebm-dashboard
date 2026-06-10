@@ -2,12 +2,9 @@ import { useState, useEffect } from 'react'
 import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
 import { fmtDate } from '../lib/utils.js'
+import { CATEGORY_OPTIONS } from '../lib/categories.js'
 
 const PLAN_STATUS_OPTIONS = ['draft', 'submitted', 'awaiting', 'approved', 'deferred', 'on_hold']
-const CAT_COLOR = {
-  granny_reels: 'accent', youtube: 'teal', automation: 'purple',
-  analytics: 'yellow', strategy: 'coral', admin: 'gray',
-}
 
 export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
   const [title,       setTitle]       = useState(task.title || '')
@@ -16,6 +13,7 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
   const [category,    setCategory]    = useState(task.category || 'admin')
   const [priority,    setPriority]    = useState(task.priority || 'medium')
   const [state,       setState]       = useState(task.state || 'idea')
+  const [dueDate,     setDueDate]     = useState(task.due_date || '')
   const [planStatus,  setPlanStatus]  = useState(task.plan_status || '')
   const [isDirty,     setIsDirty]     = useState(false)
 
@@ -36,6 +34,7 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
       category,
       priority,
       state,
+      due_date:    dueDate || null,
       plan_status: planStatus || null,
     }
     await onUpdate(task.id, patch)
@@ -75,7 +74,7 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
       <div className="modal-card task-detail-modal" onClick={e => e.stopPropagation()}>
 
         {/* ── Header ── */}
-        <div className="modal-header" style={{ alignItems: 'flex-start', gap: 8 }}>
+        <div className="modal-header task-modal-header" style={{ alignItems: 'flex-start', gap: 8 }}>
           <input
             className="task-modal-title"
             value={title}
@@ -95,50 +94,50 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
 
           {/* Properties */}
           <div className="task-props">
-            <div className="task-prop-row">
-              <span className="task-prop-label">Status</span>
-              <select className="task-prop-select" value={state} onChange={e => { setState(e.target.value); setIsDirty(true) }}>
-                {['idea','backlog','up_next','in_progress','blocked','in_review','done'].map(s => (
-                  <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-                ))}
-              </select>
-            </div>
-            <div className="task-prop-row">
-              <span className="task-prop-label">Priority</span>
-              <select className="task-prop-select" value={priority} onChange={e => { setPriority(e.target.value); setIsDirty(true) }}>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-            <div className="task-prop-row">
-              <span className="task-prop-label">Category</span>
-              <select className="task-prop-select" value={category} onChange={e => { setCategory(e.target.value); setIsDirty(true) }}>
-                <option value="granny_reels">Granny Reels</option>
-                <option value="youtube">YouTube</option>
-                <option value="automation">Automation</option>
-                <option value="analytics">Analytics</option>
-                <option value="strategy">Strategy</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
+            <span className="task-prop-label">Status</span>
+            <select className="task-prop-select" value={state} onChange={e => { setState(e.target.value); setIsDirty(true) }}>
+              {['idea','backlog','up_next','in_progress','blocked','in_review','done'].map(s => (
+                <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+              ))}
+            </select>
+
+            <span className="task-prop-label">Priority</span>
+            <select className="task-prop-select" value={priority} onChange={e => { setPriority(e.target.value); setIsDirty(true) }}>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+
+            <span className="task-prop-label">Category</span>
+            <select className="task-prop-select" value={category} onChange={e => { setCategory(e.target.value); setIsDirty(true) }}>
+              {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+
+            <span className="task-prop-label">Due Date</span>
+            <input
+              type="date"
+              className="task-prop-input"
+              value={dueDate}
+              onChange={e => { setDueDate(e.target.value); setIsDirty(true) }}
+            />
+
             {isPlan && (
-              <div className="task-prop-row">
+              <>
                 <span className="task-prop-label">Plan Status</span>
                 <select className="task-prop-select" value={planStatus} onChange={e => { setPlanStatus(e.target.value); setIsDirty(true) }}>
                   {PLAN_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
                 </select>
-              </div>
+              </>
             )}
-            <div className="task-prop-row">
-              <span className="task-prop-label">Created</span>
-              <span style={{ fontSize: 12, color: 'var(--text3)' }}>{fmtDate(task.created_at)}</span>
-            </div>
+
+            <span className="task-prop-label">Created</span>
+            <span className="task-prop-static">{fmtDate(task.created_at)}</span>
+
             {task.date_completed && (
-              <div className="task-prop-row">
+              <>
                 <span className="task-prop-label">Completed</span>
-                <span style={{ fontSize: 12, color: 'var(--text3)' }}>{fmtDate(task.date_completed)}</span>
-              </div>
+                <span className="task-prop-static">{fmtDate(task.date_completed)}</span>
+              </>
             )}
           </div>
 
@@ -170,7 +169,7 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
           )}
 
           {/* Description */}
-          <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+          <div className="task-modal-section">
             <div className="detail-label" style={{ marginBottom: 6 }}>Description</div>
             <textarea
               className="task-modal-textarea"
@@ -182,7 +181,7 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
           </div>
 
           {/* Notes */}
-          <div style={{ padding: '12px 0' }}>
+          <div className="task-modal-section">
             <div className="detail-label" style={{ marginBottom: 6 }}>Notes</div>
             <textarea
               className="task-modal-textarea"

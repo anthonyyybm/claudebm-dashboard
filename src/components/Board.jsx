@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
 import TaskModal from './TaskModal.jsx'
+import { CATEGORY_OPTIONS, CAT_COLOR } from '../lib/categories.js'
 
 const COLUMNS = [
   { state: 'idea',        label: 'IDEA',        color: 'var(--text3)' },
@@ -13,14 +14,9 @@ const COLUMNS = [
   { state: 'done',        label: 'DONE',         color: '#4ade80' },
 ]
 
-const CAT_COLOR = {
-  granny_reels: 'accent', youtube: 'teal', automation: 'purple',
-  analytics: 'yellow', strategy: 'coral', admin: 'gray',
-}
-
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
 
-const CAT_OPTIONS = ['all', 'granny_reels', 'youtube', 'automation', 'analytics', 'strategy', 'admin']
+const CAT_OPTIONS = ['all', ...CATEGORY_OPTIONS.map(c => c.value)]
 
 export default function Board({ active }) {
   const [tasks,       setTasks]       = useState([])
@@ -154,6 +150,7 @@ export default function Board({ active }) {
             key={col.state}
             col={col}
             tasks={byState(col.state)}
+            draggedId={draggedId}
             isDragOver={dragOver === col.state}
             onDragStart={onDragStart}
             onDragOver={e => onDragOver(e, col.state)}
@@ -199,12 +196,7 @@ export default function Board({ active }) {
                 <div>
                   <div className="detail-label">Category</div>
                   <select className="input w-full" value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))} style={{ marginTop: 6 }}>
-                    <option value="granny_reels">Granny Reels</option>
-                    <option value="youtube">YouTube</option>
-                    <option value="automation">Automation</option>
-                    <option value="analytics">Analytics</option>
-                    <option value="strategy">Strategy</option>
-                    <option value="admin">Admin</option>
+                    {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
                 <div>
@@ -258,7 +250,7 @@ export default function Board({ active }) {
 }
 
 /* ─── Column ─────────────────────────────────────────────────── */
-function KanbanColumn({ col, tasks, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onOpenTask, onAddCard }) {
+function KanbanColumn({ col, tasks, draggedId, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onOpenTask, onAddCard }) {
   return (
     <div className={`kanban-col${isDragOver ? ' drag-over' : ''}`} onDragOver={onDragOver} onDrop={onDrop}>
       <div className="col-header">
@@ -266,7 +258,7 @@ function KanbanColumn({ col, tasks, isDragOver, onDragStart, onDragOver, onDrop,
         <span className="col-count">{tasks.length}</span>
       </div>
       {tasks.map(task => (
-        <TaskCard key={task.id} task={task} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpenTask} />
+        <TaskCard key={task.id} task={task} isDragging={draggedId === task.id} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpenTask} />
       ))}
       <button className="add-card-btn" onClick={onAddCard}><span>+</span> Add card</button>
     </div>
@@ -274,10 +266,10 @@ function KanbanColumn({ col, tasks, isDragOver, onDragStart, onDragOver, onDrop,
 }
 
 /* ─── Task Card ──────────────────────────────────────────────── */
-function TaskCard({ task, onDragStart, onDragEnd, onOpen }) {
+function TaskCard({ task, isDragging, onDragStart, onDragEnd, onOpen }) {
   return (
     <div
-      className="task-card"
+      className={`task-card${isDragging ? ' dragging' : ''}`}
       draggable
       onDragStart={e => { e.stopPropagation(); onDragStart(e, task.id) }}
       onDragEnd={onDragEnd}

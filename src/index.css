@@ -1168,14 +1168,23 @@ tr:last-child td { border-bottom: none; }
 /* ─── Task Detail Modal (Notion-style) ───────────────────────── */
 .task-detail-modal {
   max-width: 680px;
+  min-width: 0;
+  width: 100%;
   max-height: 88vh;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.task-modal-header {
+  border-bottom: none;
+  padding-bottom: 8px;
 }
 .task-modal-title {
   width: 100%;
   background: transparent;
   border: none;
   outline: none;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--white);
   font-family: var(--font);
@@ -1201,47 +1210,81 @@ tr:last-child td { border-bottom: none; }
 .task-modal-textarea:focus { border-color: var(--cyan); }
 .task-modal-textarea::placeholder { color: var(--text3); }
 
-/* Properties list */
+/* Properties grid — label left, value right */
 .task-props {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  align-items: center;
+  row-gap: 4px;
+  column-gap: 16px;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  padding: 8px 0;
+  padding: 10px 0;
   margin-bottom: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.task-prop-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: 30px;
-  padding: 1px 0;
 }
 .task-prop-label {
   font-size: 11px;
   color: var(--text3);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  min-width: 88px;
   font-family: var(--font);
-  flex-shrink: 0;
 }
-.task-prop-select {
-  background: transparent;
+.task-prop-static {
+  font-size: 12px;
+  color: var(--text3);
+  font-family: var(--font);
+}
+.task-prop-select,
+.task-prop-input {
+  background-color: transparent;
   border: 1px solid transparent;
   border-radius: 4px;
-  padding: 3px 8px;
+  padding: 4px 8px;
   font-size: 12px;
   color: var(--text2);
   font-family: var(--font);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
   outline: none;
-  text-transform: capitalize;
+  width: max-content;
+  max-width: 100%;
 }
-.task-prop-select:hover { border-color: var(--border); background: rgba(255,255,255,0.04); }
-.task-prop-select:focus { border-color: var(--cyan); }
+.task-prop-select { text-transform: capitalize; }
+.task-prop-input[type="date"] { color-scheme: dark; cursor: text; }
+[data-theme="light"] .task-prop-input[type="date"] { color-scheme: light; }
+.task-prop-select:hover,
+.task-prop-input:hover {
+  border-color: var(--border);
+  background: rgba(255,255,255,0.04);
+}
+.task-prop-select:focus,
+.task-prop-input:focus {
+  border-color: var(--cyan);
+  background: rgba(255,255,255,0.04);
+}
+
+/* Section dividers above Description / Notes */
+.task-modal-section {
+  padding: 12px 0;
+}
+.task-modal-section + .task-modal-section {
+  border-top: 1px solid var(--border);
+}
+
+/* ─── Dropdown visibility (light + dark) ─────────────────────── */
+select.input,
+.task-prop-select {
+  color: var(--text2);
+}
+select.input {
+  color: var(--white);
+  background-color: var(--deeper);
+}
+select.input option,
+.task-prop-select option {
+  color: var(--text);
+  background-color: var(--deeper);
+}
 
 /* ─── Board controls ─────────────────────────────────────────── */
 .board-panel { padding-bottom: 0; }
@@ -1501,8 +1544,9 @@ tr:last-child td { border-bottom: none; }
   .goal-card     { padding: 14px; }
 
   /* Task modal props */
-  .task-prop-label { min-width: 70px; font-size: 10px; }
-  .task-prop-select { font-size: 11px; }
+  .task-props { grid-template-columns: 90px 1fr; }
+  .task-prop-label { font-size: 10px; }
+  .task-prop-select, .task-prop-input { font-size: 11px; }
 
   /* Modals take full screen height on small phones */
   .modal-card    { max-height: 95vh; }
