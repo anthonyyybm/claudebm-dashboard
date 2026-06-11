@@ -3,16 +3,10 @@ import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
 import TaskModal from './TaskModal.jsx'
 import { CATEGORY_OPTIONS, CAT_COLOR } from '../lib/categories.js'
+import { STATUS_OPTIONS, statusMeta } from '../lib/taskMeta.js'
+import { logActivity, getCommentAuthor } from '../lib/activity.js'
 
-const COLUMNS = [
-  { state: 'idea',        label: 'IDEA',        color: 'var(--text3)' },
-  { state: 'backlog',     label: 'BACKLOG',      color: 'var(--text3)' },
-  { state: 'up_next',     label: 'UP NEXT',      color: 'var(--teal)' },
-  { state: 'in_progress', label: 'IN PROGRESS',  color: 'var(--cyan)' },
-  { state: 'blocked',     label: 'BLOCKED',      color: '#ff4444' },
-  { state: 'in_review',   label: 'IN REVIEW',    color: 'var(--yellow)' },
-  { state: 'done',        label: 'DONE',         color: '#4ade80' },
-]
+const COLUMNS = STATUS_OPTIONS.map(s => ({ state: s.value, label: s.label.toUpperCase(), color: s.color }))
 
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
 
@@ -45,10 +39,16 @@ export default function Board({ active }) {
   }
 
   async function updateTask(id, patch) {
+    const prevTask = tasks.find(t => t.id === id)
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t))
     setSelectedTask(prev => prev?.id === id ? { ...prev, ...patch } : prev)
     const { error } = await sb.from('tasks').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
-    if (error) { showToast('Update failed', 'error'); loadTasks() }
+    if (error) { showToast('Update failed', 'error'); loadTasks(); return }
+    if (patch.state && prevTask && patch.state !== prevTask.state) {
+      const from = statusMeta(prevTask.state).label
+      const to = statusMeta(patch.state).label
+      logActivity(id, { type: 'log', content: `Status changed from ${from} to ${to}`, author: getCommentAuthor() })
+    }
   }
 
   async function createTask(state, form) {
@@ -58,6 +58,22 @@ export default function Board({ active }) {
     if (error) { showToast('Failed to create task', 'error'); return }
     setTasks(prev => [data, ...prev])
     showToast('Task created', 'success')
+  }
+
+  async function duplicateTask(task) {
+    const { data, error } = await sb.from('tasks')
+      .insert({
+        title: `${task.title} (copy)`,
+        state: 'idea',
+        category: task.category,
+        priority: task.priority,
+        description: task.description || null,
+        created_at: new Date().toISOString(),
+      })
+      .select().single()
+    if (error) { showToast('Failed to duplicate task', 'error'); return }
+    setTasks(prev => [data, ...prev])
+    showToast('Task duplicated', 'success')
   }
 
   async function deleteTask(id) {
@@ -169,6 +185,7 @@ export default function Board({ active }) {
           onClose={() => setSelectedTask(null)}
           onUpdate={updateTask}
           onDelete={deleteTask}
+          onDuplicate={duplicateTask}
         />
       )}
 

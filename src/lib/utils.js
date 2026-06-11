@@ -17,6 +17,20 @@ export function fmtDate(iso) {
   return iso ? String(iso).slice(0, 10) : '—'
 }
 
+export function fmtRelativeTime(iso) {
+  if (!iso) return '—'
+  const diffMs = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return `${days}d ago`
+  return fmtDate(iso)
+}
+
 export function fmtN(n) {
   if (n === null || n === undefined) return '—'
   if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K'

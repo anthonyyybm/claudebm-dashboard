@@ -23,3 +23,18 @@ export const CAT_COLOR = {
   technical: 'amber',
   granny_reels: 'accent',
 }
+
+// Maps badge color names to a concrete CSS color value (for color-mix() chips)
+export const BADGE_COLOR_VALUE = {
+  green: 'var(--success)',
+  red: 'var(--danger)',
+  amber: 'var(--amber)',
+  gray: 'var(--text3)',
+  accent: 'var(--cyan)',
+  teal: 'var(--teal)',
+  yellow: 'var(--yellow)',
+  purple: '#a78bfa',
+  blue: '#60a5fa',
+  coral: '#fb923c',
+  pink: '#f472b6',
+}

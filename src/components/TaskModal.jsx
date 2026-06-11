@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
 import { fmtDate } from '../lib/utils.js'
-import { CATEGORY_OPTIONS } from '../lib/categories.js'
+import { CATEGORY_OPTIONS, CAT_COLOR, BADGE_COLOR_VALUE } from '../lib/categories.js'
+import { STATUS_OPTIONS, PRIORITY_OPTIONS } from '../lib/taskMeta.js'
+import TaskActivity from './TaskActivity.jsx'
 
 const PLAN_STATUS_OPTIONS = ['draft', 'submitted', 'awaiting', 'approved', 'deferred', 'on_hold']
 
-export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
+export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplicate }) {
   const [title,       setTitle]       = useState(task.title || '')
   const [description, setDescription] = useState(task.description || '')
   const [notes,       setNotes]       = useState(task.notes || '')
@@ -21,10 +23,6 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
   useEffect(() => {
     setPlanStatus(task.plan_status || '')
   }, [task.plan_status, task.is_plan])
-
-  function dirty(fn) {
-    return (...args) => { fn(...args); setIsDirty(true) }
-  }
 
   async function saveAll() {
     const patch = {
@@ -64,10 +62,15 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
     if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id)
   }
 
-  // Merge latest task prop into local state for read-only derived fields
+  function duplicate() {
+    onDuplicate(task)
+  }
+
   const isPlan = task.is_plan
   const isWin  = task.is_win
   const isBlocked = task.state === 'blocked' || state === 'blocked'
+
+  const categoryColor = BADGE_COLOR_VALUE[CAT_COLOR[category]] || 'var(--text3)'
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -92,53 +95,49 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
         {/* ── Body ── */}
         <div className="modal-body" style={{ gap: 0 }}>
 
-          {/* Properties */}
-          <div className="task-props">
-            <span className="task-prop-label">Status</span>
-            <select className="task-prop-select" value={state} onChange={e => { setState(e.target.value); setIsDirty(true) }}>
-              {['idea','backlog','up_next','in_progress','blocked','in_review','done'].map(s => (
-                <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-              ))}
-            </select>
+          {/* Property chips */}
+          <div className="task-chips-row">
+            <div className="task-prop-chip" style={{ '--chip-color': STATUS_OPTIONS.find(s => s.value === state)?.color }}>
+              <select className="task-prop-chip-select" value={state} onChange={e => { setState(e.target.value); setIsDirty(true) }}>
+                {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
 
-            <span className="task-prop-label">Priority</span>
-            <select className="task-prop-select" value={priority} onChange={e => { setPriority(e.target.value); setIsDirty(true) }}>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
+            <div className="task-prop-chip" style={{ '--chip-color': PRIORITY_OPTIONS.find(p => p.value === priority)?.color }}>
+              <select className="task-prop-chip-select" value={priority} onChange={e => { setPriority(e.target.value); setIsDirty(true) }}>
+                {PRIORITY_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </div>
 
-            <span className="task-prop-label">Category</span>
-            <select className="task-prop-select" value={category} onChange={e => { setCategory(e.target.value); setIsDirty(true) }}>
-              {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </select>
+            <div className="task-prop-chip" style={{ '--chip-color': categoryColor }}>
+              <select className="task-prop-chip-select" value={category} onChange={e => { setCategory(e.target.value); setIsDirty(true) }}>
+                {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
 
-            <span className="task-prop-label">Due Date</span>
-            <input
-              type="date"
-              className="task-prop-input"
-              value={dueDate}
-              onChange={e => { setDueDate(e.target.value); setIsDirty(true) }}
-            />
+            <div className="task-prop-chip task-prop-chip-date">
+              <span className="task-prop-chip-icon">📅</span>
+              <input
+                type="date"
+                className="task-prop-chip-date-input"
+                value={dueDate}
+                onChange={e => { setDueDate(e.target.value); setIsDirty(true) }}
+              />
+            </div>
 
             {isPlan && (
-              <>
-                <span className="task-prop-label">Plan Status</span>
-                <select className="task-prop-select" value={planStatus} onChange={e => { setPlanStatus(e.target.value); setIsDirty(true) }}>
+              <div className="task-prop-chip" style={{ '--chip-color': 'var(--yellow)' }}>
+                <select className="task-prop-chip-select" value={planStatus} onChange={e => { setPlanStatus(e.target.value); setIsDirty(true) }}>
                   {PLAN_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
                 </select>
-              </>
+              </div>
             )}
+          </div>
 
-            <span className="task-prop-label">Created</span>
-            <span className="task-prop-static">{fmtDate(task.created_at)}</span>
-
-            {task.date_completed && (
-              <>
-                <span className="task-prop-label">Completed</span>
-                <span className="task-prop-static">{fmtDate(task.date_completed)}</span>
-              </>
-            )}
+          {/* Created / completed meta */}
+          <div className="task-meta-line">
+            <span>Created {fmtDate(task.created_at)}</span>
+            {task.date_completed && <span>· Completed {fmtDate(task.date_completed)}</span>}
           </div>
 
           {/* Tags */}
@@ -168,44 +167,56 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete }) {
             </div>
           )}
 
-          {/* Description */}
-          <div className="task-modal-section">
-            <div className="detail-label" style={{ marginBottom: 6 }}>Description</div>
-            <textarea
-              className="task-modal-textarea"
-              value={description}
-              onChange={e => { setDescription(e.target.value); setIsDirty(true) }}
-              placeholder="Add a description..."
-              rows={3}
-            />
-          </div>
+          {/* Main grid: content + operations rail */}
+          <div className="task-modal-grid">
+            <div className="task-modal-main">
+              {/* Description */}
+              <div className="task-modal-section">
+                <div className="detail-label" style={{ marginBottom: 6 }}>Description</div>
+                <textarea
+                  className="task-modal-textarea"
+                  value={description}
+                  onChange={e => { setDescription(e.target.value); setIsDirty(true) }}
+                  placeholder="Add a description..."
+                  rows={3}
+                />
+              </div>
 
-          {/* Notes */}
-          <div className="task-modal-section">
-            <div className="detail-label" style={{ marginBottom: 6 }}>Notes</div>
-            <textarea
-              className="task-modal-textarea"
-              value={notes}
-              onChange={e => { setNotes(e.target.value); setIsDirty(true) }}
-              placeholder="Add notes..."
-              rows={3}
-            />
+              {/* Notes */}
+              <div className="task-modal-section">
+                <div className="detail-label" style={{ marginBottom: 6 }}>Notes</div>
+                <textarea
+                  className="task-modal-textarea"
+                  value={notes}
+                  onChange={e => { setNotes(e.target.value); setIsDirty(true) }}
+                  placeholder="Add notes..."
+                  rows={3}
+                />
+              </div>
+
+              {/* Activity */}
+              <TaskActivity taskId={task.id} />
+            </div>
+
+            <div className="task-ops-rail">
+              <div className="detail-label" style={{ marginBottom: 2 }}>Operations</div>
+              {!isWin && (
+                <button className="task-ops-btn" onClick={markWin}>🏆 Mark as Win</button>
+              )}
+              {!isPlan
+                ? <button className="task-ops-btn" onClick={flagAsPlan}>⚑ Flag as Plan</button>
+                : <button className="task-ops-btn" onClick={removePlanFlag}>✕ Remove Plan Flag</button>
+              }
+              <button className="task-ops-btn" onClick={duplicate}>⧉ Duplicate Task</button>
+              <button className="task-ops-btn danger" onClick={confirmDelete}>🗑 Delete Task</button>
+            </div>
           </div>
         </div>
 
         {/* ── Footer ── */}
         <div className="modal-footer">
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {!isWin && (
-              <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={markWin}>🏆 Win</button>
-            )}
-            {!isPlan
-              ? <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={flagAsPlan}>⚑ Flag Plan</button>
-              : <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={removePlanFlag}>✕ Remove Plan</button>
-            }
-          </div>
+          <div />
           <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn btn-danger" style={{ fontSize: 11 }} onClick={confirmDelete}>Delete</button>
             {isDirty
               ? <button className="btn" style={{ fontSize: 11 }} onClick={saveAll}>Save</button>
               : <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={onClose}>Close</button>

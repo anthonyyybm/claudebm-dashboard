@@ -1167,7 +1167,7 @@ tr:last-child td { border-bottom: none; }
 
 /* ─── Task Detail Modal (Notion-style) ───────────────────────── */
 .task-detail-modal {
-  max-width: 680px;
+  max-width: 860px;
   min-width: 0;
   width: 100%;
   max-height: 88vh;
@@ -1270,6 +1270,195 @@ tr:last-child td { border-bottom: none; }
 .task-modal-section + .task-modal-section {
   border-top: 1px solid var(--border);
 }
+
+/* ─── Property chips row ──────────────────────────────────────── */
+.task-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.task-prop-chip {
+  --chip-color: var(--text3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--chip-color) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chip-color) 32%, transparent);
+}
+.task-prop-chip-select {
+  background: transparent;
+  border: none;
+  outline: none;
+  appearance: none;
+  color: var(--chip-color);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  font-family: var(--font);
+  padding-right: 2px;
+}
+.task-prop-chip-select option {
+  color: var(--text);
+  background-color: var(--deeper);
+  text-transform: none;
+}
+.task-prop-chip-date {
+  background: color-mix(in srgb, var(--text3) 12%, transparent);
+  border: 1px solid var(--border);
+}
+.task-prop-chip-icon { font-size: 11px; }
+.task-prop-chip-date-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: text;
+  color-scheme: dark;
+}
+[data-theme="light"] .task-prop-chip-date-input { color-scheme: light; }
+
+.task-meta-line {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text3);
+  padding-bottom: 8px;
+}
+
+/* ─── Main grid: content + operations rail ────────────────────── */
+.task-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 170px;
+  gap: 24px;
+  align-items: start;
+}
+.task-modal-main { min-width: 0; }
+.task-ops-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 0 16px 20px;
+  border-left: 1px solid var(--border);
+}
+.task-ops-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  font-size: 12px;
+  font-family: var(--font);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.task-ops-btn:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: rgba(0,254,250,0.06);
+}
+.task-ops-btn.danger { color: var(--danger); }
+.task-ops-btn.danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(239,68,68,0.08);
+}
+
+/* ─── Activity feed ────────────────────────────────────────────── */
+.task-activity {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.task-activity-empty {
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+.task-activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.task-activity-item {
+  display: flex;
+  gap: 10px;
+}
+.task-activity-avatar {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,254,250,0.12);
+  color: var(--cyan);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font);
+}
+.task-activity-body { flex: 1; min-width: 0; }
+.task-activity-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.task-activity-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.task-activity-time {
+  font-size: 10px;
+  color: var(--text3);
+}
+.task-activity-text {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.task-activity-log {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text3);
+}
+.task-activity-log-icon { font-size: 11px; }
+.task-activity-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.task-activity-author-input {
+  width: 130px;
+  background: var(--deeper);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text);
+  font-family: var(--font);
+  outline: none;
+}
+.task-activity-author-input:focus { border-color: var(--cyan); }
 
 /* ─── Dropdown visibility (light + dark) ─────────────────────── */
 select.input,
@@ -1514,6 +1703,18 @@ select.input option,
   .modal-overlay { padding: 8px; align-items: flex-end; }
   .modal-card { border-radius: 12px 12px 0 0; max-height: 92vh; width: 100%; margin: 0; }
   .task-detail-modal { max-height: 92vh; }
+
+  /* Task modal: collapse ops rail below content */
+  .task-modal-grid { grid-template-columns: 1fr; gap: 0; }
+  .task-ops-rail {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding: 12px 0 0;
+    margin-top: 12px;
+  }
+  .task-ops-btn { width: auto; flex: 1 1 auto; }
 }
 
 /* iPhone 11 and similar (≤ 430px) */
