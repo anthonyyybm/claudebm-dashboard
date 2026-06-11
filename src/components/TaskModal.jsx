@@ -5,8 +5,10 @@ import { fmtDate } from '../lib/utils.js'
 import { CATEGORY_OPTIONS, CAT_COLOR, BADGE_COLOR_VALUE } from '../lib/categories.js'
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from '../lib/taskMeta.js'
 import TaskActivity from './TaskActivity.jsx'
+import PropChipSelect from './PropChipSelect.jsx'
 
 const PLAN_STATUS_OPTIONS = ['draft', 'submitted', 'awaiting', 'approved', 'deferred', 'on_hold']
+const PLAN_STATUS_CHIP_OPTIONS = PLAN_STATUS_OPTIONS.map(s => ({ value: s, label: s.replace('_', ' ') }))
 
 export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplicate }) {
   const [title,       setTitle]       = useState(task.title || '')
@@ -70,8 +72,6 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplica
   const isWin  = task.is_win
   const isBlocked = task.state === 'blocked' || state === 'blocked'
 
-  const categoryColor = BADGE_COLOR_VALUE[CAT_COLOR[category]] || 'var(--text3)'
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card task-detail-modal" onClick={e => e.stopPropagation()}>
@@ -103,29 +103,30 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplica
               <div className="task-prop-list">
                 <div className="task-prop-row">
                   <span className="task-prop-row-label">◉ Status</span>
-                  <div className="task-prop-chip" style={{ '--chip-color': STATUS_OPTIONS.find(s => s.value === state)?.color }}>
-                    <select className="task-prop-chip-select" value={state} onChange={e => { setState(e.target.value); setIsDirty(true) }}>
-                      {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                    </select>
-                  </div>
+                  <PropChipSelect
+                    value={state}
+                    options={STATUS_OPTIONS}
+                    onChange={v => { setState(v); setIsDirty(true) }}
+                  />
                 </div>
 
                 <div className="task-prop-row">
                   <span className="task-prop-row-label">⚑ Priority</span>
-                  <div className="task-prop-chip" style={{ '--chip-color': PRIORITY_OPTIONS.find(p => p.value === priority)?.color }}>
-                    <select className="task-prop-chip-select" value={priority} onChange={e => { setPriority(e.target.value); setIsDirty(true) }}>
-                      {PRIORITY_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                    </select>
-                  </div>
+                  <PropChipSelect
+                    value={priority}
+                    options={PRIORITY_OPTIONS}
+                    onChange={v => { setPriority(v); setIsDirty(true) }}
+                  />
                 </div>
 
                 <div className="task-prop-row">
                   <span className="task-prop-row-label">🏷 Category</span>
-                  <div className="task-prop-chip" style={{ '--chip-color': categoryColor }}>
-                    <select className="task-prop-chip-select" value={category} onChange={e => { setCategory(e.target.value); setIsDirty(true) }}>
-                      {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                    </select>
-                  </div>
+                  <PropChipSelect
+                    value={category}
+                    options={CATEGORY_OPTIONS}
+                    colorOf={c => BADGE_COLOR_VALUE[CAT_COLOR[c.value]] || 'var(--text3)'}
+                    onChange={v => { setCategory(v); setIsDirty(true) }}
+                  />
                 </div>
 
                 <div className="task-prop-row">
@@ -143,11 +144,12 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplica
                 {isPlan && (
                   <div className="task-prop-row">
                     <span className="task-prop-row-label">📋 Plan Status</span>
-                    <div className="task-prop-chip" style={{ '--chip-color': 'var(--yellow)' }}>
-                      <select className="task-prop-chip-select" value={planStatus} onChange={e => { setPlanStatus(e.target.value); setIsDirty(true) }}>
-                        {PLAN_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                      </select>
-                    </div>
+                    <PropChipSelect
+                      value={planStatus}
+                      options={PLAN_STATUS_CHIP_OPTIONS}
+                      colorOf={() => 'var(--yellow)'}
+                      onChange={v => { setPlanStatus(v); setIsDirty(true) }}
+                    />
                   </div>
                 )}
 

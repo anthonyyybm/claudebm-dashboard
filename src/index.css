@@ -1304,26 +1304,85 @@ tr:last-child td { border-bottom: none; }
   background: color-mix(in srgb, var(--chip-color) 26%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--chip-color) 45%, transparent);
 }
-.task-prop-chip-select {
-  background: transparent;
-  border: none;
-  outline: none;
-  appearance: none;
+.task-prop-chip-label {
   color: var(--chip-text);
   font-size: 11px;
   font-weight: 700;
   text-transform: capitalize;
   letter-spacing: 0.3px;
-  cursor: pointer;
-  font-family: var(--font);
-  padding: 0;
-  margin: 0;
-  width: auto;
+  white-space: nowrap;
 }
-.task-prop-chip-select option {
+
+/* ─── Custom property dropdown ────────────────────────────────── */
+.prop-chip-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+.prop-chip-trigger {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  cursor: pointer;
+  gap: 6px;
+  transition: border-color .15s, background .15s;
+}
+.prop-chip-trigger:hover {
+  border-color: color-mix(in srgb, var(--chip-color) 65%, transparent);
+}
+.prop-chip-caret {
+  font-size: 8px;
+  color: var(--chip-text);
+  opacity: 0.7;
+  line-height: 1;
+}
+.prop-chip-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  min-width: 150px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.prop-chip-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  font-size: 12px;
+  font-family: var(--font);
+  text-align: left;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: background .1s, color .1s;
+}
+.prop-chip-menu-item:hover {
+  background: color-mix(in srgb, var(--chip-color) 20%, var(--surface2));
   color: var(--text);
-  background-color: var(--deeper);
-  text-transform: none;
+}
+.prop-chip-menu-item.active {
+  background: color-mix(in srgb, var(--chip-color) 26%, var(--surface2));
+  color: var(--text);
+  font-weight: 600;
+}
+.prop-chip-menu-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--chip-color);
+  flex-shrink: 0;
 }
 .task-prop-chip-date {
   gap: 6px;
