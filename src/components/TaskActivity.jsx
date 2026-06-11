@@ -3,6 +3,7 @@ import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
 import { fmtRelativeTime } from '../lib/utils.js'
 import { getCommentAuthor, setCommentAuthor } from '../lib/activity.js'
+import { confirmDialog } from '../lib/confirm.js'
 
 function initials(name) {
   return (name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -61,7 +62,7 @@ export default function TaskActivity({ taskId }) {
   }
 
   async function deleteComment(id) {
-    if (!window.confirm('Delete this comment?')) return
+    if (!await confirmDialog('Delete this comment?', { danger: true, confirmLabel: 'Delete' })) return
     const { error } = await sb.from('task_activity').delete().eq('id', id)
     if (error) { showToast('Failed to delete comment', 'error'); return }
     setItems(prev => prev.filter(i => i.id !== id))

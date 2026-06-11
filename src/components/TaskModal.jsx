@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
+import { confirmDialog } from '../lib/confirm.js'
 import { fmtDate } from '../lib/utils.js'
 import { CATEGORY_OPTIONS, CAT_COLOR, BADGE_COLOR_VALUE } from '../lib/categories.js'
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from '../lib/taskMeta.js'
@@ -60,8 +61,8 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplica
     } catch { showToast('Win logged on task only', 'info') }
   }
 
-  function confirmDelete() {
-    if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id)
+  async function confirmDelete() {
+    if (await confirmDialog(`Delete "${task.title}"?`, { danger: true, confirmLabel: 'Delete' })) onDelete(task.id)
   }
 
   function duplicate() {

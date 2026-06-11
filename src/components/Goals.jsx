@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
+import { confirmDialog } from '../lib/confirm.js'
 import { fmtDate } from '../lib/utils.js'
 
 const STATUS_COLOR  = { not_started: 'gray', in_progress: 'accent', hit: 'green' }
@@ -52,7 +53,7 @@ export default function Goals({ active }) {
   }
 
   async function deleteGoal(id) {
-    if (!window.confirm('Delete this goal?')) return
+    if (!await confirmDialog('Delete this goal?', { danger: true, confirmLabel: 'Delete' })) return
     setGoals(prev => prev.filter(g => g.id !== id))
     setEditGoal(null)
     const { error } = await sb.from('goals').delete().eq('id', id)

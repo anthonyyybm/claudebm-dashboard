@@ -1057,6 +1057,7 @@ tr:last-child td { border-bottom: none; }
   width: 100%;
   box-shadow: 0 8px 40px rgba(0,0,0,.5);
 }
+.confirm-title { font-size: 15px; font-weight: 600; color: var(--white); margin-bottom: 8px; }
 .confirm-message { font-size: 14px; color: var(--text); margin-bottom: 16px; line-height: 1.5; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
 

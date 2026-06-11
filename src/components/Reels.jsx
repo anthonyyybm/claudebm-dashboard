@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
+import { confirmDialog } from '../lib/confirm.js'
 import { fmtDate } from '../lib/utils.js'
 
 /* ─── Helpers ────────────────────────────────────────────────── */
@@ -112,7 +113,7 @@ export default function Reels({ active }) {
     showToast('Marked Used', 'success')
   }
   async function deleteScript(id) {
-    if (!window.confirm('Delete this script? This cannot be undone.')) return
+    if (!await confirmDialog('Delete this script? This cannot be undone.', { danger: true, confirmLabel: 'Delete' })) return
     setScripts(prev => prev.filter(s => s.id !== id))
     setModal(null)
     await sb.from('scripts').delete().eq('id', id)
@@ -136,7 +137,7 @@ export default function Reels({ active }) {
   }
   async function bulkDelete() {
     const ids = [...selected]; if (!ids.length) return
-    if (!window.confirm(`Delete ${ids.length} scripts?`)) return
+    if (!await confirmDialog(`Delete ${ids.length} scripts?`, { danger: true, confirmLabel: 'Delete' })) return
     setScripts(prev => prev.filter(s => !ids.includes(s.id)))
     setSelected(new Set())
     await sb.from('scripts').delete().in('id', ids)

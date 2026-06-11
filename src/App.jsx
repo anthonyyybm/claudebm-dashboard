@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { registerToastHandler } from './lib/toast.js'
+import ConfirmModal from './components/ConfirmModal.jsx'
 import Sidebar   from './components/Sidebar.jsx'
 import Overview  from './components/Overview.jsx'
 import Board     from './components/Board.jsx'
@@ -112,6 +113,8 @@ export default function App() {
           <div key={t.id} className={`toast ${t.type || 'info'}`}>{t.msg}</div>
         ))}
       </div>
+
+      <ConfirmModal />
     </>
   )
 }
