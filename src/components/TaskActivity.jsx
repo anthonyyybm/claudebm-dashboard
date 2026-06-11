@@ -2,18 +2,20 @@ import { useState, useEffect } from 'react'
 import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
 import { fmtRelativeTime } from '../lib/utils.js'
-import { getCommentAuthor, setCommentAuthor, logActivity } from '../lib/activity.js'
+import { getCommentAuthor, setCommentAuthor } from '../lib/activity.js'
 
 function initials(name) {
   return (name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
 export default function TaskActivity({ taskId }) {
-  const [items,   setItems]   = useState([])
-  const [loading, setLoading] = useState(true)
-  const [author,  setAuthor]  = useState(getCommentAuthor())
-  const [comment, setComment] = useState('')
-  const [posting, setPosting] = useState(false)
+  const [items,     setItems]     = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [author,    setAuthor]    = useState(getCommentAuthor())
+  const [comment,   setComment]   = useState('')
+  const [posting,   setPosting]   = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [editText,  setEditText]  = useState('')
 
   useEffect(() => { load() }, [taskId])
 
@@ -38,6 +40,33 @@ export default function TaskActivity({ taskId }) {
     setComment('')
   }
 
+  function startEdit(item) {
+    setEditingId(item.id)
+    setEditText(item.content)
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditText('')
+  }
+
+  async function saveEdit(id) {
+    const text = editText.trim()
+    if (!text) return
+    const { error } = await sb.from('task_activity').update({ content: text }).eq('id', id)
+    if (error) { showToast('Failed to update comment', 'error'); return }
+    setItems(prev => prev.map(i => i.id === id ? { ...i, content: text } : i))
+    setEditingId(null)
+    setEditText('')
+  }
+
+  async function deleteComment(id) {
+    if (!window.confirm('Delete this comment?')) return
+    const { error } = await sb.from('task_activity').delete().eq('id', id)
+    if (error) { showToast('Failed to delete comment', 'error'); return }
+    setItems(prev => prev.filter(i => i.id !== id))
+  }
+
   return (
     <div className="task-activity">
       <div className="detail-label" style={{ marginBottom: 8 }}>Activity</div>
@@ -56,8 +85,30 @@ export default function TaskActivity({ taskId }) {
               <div className="task-activity-meta">
                 <span className="task-activity-author">{item.author || 'Anthony'}</span>
                 <span className="task-activity-time">{fmtRelativeTime(item.created_at)}</span>
+                {editingId !== item.id && (
+                  <span className="task-activity-actions">
+                    <button className="task-activity-action" onClick={() => startEdit(item)}>Edit</button>
+                    <button className="task-activity-action danger" onClick={() => deleteComment(item.id)}>Delete</button>
+                  </span>
+                )}
               </div>
-              <div className="task-activity-text">{item.content}</div>
+              {editingId === item.id ? (
+                <div className="task-activity-edit">
+                  <textarea
+                    className="task-modal-textarea"
+                    value={editText}
+                    onChange={e => setEditText(e.target.value)}
+                    rows={2}
+                    autoFocus
+                  />
+                  <div className="task-activity-edit-actions">
+                    <button className="btn" style={{ fontSize: 11 }} disabled={!editText.trim()} onClick={() => saveEdit(item.id)}>Save</button>
+                    <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={cancelEdit}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="task-activity-text">{item.content}</div>
+              )}
             </div>
           </div>
         ) : (

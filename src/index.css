@@ -1281,8 +1281,7 @@ tr:last-child td { border-bottom: none; }
 .task-prop-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   padding: 5px 0;
 }
 .task-prop-row-label {
@@ -1299,8 +1298,8 @@ tr:last-child td { border-bottom: none; }
   --chip-text: color-mix(in srgb, var(--chip-color) 65%, var(--white) 35%);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
+  gap: 0;
+  padding: 2px 8px;
   border-radius: 20px;
   background: color-mix(in srgb, var(--chip-color) 26%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--chip-color) 45%, transparent);
@@ -1317,7 +1316,9 @@ tr:last-child td { border-bottom: none; }
   letter-spacing: 0.3px;
   cursor: pointer;
   font-family: var(--font);
-  padding-right: 2px;
+  padding: 0;
+  margin: 0;
+  width: auto;
 }
 .task-prop-chip-select option {
   color: var(--text);
@@ -1325,6 +1326,7 @@ tr:last-child td { border-bottom: none; }
   text-transform: none;
 }
 .task-prop-chip-date {
+  gap: 6px;
   background: color-mix(in srgb, var(--text3) 26%, var(--surface));
   border: 1px solid var(--border);
 }
@@ -1339,6 +1341,9 @@ tr:last-child td { border-bottom: none; }
   font-family: var(--font);
   cursor: text;
   color-scheme: dark;
+  padding: 0;
+  margin: 0;
+  width: auto;
 }
 [data-theme="light"] .task-prop-chip-date-input { color-scheme: light; }
 
@@ -1450,6 +1455,34 @@ tr:last-child td { border-bottom: none; }
   line-height: 1.5;
   white-space: pre-wrap;
 }
+.task-activity-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.task-activity-item:hover .task-activity-actions { opacity: 1; }
+.task-activity-action {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--font);
+  cursor: pointer;
+}
+.task-activity-action:hover { color: var(--cyan); }
+.task-activity-action.danger:hover { color: var(--danger); }
+.task-activity-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.task-activity-edit-actions {
+  display: flex;
+  gap: 6px;
+}
 .task-activity-log {
   display: flex;
   align-items: center;
@@ -1465,16 +1498,19 @@ tr:last-child td { border-bottom: none; }
 }
 .task-activity-author-input {
   width: 130px;
-  background: var(--deeper);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  padding: 4px 0;
   font-size: 11px;
+  font-weight: 600;
   color: var(--text);
   font-family: var(--font);
   outline: none;
 }
-.task-activity-author-input:focus { border-color: var(--cyan); }
+.task-activity-author-input:hover { border-bottom-color: var(--border); }
+.task-activity-author-input:focus { border-bottom-color: var(--cyan); }
 
 /* ─── Dropdown visibility (light + dark) ─────────────────────── */
 select.input,
