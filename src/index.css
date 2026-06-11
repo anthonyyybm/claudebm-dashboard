@@ -1271,13 +1271,28 @@ tr:last-child td { border-bottom: none; }
   border-top: 1px solid var(--border);
 }
 
-/* ─── Property chips row ──────────────────────────────────────── */
-.task-chips-row {
+/* ─── Property list (label left, value right) ────────────────── */
+.task-prop-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 0;
+  flex-direction: column;
+  padding: 10px 0;
   border-top: 1px solid var(--border);
+}
+.task-prop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+}
+.task-prop-row-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text3);
+  flex-shrink: 0;
+  width: 120px;
 }
 .task-prop-chip {
   --chip-color: var(--text3);
@@ -1326,20 +1341,11 @@ tr:last-child td { border-bottom: none; }
 }
 [data-theme="light"] .task-prop-chip-date-input { color-scheme: light; }
 
-.task-meta-line {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  font-size: 11px;
-  color: var(--text3);
-  padding-bottom: 8px;
-}
-
 /* ─── Main grid: content + operations rail ────────────────────── */
 .task-modal-grid {
   display: grid;
-  grid-template-columns: 1fr 170px;
-  gap: 24px;
+  grid-template-columns: 1fr 180px;
+  gap: 16px;
   align-items: start;
 }
 .task-modal-main { min-width: 0; }
@@ -1347,8 +1353,18 @@ tr:last-child td { border-bottom: none; }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 16px 0 16px 20px;
-  border-left: 1px solid var(--border);
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--deeper);
+  border: 1px solid var(--border);
+}
+.task-ops-rail-label {
+  font-size: 11px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--font);
+  margin-bottom: 4px;
 }
 .task-ops-btn {
   display: flex;
@@ -1358,7 +1374,7 @@ tr:last-child td { border-bottom: none; }
   padding: 7px 10px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: transparent;
+  background: var(--surface);
   color: var(--text2);
   font-size: 12px;
   font-family: var(--font);
@@ -1369,13 +1385,11 @@ tr:last-child td { border-bottom: none; }
 .task-ops-btn:hover {
   border-color: var(--cyan);
   color: var(--cyan);
-  background: rgba(0,254,250,0.06);
 }
 .task-ops-btn.danger { color: var(--danger); }
 .task-ops-btn.danger:hover {
   border-color: var(--danger);
   color: var(--danger);
-  background: rgba(239,68,68,0.08);
 }
 
 /* ─── Activity feed ────────────────────────────────────────────── */
@@ -1705,15 +1719,13 @@ select.input option,
   .task-detail-modal { max-height: 92vh; }
 
   /* Task modal: collapse ops rail below content */
-  .task-modal-grid { grid-template-columns: 1fr; gap: 0; }
+  .task-modal-grid { grid-template-columns: 1fr; gap: 12px; }
   .task-ops-rail {
     flex-direction: row;
     flex-wrap: wrap;
-    border-left: none;
-    border-top: 1px solid var(--border);
-    padding: 12px 0 0;
-    margin-top: 12px;
+    margin-top: 4px;
   }
+  .task-ops-rail-label { width: 100%; margin-bottom: 0; }
   .task-ops-btn { width: auto; flex: 1 1 auto; }
 }
 

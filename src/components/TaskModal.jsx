@@ -95,49 +95,69 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplica
         {/* ── Body ── */}
         <div className="modal-body" style={{ gap: 0 }}>
 
-          {/* Property chips */}
-          <div className="task-chips-row">
-            <div className="task-prop-chip" style={{ '--chip-color': STATUS_OPTIONS.find(s => s.value === state)?.color }}>
-              <select className="task-prop-chip-select" value={state} onChange={e => { setState(e.target.value); setIsDirty(true) }}>
-                {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
+          {/* Property list */}
+          <div className="task-prop-list">
+            <div className="task-prop-row">
+              <span className="task-prop-row-label">◉ Status</span>
+              <div className="task-prop-chip" style={{ '--chip-color': STATUS_OPTIONS.find(s => s.value === state)?.color }}>
+                <select className="task-prop-chip-select" value={state} onChange={e => { setState(e.target.value); setIsDirty(true) }}>
+                  {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
             </div>
 
-            <div className="task-prop-chip" style={{ '--chip-color': PRIORITY_OPTIONS.find(p => p.value === priority)?.color }}>
-              <select className="task-prop-chip-select" value={priority} onChange={e => { setPriority(e.target.value); setIsDirty(true) }}>
-                {PRIORITY_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
+            <div className="task-prop-row">
+              <span className="task-prop-row-label">⚑ Priority</span>
+              <div className="task-prop-chip" style={{ '--chip-color': PRIORITY_OPTIONS.find(p => p.value === priority)?.color }}>
+                <select className="task-prop-chip-select" value={priority} onChange={e => { setPriority(e.target.value); setIsDirty(true) }}>
+                  {PRIORITY_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                </select>
+              </div>
             </div>
 
-            <div className="task-prop-chip" style={{ '--chip-color': categoryColor }}>
-              <select className="task-prop-chip-select" value={category} onChange={e => { setCategory(e.target.value); setIsDirty(true) }}>
-                {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select>
+            <div className="task-prop-row">
+              <span className="task-prop-row-label">🏷 Category</span>
+              <div className="task-prop-chip" style={{ '--chip-color': categoryColor }}>
+                <select className="task-prop-chip-select" value={category} onChange={e => { setCategory(e.target.value); setIsDirty(true) }}>
+                  {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </div>
             </div>
 
-            <div className="task-prop-chip task-prop-chip-date">
-              <span className="task-prop-chip-icon">📅</span>
-              <input
-                type="date"
-                className="task-prop-chip-date-input"
-                value={dueDate}
-                onChange={e => { setDueDate(e.target.value); setIsDirty(true) }}
-              />
+            <div className="task-prop-row">
+              <span className="task-prop-row-label">📅 Due Date</span>
+              <div className="task-prop-chip task-prop-chip-date">
+                <input
+                  type="date"
+                  className="task-prop-chip-date-input"
+                  value={dueDate}
+                  onChange={e => { setDueDate(e.target.value); setIsDirty(true) }}
+                />
+              </div>
             </div>
 
             {isPlan && (
-              <div className="task-prop-chip" style={{ '--chip-color': 'var(--yellow)' }}>
-                <select className="task-prop-chip-select" value={planStatus} onChange={e => { setPlanStatus(e.target.value); setIsDirty(true) }}>
-                  {PLAN_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                </select>
+              <div className="task-prop-row">
+                <span className="task-prop-row-label">📋 Plan Status</span>
+                <div className="task-prop-chip" style={{ '--chip-color': 'var(--yellow)' }}>
+                  <select className="task-prop-chip-select" value={planStatus} onChange={e => { setPlanStatus(e.target.value); setIsDirty(true) }}>
+                    {PLAN_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                  </select>
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Created / completed meta */}
-          <div className="task-meta-line">
-            <span>Created {fmtDate(task.created_at)}</span>
-            {task.date_completed && <span>· Completed {fmtDate(task.date_completed)}</span>}
+            <div className="task-prop-row">
+              <span className="task-prop-row-label">🕐 Created</span>
+              <span className="task-prop-static">{fmtDate(task.created_at)}</span>
+            </div>
+
+            {task.date_completed && (
+              <div className="task-prop-row">
+                <span className="task-prop-row-label">✅ Completed</span>
+                <span className="task-prop-static">{fmtDate(task.date_completed)}</span>
+              </div>
+            )}
           </div>
 
           {/* Tags */}
@@ -199,7 +219,7 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplica
             </div>
 
             <div className="task-ops-rail">
-              <div className="detail-label" style={{ marginBottom: 2 }}>Operations</div>
+              <div className="task-ops-rail-label">Operations</div>
               {!isWin && (
                 <button className="task-ops-btn" onClick={markWin}>🏆 Mark as Win</button>
               )}
