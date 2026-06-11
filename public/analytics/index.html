@@ -1055,6 +1055,12 @@ const FB_API_BASE   = 'https://graph.facebook.com/v20.0'
 let fbState         = 'checking'   // 'checking' | 'live' | 'expired' | 'no-data'
 let fbLastFetchedAt = null
 let fbData          = { profile: null, posts: [], insights: null }
+let fbMainTab       = 'overview'
+let fbChartMetric   = 'likes'
+let fbChartRange    = 'all'
+let fbPostTab       = 'last5'
+let fbPostPage      = 0
+let fbMonthFilter   = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` })()
 
 // ─── TIKTOK OAUTH CONFIG ────────────────────────────────────────
 const TT_CLIENT_KEY   = 'sbawiohwdjglaeadzv'
@@ -1304,8 +1310,8 @@ async function fetchFBProfile(pageId, token) {
 }
 
 async function fetchFBPosts(pageId, token) {
-  const fullFields = 'id,message,created_time,likes.summary(true),comments.summary(true),shares'
-  const baseFields = 'id,message,created_time,shares'
+  const fullFields = 'id,message,created_time,full_picture,likes.summary(true),comments.summary(true),shares'
+  const baseFields = 'id,message,created_time,full_picture,shares'
   let res = await fetch(`${FB_API_BASE}/${pageId}/posts?fields=${fullFields}&access_token=${token}`)
   if (!res.ok) {
     // likes/comments summaries require Advanced Access on pages_read_engagement —
@@ -1364,29 +1370,305 @@ async function initFacebookFromSupabase() {
   }
 }
 
-// ─── FACEBOOK RENDER ──────────────────────────────────────────────
-function renderFBPostRows(posts) {
+// ─── FACEBOOK ANALYTICS HELPERS ──────────────────────────────────
+function fbGroupByMonth(posts) {
+  const map = {}
+  posts.forEach(p => {
+    if (!p.created_time) return
+    const d   = new Date(p.created_time)
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    const lbl = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+    if (!map[key]) map[key] = { key, label: lbl, posts: [], likes: 0, comments: 0, shares: 0, count: 0 }
+    map[key].posts.push(p)
+    map[key].likes    += p.likes?.summary?.total_count || 0
+    map[key].comments += p.comments?.summary?.total_count || 0
+    map[key].shares   += p.shares?.count || 0
+    map[key].count    += 1
+  })
+  return Object.values(map).sort((a, b) => a.key.localeCompare(b.key))
+}
+
+function fbEnrichData(data) {
+  return data.map(m => ({
+    ...m,
+    eng: m.count ? +((m.likes + m.comments + m.shares) / m.count).toFixed(1) : 0,
+    avg: m.count ? Math.round(m.likes / m.count) : 0
+  }))
+}
+
+function getFBChartData(posts, range) {
+  const now     = new Date()
+  const byMonth = fbGroupByMonth(posts)
+  if (range === 'all') return fbEnrichData(byMonth)
+  const n = range === '6m' ? 6 : 3
+  const cutoff = new Date(now)
+  cutoff.setMonth(cutoff.getMonth() - n)
+  const cutKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}`
+  return fbEnrichData(byMonth.filter(m => m.key >= cutKey))
+}
+
+function fbPostEng(p) {
+  return (p.likes?.summary?.total_count || 0) + (p.comments?.summary?.total_count || 0) + (p.shares?.count || 0)
+}
+
+function renderFBTopPost(posts, selectedMonth) {
+  const byMonth = fbGroupByMonth(posts)
+  if (!byMonth.length) return '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text3)">No post data available</div>'
+  const opts = byMonth.slice().reverse().map(m =>
+    `<option value="${m.key}"${m.key === selectedMonth ? ' selected' : ''}>${m.label}</option>`
+  ).join('')
+  const monthData = byMonth.find(m => m.key === selectedMonth)
+  let cardHtml
+  if (!monthData || !monthData.posts.length) {
+    cardHtml = `<div style="padding:14px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">No posts this month</div>`
+  } else {
+    const top = monthData.posts.reduce((a, b) => fbPostEng(b) > fbPostEng(a) ? b : a)
+    const thumb = top.full_picture
+      ? `<img src="${igEscH(top.full_picture)}" style="width:70px;height:70px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)" alt="">`
+      : `<div style="width:70px;height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;color:var(--text3)">📘</div>`
+    const full = top.message || ''
+    const msg  = igEscH(full.substring(0, 70) + (full.length > 70 ? '…' : ''))
+    cardHtml = `<div class="tt-top-video-card" style="border-left-color:#1877F2">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div class="tt-top-video-badge" style="background:#1877F2">🏆 Top Post — ${monthData.label}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:7px;line-height:1.4">${msg || '(no message)'}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text2)">♥ <strong>${igFmtN(top.likes?.summary?.total_count)}</strong> likes</span>
+          <span style="font-size:11px;color:var(--text2)">💬 <strong>${igFmtN(top.comments?.summary?.total_count)}</strong> comments</span>
+          <span style="font-size:11px;color:var(--text2)">🔁 <strong>${igFmtN(top.shares?.count)}</strong> shares</span>
+          ${top.created_time ? `<span style="font-size:11px;color:var(--text3)">${igFmtDate(top.created_time)}</span>` : ''}
+        </div>
+      </div>
+    </div>`
+  }
+  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:700">🏆 Top Post of the Month</div>
+    <select onchange="setFBMonthFilter(this.value)" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;outline:none">${opts}</select>
+  </div>${cardHtml}`
+}
+
+function renderFBPostTableRows(posts, allPosts) {
   if (!posts || !posts.length) return '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text3)">No posts found</div>'
-  const sorted = posts.slice().sort((a, b) => new Date(b.created_time) - new Date(a.created_time)).slice(0, 10)
-  return sorted.map(p => {
+  const maxEng = Math.max(...allPosts.map(fbPostEng), 1)
+  return posts.map(p => {
     const full = p.message || ''
-    const msg  = igEscH(full.substring(0, 100) + (full.length > 100 ? '…' : ''))
+    const msg  = igEscH(full.substring(0, 80) + (full.length > 80 ? '…' : ''))
+    const thumb = p.full_picture
+      ? `<img src="${igEscH(p.full_picture)}" class="tt-vt-thumb" alt="">`
+      : `<div class="tt-vt-thumb" style="background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3)">📘</div>`
     const likes    = p.likes?.summary?.total_count || 0
     const comments = p.comments?.summary?.total_count || 0
     const shares   = p.shares?.count || 0
+    const barPct   = Math.round((fbPostEng(p) / maxEng) * 100)
     return `<div class="tt-vt-row">
+      ${thumb}
       <div class="tt-vt-meta">
-        <div class="tt-vt-title" style="white-space:normal;overflow:visible;text-overflow:clip" title="${igEscH(full)}">${msg || '(no message)'}</div>
+        <div class="tt-vt-title" title="${igEscH(full)}">${msg || '(no message)'}</div>
         <div class="tt-vt-stats">
           <span>♥ ${igFmtN(likes)}</span>
           <span>💬 ${igFmtN(comments)}</span>
           <span>🔁 ${igFmtN(shares)}</span>
         </div>
+        <div class="tt-vt-bar-wrap"><div class="tt-vt-bar" style="width:${barPct}%;background:#1877F2"></div></div>
       </div>
       <div class="tt-vt-date">${igFmtDate(p.created_time)}</div>
     </div>`
   }).join('')
 }
+
+function renderFBPaginatedTable(pool, allPosts, page, pageSize) {
+  const totalPages = Math.ceil(pool.length / pageSize)
+  const rows = renderFBPostTableRows(pool.slice(page * pageSize, (page + 1) * pageSize), allPosts)
+  if (totalPages <= 1) return rows
+  return `${rows}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+    <button class="refresh-btn" style="font-size:11px;padding:3px 10px" onclick="setFBPostPage(${page-1})"${page===0?' disabled':''}>← Prev</button>
+    <span style="font-size:11px;color:var(--text3)">Page ${page+1} of ${totalPages} · ${pool.length} posts</span>
+    <button class="refresh-btn" style="font-size:11px;padding:3px 10px" onclick="setFBPostPage(${page+1})"${page>=totalPages-1?' disabled':''}>Next →</button>
+  </div>`
+}
+
+function renderFBOverviewContent(profile, posts) {
+  const byMonth   = fbGroupByMonth(posts)
+  const mLikes    = byMonth.map(m => m.likes)
+  const mComments = byMonth.map(m => m.comments)
+  const mShares   = byMonth.map(m => m.shares)
+  const mEng      = byMonth.map(m => m.count ? +((m.likes+m.comments+m.shares)/m.count).toFixed(1) : 0)
+  const mAvg      = byMonth.map(m => m.count ? Math.round(m.likes/m.count) : 0)
+
+  const totalLikes    = posts.reduce((s, p) => s + (p.likes?.summary?.total_count || 0), 0)
+  const totalComments = posts.reduce((s, p) => s + (p.comments?.summary?.total_count || 0), 0)
+  const totalShares   = posts.reduce((s, p) => s + (p.shares?.count || 0), 0)
+  const followers     = profile.followers_count || 0
+  const avgLikes      = posts.length ? Math.round(totalLikes / posts.length) : 0
+  const engRate       = followers > 0 ? ((totalLikes + totalComments + totalShares) / followers * 100).toFixed(2) : '0.00'
+
+  function momDelta(arr) {
+    if (arr.length < 2) return null
+    const prev = arr[arr.length-2], cur = arr[arr.length-1]
+    return prev ? (((cur-prev)/prev)*100).toFixed(1) : null
+  }
+  const dL = momDelta(mLikes), dC = momDelta(mComments), dS = momDelta(mShares), dE = momDelta(mEng), dAvg = momDelta(mAvg)
+
+  const tipFollowers = `${igFmtN(followers)} followers. ${posts.length} posts tracked.`
+  const tipLikes     = `${igFmtN(totalLikes)} total likes across ${posts.length} posts.${dL !== null ? ' ' + (dL >= 0 ? `Up ${dL}%` : `Down ${Math.abs(dL)}%`) + ' from last month.' : ''}`
+  const tipComments  = `${igFmtN(totalComments)} total comments.${dC !== null ? ' ' + (dC >= 0 ? `Up ${dC}%` : `Down ${Math.abs(dC)}%`) + ' from last month.' : ''}`
+  const tipShares    = `${igFmtN(totalShares)} total shares.${dS !== null ? ' ' + (dS >= 0 ? `Up ${dS}%` : `Down ${Math.abs(dS)}%`) + ' from last month.' : ''}`
+  const tipAvgLikes  = `${igFmtN(avgLikes)} avg likes per post.${dAvg !== null ? ' ' + (dAvg >= 0 ? `Trending up.` : `Trending down.`) : ''}`
+  const tipEng       = `${engRate}% engagement rate ((likes+comments+shares) / followers).`
+
+  const metrics = `<div class="ag6" style="margin-bottom:14px">
+    <div class="a-metric" data-tooltip="${tipFollowers}">
+      <div class="metric-label">PAGE FOLLOWERS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(followers)}</div><div class="a-chg-nil">page total</div></div>${ttSparkline([], '#1877F2')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipLikes}">
+      <div class="metric-label">TOTAL LIKES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalLikes)}</div>${changeEl(dL)}<div class="metric-sub">${posts.length} posts</div></div>${ttSparkline(mLikes,'#1877F2')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipComments}">
+      <div class="metric-label">TOTAL COMMENTS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalComments)}</div>${changeEl(dC)}<div class="metric-sub">${posts.length} posts</div></div>${ttSparkline(mComments,'#8b5cf6')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipShares}">
+      <div class="metric-label">TOTAL SHARES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalShares)}</div>${changeEl(dS)}<div class="metric-sub">${posts.length} posts</div></div>${ttSparkline(mShares,'#f59e0b')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipAvgLikes}">
+      <div class="metric-label">AVG LIKES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(avgLikes)}</div>${changeEl(dAvg)}<div class="metric-sub">per post</div></div>${ttSparkline(mAvg,'#f43f5e')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipEng}">
+      <div class="metric-label">ENGAGEMENT RATE</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div>${changeEl(dE)}<div class="metric-sub">(likes+comments+shares)/followers</div></div>${ttSparkline(mEng,'#3b82f6')}</div>
+    </div>
+  </div>`
+
+  const topPost = posts.length
+    ? `<div id="fb-monthly-top" style="margin-bottom:16px">${renderFBTopPost(posts, fbMonthFilter)}</div>`
+    : ''
+
+  const tableContent = fbPostTab === 'last5'
+    ? renderFBPostTableRows(posts.slice(0, 5), posts)
+    : renderFBPaginatedTable(fbPostTab === 'all' ? posts : posts.slice(0, 20), posts, fbPostPage, 5)
+
+  return `${metrics}${topPost}
+  <div class="tt-tabs">
+    <button class="tt-tab${fbPostTab==='last5'?' active':''}" data-fbtab="last5" onclick="switchFBPostTab('last5')" style="${fbPostTab==='last5'?'background:#1877F2;border-color:#1877F2;color:#fff;':''}">Last 5</button>
+    <button class="tt-tab${fbPostTab==='last20'?' active':''}" data-fbtab="last20" onclick="switchFBPostTab('last20')" style="${fbPostTab==='last20'?'background:#1877F2;border-color:#1877F2;color:#fff;':''}">Last 20</button>
+    <button class="tt-tab${fbPostTab==='all'?' active':''}" data-fbtab="all" onclick="switchFBPostTab('all')" style="${fbPostTab==='all'?'background:#1877F2;border-color:#1877F2;color:#fff;':''}">All Posts</button>
+    <span style="margin-left:auto;font-size:10px;color:var(--text3);align-self:center">${posts.length} total</span>
+  </div>
+  <div id="fb-post-table">${tableContent}</div>`
+}
+
+function renderFBTrendsTab(posts) {
+  const metricCfg = [
+    { key: 'likes',    label: 'Likes',           color: '#1877F2' },
+    { key: 'comments', label: 'Comments',        color: '#8b5cf6' },
+    { key: 'shares',   label: 'Shares',          color: '#f59e0b' },
+    { key: 'eng',      label: 'Avg Engagement',  color: '#3b82f6' },
+    { key: 'count',    label: 'Posts Published', color: '#10b981' },
+    { key: 'avg',      label: 'Avg Likes',       color: '#f43f5e' },
+  ]
+  const rangeCfg = [
+    { key: 'all', label: 'All Time' },
+    { key: '6m',  label: 'Last 6 Mo' },
+    { key: '3m',  label: 'Last 3 Mo' },
+  ]
+  const data   = getFBChartData(posts, fbChartRange)
+  const mc     = metricCfg.find(m => m.key === fbChartMetric) || metricCfg[0]
+  const metricTabs = metricCfg.map(m =>
+    `<button class="tt-tab${fbChartMetric===m.key?' active':''}" onclick="switchFBChartMetric('${m.key}')"
+      style="${fbChartMetric===m.key?`background:${m.color};border-color:${m.color};color:#fff;`:''}">${m.label}</button>`
+  ).join('')
+  const rangeBtns = rangeCfg.map(r =>
+    `<button class="tt-range-btn${fbChartRange===r.key?' active':''}" onclick="switchFBChartRange('${r.key}')">${r.label}</button>`
+  ).join('')
+  const rangeLbl = rangeCfg.find(r => r.key === fbChartRange)?.label || ''
+  const insight  = data.length >= 2 ? generateChartInsight(data, mc.key, mc.label) : ''
+  const legend = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${insight?'5px':'6px'}">
+    <span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);font-weight:600">
+      <span style="width:14px;height:2px;background:${mc.color};border-radius:1px;display:inline-block"></span>${mc.label}
+    </span>
+    <span style="font-size:10px;color:var(--text3)">· ${rangeLbl}</span>
+    <span style="font-size:10px;color:var(--text3)">· ${data.length} data point${data.length!==1?'s':''}</span>
+  </div>${insight?`<p style="font-size:10px;font-style:italic;color:var(--text3);margin:0 0 7px;line-height:1.5">${igEscH(insight)}</p>`:''}`
+  const chartHtml = data.length < 2
+    ? `<div style="padding:20px;text-align:center;font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">Not enough data for this range</div>`
+    : `<div class="tt-chart-wrap">${legend}${renderLineChart(data, mc.key, mc.color)}</div>`
+  return `<div class="tt-tabs" style="flex-wrap:wrap;gap:5px;margin-bottom:10px">${metricTabs}</div>
+    <div class="tt-range-wrap">${rangeBtns}</div>
+    ${chartHtml}`
+}
+
+function switchFBMainTab(tab) {
+  fbMainTab = tab
+  const el = document.getElementById('fb-main-content')
+  if (!el || !fbData.profile) return
+  el.innerHTML = tab === 'trends'
+    ? renderFBTrendsTab(fbData.posts)
+    : renderFBOverviewContent(fbData.profile, fbData.posts)
+  document.querySelectorAll('.fb-main-tab').forEach(btn => {
+    const active = btn.dataset.tab === tab
+    btn.classList.toggle('active', active)
+    btn.style.color             = active ? '#1877F2' : ''
+    btn.style.borderBottomColor = active ? '#1877F2' : ''
+  })
+}
+window.switchFBMainTab = switchFBMainTab
+
+function switchFBPostTab(tab) {
+  fbPostTab  = tab
+  fbPostPage = 0
+  const el = document.getElementById('fb-post-table')
+  if (!el) return
+  if (tab === 'last5') {
+    el.innerHTML = renderFBPostTableRows(fbData.posts.slice(0, 5), fbData.posts)
+  } else {
+    const pool = tab === 'all' ? fbData.posts : fbData.posts.slice(0, 20)
+    el.innerHTML = renderFBPaginatedTable(pool, fbData.posts, 0, 5)
+  }
+  document.querySelectorAll('[data-fbtab]').forEach(btn => {
+    const active = btn.dataset.fbtab === tab
+    btn.classList.toggle('active', active)
+    btn.style.background  = active ? '#1877F2' : ''
+    btn.style.borderColor = active ? '#1877F2' : ''
+    btn.style.color       = active ? '#fff' : ''
+  })
+}
+window.switchFBPostTab = switchFBPostTab
+
+function setFBPostPage(page) {
+  fbPostPage = page
+  const el = document.getElementById('fb-post-table')
+  if (!el) return
+  const pool = fbPostTab === 'all' ? fbData.posts : fbData.posts.slice(0, 20)
+  el.innerHTML = renderFBPaginatedTable(pool, fbData.posts, page, 5)
+}
+window.setFBPostPage = setFBPostPage
+
+function switchFBChartMetric(metric) {
+  fbChartMetric = metric
+  const el = document.getElementById('fb-main-content')
+  if (el) el.innerHTML = renderFBTrendsTab(fbData.posts)
+}
+window.switchFBChartMetric = switchFBChartMetric
+
+function switchFBChartRange(range) {
+  fbChartRange = range
+  const el = document.getElementById('fb-main-content')
+  if (el) el.innerHTML = renderFBTrendsTab(fbData.posts)
+}
+window.switchFBChartRange = switchFBChartRange
+
+function setFBMonthFilter(value) {
+  fbMonthFilter = value
+  const el = document.getElementById('fb-monthly-top')
+  if (el) el.innerHTML = renderFBTopPost(fbData.posts, value)
+}
+window.setFBMonthFilter = setFBMonthFilter
 
 function facebookBlock(isLoading) {
   const cfg = PLATFORMS.facebook
@@ -1398,7 +1680,7 @@ function facebookBlock(isLoading) {
         <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
         <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
       </div>
-      <div class="ag4">${Array(4).fill(`<div class="a-metric">${skeletonVal()}</div>`).join('')}</div>
+      <div class="ag6">${Array(6).fill(`<div class="a-metric">${skeletonVal()}</div>`).join('')}</div>
     </div>`
   }
 
@@ -1437,9 +1719,9 @@ function facebookBlock(isLoading) {
     ? `<img src="${igEscH(profile.picture.data.url)}" class="tt-avatar" alt="">`
     : `<div class="tt-avatar" style="background:${c};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">FB</div>`
 
-  const totalLikes    = posts.reduce((s, p) => s + (p.likes?.summary?.total_count || 0), 0)
-  const totalComments = posts.reduce((s, p) => s + (p.comments?.summary?.total_count || 0), 0)
-  const totalShares   = posts.reduce((s, p) => s + (p.shares?.count || 0), 0)
+  const mainContent = fbMainTab === 'trends'
+    ? renderFBTrendsTab(posts)
+    : renderFBOverviewContent(profile, posts)
 
   return `<div class="platform-section">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
@@ -1460,29 +1742,16 @@ function facebookBlock(isLoading) {
       </div>
     </div>
 
-    <div class="ag4">
-      <div class="a-metric">
-        <div class="metric-label">PAGE FOLLOWERS</div>
-        <div class="metric-val" style="margin-top:6px">${igFmtN(profile.followers_count)}</div>
-      </div>
-      <div class="a-metric">
-        <div class="metric-label">TOTAL POST LIKES</div>
-        <div class="metric-val" style="margin-top:6px">${igFmtN(totalLikes)}</div>
-      </div>
-      <div class="a-metric">
-        <div class="metric-label">TOTAL POST COMMENTS</div>
-        <div class="metric-val" style="margin-top:6px">${igFmtN(totalComments)}</div>
-      </div>
-      <div class="a-metric">
-        <div class="metric-label">TOTAL SHARES</div>
-        <div class="metric-val" style="margin-top:6px">${igFmtN(totalShares)}</div>
-      </div>
+    <div class="tt-main-tabs">
+      <button class="tt-main-tab fb-main-tab${fbMainTab==='overview'?' active':''}" data-tab="overview"
+        onclick="switchFBMainTab('overview')"
+        style="${fbMainTab==='overview'?'color:#1877F2;border-bottom-color:#1877F2':''}">Overview</button>
+      <button class="tt-main-tab fb-main-tab${fbMainTab==='trends'?' active':''}" data-tab="trends"
+        onclick="switchFBMainTab('trends')"
+        style="${fbMainTab==='trends'?'color:#1877F2;border-bottom-color:#1877F2':''}">📈 Trends</button>
     </div>
 
-    <div class="tt-video-section">
-      <div class="tt-video-section-title">Recent Posts</div>
-      ${renderFBPostRows(posts)}
-    </div>
+    <div id="fb-main-content">${mainContent}</div>
   </div>`
 }
 
