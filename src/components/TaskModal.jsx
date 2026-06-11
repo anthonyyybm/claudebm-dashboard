@@ -95,101 +95,102 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplica
         {/* ── Body ── */}
         <div className="modal-body" style={{ gap: 0 }}>
 
-          {/* Property list */}
-          <div className="task-prop-list">
-            <div className="task-prop-row">
-              <span className="task-prop-row-label">◉ Status</span>
-              <div className="task-prop-chip" style={{ '--chip-color': STATUS_OPTIONS.find(s => s.value === state)?.color }}>
-                <select className="task-prop-chip-select" value={state} onChange={e => { setState(e.target.value); setIsDirty(true) }}>
-                  {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="task-prop-row">
-              <span className="task-prop-row-label">⚑ Priority</span>
-              <div className="task-prop-chip" style={{ '--chip-color': PRIORITY_OPTIONS.find(p => p.value === priority)?.color }}>
-                <select className="task-prop-chip-select" value={priority} onChange={e => { setPriority(e.target.value); setIsDirty(true) }}>
-                  {PRIORITY_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="task-prop-row">
-              <span className="task-prop-row-label">🏷 Category</span>
-              <div className="task-prop-chip" style={{ '--chip-color': categoryColor }}>
-                <select className="task-prop-chip-select" value={category} onChange={e => { setCategory(e.target.value); setIsDirty(true) }}>
-                  {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="task-prop-row">
-              <span className="task-prop-row-label">📅 Due Date</span>
-              <div className="task-prop-chip task-prop-chip-date">
-                <input
-                  type="date"
-                  className="task-prop-chip-date-input"
-                  value={dueDate}
-                  onChange={e => { setDueDate(e.target.value); setIsDirty(true) }}
-                />
-              </div>
-            </div>
-
-            {isPlan && (
-              <div className="task-prop-row">
-                <span className="task-prop-row-label">📋 Plan Status</span>
-                <div className="task-prop-chip" style={{ '--chip-color': 'var(--yellow)' }}>
-                  <select className="task-prop-chip-select" value={planStatus} onChange={e => { setPlanStatus(e.target.value); setIsDirty(true) }}>
-                    {PLAN_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            <div className="task-prop-row">
-              <span className="task-prop-row-label">🕐 Created</span>
-              <span className="task-prop-static">{fmtDate(task.created_at)}</span>
-            </div>
-
-            {task.date_completed && (
-              <div className="task-prop-row">
-                <span className="task-prop-row-label">✅ Completed</span>
-                <span className="task-prop-static">{fmtDate(task.date_completed)}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Tags */}
-          {(isPlan || isWin || isBlocked) && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-              {isPlan    && <span className="badge yellow">PLAN {planStatus && `· ${planStatus.replace('_',' ')}`}</span>}
-              {isWin     && <span className="badge accent">WIN</span>}
-              {isBlocked && <span className="badge red">BLOCKED</span>}
-            </div>
-          )}
-
-          {/* Block details */}
-          {(task.blocking_reason || task.waiting_on) && (
-            <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 6, padding: '10px 14px', margin: '12px 0' }}>
-              {task.blocking_reason && (
-                <div style={{ marginBottom: task.waiting_on ? 8 : 0 }}>
-                  <div className="detail-label" style={{ color: 'var(--danger)' }}>Blocking Reason</div>
-                  <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>{task.blocking_reason}</div>
-                </div>
-              )}
-              {task.waiting_on && (
-                <div>
-                  <div className="detail-label" style={{ color: 'var(--amber)' }}>Waiting On</div>
-                  <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>{task.waiting_on}</div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Main grid: content + operations rail */}
           <div className="task-modal-grid">
             <div className="task-modal-main">
+
+              {/* Property list */}
+              <div className="task-prop-list">
+                <div className="task-prop-row">
+                  <span className="task-prop-row-label">◉ Status</span>
+                  <div className="task-prop-chip" style={{ '--chip-color': STATUS_OPTIONS.find(s => s.value === state)?.color }}>
+                    <select className="task-prop-chip-select" value={state} onChange={e => { setState(e.target.value); setIsDirty(true) }}>
+                      {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="task-prop-row">
+                  <span className="task-prop-row-label">⚑ Priority</span>
+                  <div className="task-prop-chip" style={{ '--chip-color': PRIORITY_OPTIONS.find(p => p.value === priority)?.color }}>
+                    <select className="task-prop-chip-select" value={priority} onChange={e => { setPriority(e.target.value); setIsDirty(true) }}>
+                      {PRIORITY_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="task-prop-row">
+                  <span className="task-prop-row-label">🏷 Category</span>
+                  <div className="task-prop-chip" style={{ '--chip-color': categoryColor }}>
+                    <select className="task-prop-chip-select" value={category} onChange={e => { setCategory(e.target.value); setIsDirty(true) }}>
+                      {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="task-prop-row">
+                  <span className="task-prop-row-label">📅 Due Date</span>
+                  <div className="task-prop-chip task-prop-chip-date">
+                    <input
+                      type="date"
+                      className="task-prop-chip-date-input"
+                      value={dueDate}
+                      onChange={e => { setDueDate(e.target.value); setIsDirty(true) }}
+                    />
+                  </div>
+                </div>
+
+                {isPlan && (
+                  <div className="task-prop-row">
+                    <span className="task-prop-row-label">📋 Plan Status</span>
+                    <div className="task-prop-chip" style={{ '--chip-color': 'var(--yellow)' }}>
+                      <select className="task-prop-chip-select" value={planStatus} onChange={e => { setPlanStatus(e.target.value); setIsDirty(true) }}>
+                        {PLAN_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                <div className="task-prop-row">
+                  <span className="task-prop-row-label">🕐 Created</span>
+                  <span className="task-prop-static">{fmtDate(task.created_at)}</span>
+                </div>
+
+                {task.date_completed && (
+                  <div className="task-prop-row">
+                    <span className="task-prop-row-label">✅ Completed</span>
+                    <span className="task-prop-static">{fmtDate(task.date_completed)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Tags */}
+              {(isPlan || isWin || isBlocked) && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                  {isPlan    && <span className="badge yellow">PLAN {planStatus && `· ${planStatus.replace('_',' ')}`}</span>}
+                  {isWin     && <span className="badge accent">WIN</span>}
+                  {isBlocked && <span className="badge red">BLOCKED</span>}
+                </div>
+              )}
+
+              {/* Block details */}
+              {(task.blocking_reason || task.waiting_on) && (
+                <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 6, padding: '10px 14px', margin: '12px 0' }}>
+                  {task.blocking_reason && (
+                    <div style={{ marginBottom: task.waiting_on ? 8 : 0 }}>
+                      <div className="detail-label" style={{ color: 'var(--danger)' }}>Blocking Reason</div>
+                      <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>{task.blocking_reason}</div>
+                    </div>
+                  )}
+                  {task.waiting_on && (
+                    <div>
+                      <div className="detail-label" style={{ color: 'var(--amber)' }}>Waiting On</div>
+                      <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>{task.waiting_on}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Description */}
               <div className="task-modal-section">
                 <div className="detail-label" style={{ marginBottom: 6 }}>Description</div>
