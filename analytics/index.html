@@ -80,6 +80,9 @@
     .goals-label { font-size: 13px; color: var(--text); }
     .goals-progress { font-size: 12px; font-weight: 600; color: var(--text2); white-space: nowrap; }
     .ag3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 8px; }
+    .ag4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+    @media (max-width: 900px) { .ag4 { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 480px) { .ag4 { grid-template-columns: 1fr; } }
     .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); }
     @media (max-width: 900px) { .ag3 { grid-template-columns: repeat(2,1fr); } }
     @media (max-width: 480px) { .ag3 { grid-template-columns: 1fr; } }
@@ -351,8 +354,9 @@
     .social-top-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 20px; }
     .social-top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
     .social-top-title { font-size: 13px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .5px; }
-    .social-platforms-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    @media (max-width: 600px) { .social-platforms-row { grid-template-columns: 1fr; } }
+    .social-platforms-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    @media (max-width: 700px) { .social-platforms-row { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 400px) { .social-platforms-row { grid-template-columns: 1fr; } }
     .social-platform-cell {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 12px; background: var(--surface2);
@@ -553,6 +557,34 @@ async function sbSaveIGCache(profile_data, media_data, insights_data) {
     updated_at: now
   }, { onConflict: 'account_name' })
   if (error) console.error('[sb] saveIGCache error:', error)
+}
+
+// ─── SUPABASE FACEBOOK FUNCTIONS ──────────────────────────────────
+async function sbGetFBToken() {
+  const { data, error } = await sb.from('facebook_tokens')
+    .select('*').eq('account_name', 'granny_grit').maybeSingle()
+  if (error) console.error('[sb] getFBToken error:', error)
+  return data
+}
+
+async function sbGetFBCache() {
+  const { data, error } = await sb.from('facebook_cache')
+    .select('*').eq('account_name', 'granny_grit').maybeSingle()
+  if (error) console.error('[sb] getFBCache error:', error)
+  return data
+}
+
+async function sbSaveFBCache(profile_data, posts_data, insights_data) {
+  const now = new Date().toISOString()
+  const { error } = await sb.from('facebook_cache').upsert({
+    account_name: 'granny_grit',
+    profile_data,
+    posts_data,
+    insights_data,
+    last_fetched_at: now,
+    updated_at: now
+  }, { onConflict: 'account_name' })
+  if (error) console.error('[sb] saveFBCache error:', error)
 }
 
 // ─── INSTAGRAM API FUNCTIONS ─────────────────────────────────────
@@ -1018,6 +1050,12 @@ let igPostTab       = 'last5'
 let igPostPage      = 0
 let igMonthFilter   = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` })()
 
+// ─── FACEBOOK STATE ───────────────────────────────────────────────
+const FB_API_BASE   = 'https://graph.facebook.com/v20.0'
+let fbState         = 'checking'   // 'checking' | 'live' | 'expired' | 'no-data'
+let fbLastFetchedAt = null
+let fbData          = { profile: null, posts: [], insights: null }
+
 // ─── TIKTOK OAUTH CONFIG ────────────────────────────────────────
 const TT_CLIENT_KEY   = 'sbawiohwdjglaeadzv'
 const TT_REDIRECT_URI = 'https://anthonyyybm.github.io/claudebm-dashboard/analytics/'
@@ -1028,7 +1066,8 @@ const TT_API_BASE     = 'https://open.tiktokapis.com/v2'
 const PLATFORMS = {
   instagram: { name: 'Instagram', abbr: 'IG', color: '#E1306C' },
   youtube:   { name: 'YouTube',   abbr: 'YT', color: '#FF0000' },
-  tiktok:    { name: 'TikTok',    abbr: 'TT', color: '#00C2A8' }
+  tiktok:    { name: 'TikTok',    abbr: 'TT', color: '#00C2A8' },
+  facebook:  { name: 'Facebook',  abbr: 'FB', color: '#1877F2' }
 }
 
 // ─── HELPERS ────────────────────────────────────────────────────
@@ -1127,6 +1166,7 @@ function platformBlock(key, isLoading) {
   if (isIG) return instagramBlock(isLoading)
   if (isTT) return tiktokBlock(isLoading)
   if (isYT) return youtubeBlock(isLoading)
+  if (key === 'facebook') return facebookBlock(isLoading)
 
   const fLabel = isYT ? 'SUBSCRIBERS' : 'FOLLOWERS'
   const fVal   = isYT ? d.subscribers  : d.followers
@@ -1251,6 +1291,200 @@ function showIGReconnectInstructions(evt) {
   alert('To refresh the Instagram token:\n\n1. Go to Meta Business Suite or Graph API Explorer\n2. Generate a new long-lived Page Access Token\n3. Update META_PAGE_ACCESS_TOKEN in .env\n4. Update page_access_token in Supabase instagram_tokens table\n   (account_name = boostedgranny)')
 }
 window.showIGReconnectInstructions = showIGReconnectInstructions
+
+// ─── FACEBOOK API FUNCTIONS ───────────────────────────────────────
+async function fetchFBProfile(pageId, token) {
+  const fields = 'fan_count,followers_count,name,picture'
+  const res = await fetch(`${FB_API_BASE}/${pageId}?fields=${fields}&access_token=${token}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`FB profile failed (${res.status}): ${err.error?.message || res.statusText}`)
+  }
+  return res.json()
+}
+
+async function fetchFBPosts(pageId, token) {
+  const fullFields = 'id,message,created_time,likes.summary(true),comments.summary(true),shares'
+  const baseFields = 'id,message,created_time,shares'
+  let res = await fetch(`${FB_API_BASE}/${pageId}/posts?fields=${fullFields}&access_token=${token}`)
+  if (!res.ok) {
+    // likes/comments summaries require Advanced Access on pages_read_engagement —
+    // fall back to base fields so posts still render while that's pending App Review
+    res = await fetch(`${FB_API_BASE}/${pageId}/posts?fields=${baseFields}&access_token=${token}`)
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`FB posts failed (${res.status}): ${err.error?.message || res.statusText}`)
+  }
+  const data = await res.json()
+  return data.data || []
+}
+
+async function fetchFBInsights(pageId, token) {
+  try {
+    const res = await fetch(`${FB_API_BASE}/${pageId}/insights?metric=page_impressions,page_reach,page_views_total&period=day&access_token=${token}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.data || null
+  } catch { return null }
+}
+
+async function initFacebookFromSupabase() {
+  const tokenRow = await sbGetFBToken()
+  const cacheRow = await sbGetFBCache()
+
+  if (cacheRow?.last_fetched_at) fbLastFetchedAt = cacheRow.last_fetched_at
+
+  if (tokenRow?.page_access_token && tokenRow?.page_id) {
+    try {
+      const [profile, posts, insights] = await Promise.all([
+        fetchFBProfile(tokenRow.page_id, tokenRow.page_access_token),
+        fetchFBPosts(tokenRow.page_id, tokenRow.page_access_token),
+        fetchFBInsights(tokenRow.page_id, tokenRow.page_access_token)
+      ])
+      fbData = { profile, posts, insights }
+      fbLastFetchedAt = new Date().toISOString()
+      await sbSaveFBCache(profile, posts, insights)
+      fbState = 'live'
+    } catch (err) {
+      console.error('FB fetch error:', err)
+      if (cacheRow?.profile_data) {
+        fbData = { profile: cacheRow.profile_data, posts: cacheRow.posts_data || [], insights: cacheRow.insights_data || null }
+        fbState = 'expired'
+      } else {
+        fbData = { profile: null, posts: [], insights: null }
+        fbState = 'no-data'
+      }
+    }
+  } else if (cacheRow?.profile_data) {
+    fbData = { profile: cacheRow.profile_data, posts: cacheRow.posts_data || [], insights: cacheRow.insights_data || null }
+    fbState = 'expired'
+  } else {
+    fbState = 'no-data'
+  }
+}
+
+// ─── FACEBOOK RENDER ──────────────────────────────────────────────
+function renderFBPostRows(posts) {
+  if (!posts || !posts.length) return '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text3)">No posts found</div>'
+  const sorted = posts.slice().sort((a, b) => new Date(b.created_time) - new Date(a.created_time)).slice(0, 10)
+  return sorted.map(p => {
+    const full = p.message || ''
+    const msg  = igEscH(full.substring(0, 100) + (full.length > 100 ? '…' : ''))
+    const likes    = p.likes?.summary?.total_count || 0
+    const comments = p.comments?.summary?.total_count || 0
+    const shares   = p.shares?.count || 0
+    return `<div class="tt-vt-row">
+      <div class="tt-vt-meta">
+        <div class="tt-vt-title" style="white-space:normal;overflow:visible;text-overflow:clip" title="${igEscH(full)}">${msg || '(no message)'}</div>
+        <div class="tt-vt-stats">
+          <span>♥ ${igFmtN(likes)}</span>
+          <span>💬 ${igFmtN(comments)}</span>
+          <span>🔁 ${igFmtN(shares)}</span>
+        </div>
+      </div>
+      <div class="tt-vt-date">${igFmtDate(p.created_time)}</div>
+    </div>`
+  }).join('')
+}
+
+function facebookBlock(isLoading) {
+  const cfg = PLATFORMS.facebook
+  const c   = cfg.color
+
+  if (isLoading) {
+    return `<div class="platform-section">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+        <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      </div>
+      <div class="ag4">${Array(4).fill(`<div class="a-metric">${skeletonVal()}</div>`).join('')}</div>
+    </div>`
+  }
+
+  if (fbState === 'no-data' || !fbData.profile) {
+    return `<div class="platform-section">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+        <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      </div>
+      <div style="padding:24px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">
+        No Facebook data available. Check <code>facebook_tokens</code> in Supabase.
+      </div>
+    </div>`
+  }
+
+  const profile = fbData.profile
+  const posts   = fbData.posts || []
+
+  let statusBanner = ''
+  if (fbState === 'live') {
+    const ts = fbLastFetchedAt ? toPhilippineTime(fbLastFetchedAt) : '—'
+    statusBanner = `<div class="tt-status-live" style="margin-bottom:12px">
+      <span class="data-badge-live" style="margin-left:0">● Live</span>
+      <span style="font-size:11px;color:var(--text2)">Last updated: ${ts}</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--text3)">Facebook token expires in 60 days.</span>
+    </div>`
+  } else if (fbState === 'expired') {
+    const ts = fbLastFetchedAt ? toPhilippineTime(fbLastFetchedAt) : 'unknown time'
+    statusBanner = `<div class="tt-status-expired" style="margin-bottom:12px">
+      <span style="font-size:12px;font-weight:600;color:var(--amber)">⚠ Token expired — showing cached data from ${ts}</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--text3)">Facebook token expires in 60 days — update META_PAGE_ACCESS_TOKEN in .env and Supabase facebook_tokens.</span>
+    </div>`
+  }
+
+  const avatarEl = profile.picture?.data?.url
+    ? `<img src="${igEscH(profile.picture.data.url)}" class="tt-avatar" alt="">`
+    : `<div class="tt-avatar" style="background:${c};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">FB</div>`
+
+  const totalLikes    = posts.reduce((s, p) => s + (p.likes?.summary?.total_count || 0), 0)
+  const totalComments = posts.reduce((s, p) => s + (p.comments?.summary?.total_count || 0), 0)
+  const totalShares   = posts.reduce((s, p) => s + (p.shares?.count || 0), 0)
+
+  return `<div class="platform-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+      <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      ${fbState === 'live' ? '<span class="data-badge-live">● Live</span>' : fbState === 'expired' ? '<span class="data-badge-cached">Cached</span>' : ''}
+    </div>
+
+    ${statusBanner}
+
+    <div class="tt-profile-card" style="margin-bottom:14px">
+      <div class="tt-profile-left">
+        ${avatarEl}
+        <div>
+          <div class="tt-display-name">${igEscH(profile.name || 'Granny Grit')}</div>
+          <div class="tt-profile-handle">${igFmtN(profile.fan_count)} fans · ${igFmtN(profile.followers_count)} followers</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ag4">
+      <div class="a-metric">
+        <div class="metric-label">PAGE FOLLOWERS</div>
+        <div class="metric-val" style="margin-top:6px">${igFmtN(profile.followers_count)}</div>
+      </div>
+      <div class="a-metric">
+        <div class="metric-label">TOTAL POST LIKES</div>
+        <div class="metric-val" style="margin-top:6px">${igFmtN(totalLikes)}</div>
+      </div>
+      <div class="a-metric">
+        <div class="metric-label">TOTAL POST COMMENTS</div>
+        <div class="metric-val" style="margin-top:6px">${igFmtN(totalComments)}</div>
+      </div>
+      <div class="a-metric">
+        <div class="metric-label">TOTAL SHARES</div>
+        <div class="metric-val" style="margin-top:6px">${igFmtN(totalShares)}</div>
+      </div>
+    </div>
+
+    <div class="tt-video-section">
+      <div class="tt-video-section-title">Recent Posts</div>
+      ${renderFBPostRows(posts)}
+    </div>
+  </div>`
+}
 
 // ─── YOUTUBE HELPERS ─────────────────────────────────────────────
 function ytFmtN(n) {
@@ -2382,6 +2616,7 @@ function socialTopCard(isLoading) {
   const igActive = activePlatform === 'instagram'
   const ytActive = activePlatform === 'youtube'
   const ttActive = activePlatform === 'tiktok'
+  const fbActive = activePlatform === 'facebook'
 
   return `<div class="social-top-card">
     <div class="social-top-header">
@@ -2389,14 +2624,6 @@ function socialTopCard(isLoading) {
       <span class="last-refreshed" id="last-refreshed-inline">${lastRefreshedTime ? 'Updated ' + lastRefreshedTime : ''}</span>
     </div>
     <div class="social-platforms-row">
-      <div class="social-platform-cell${igActive ? ' active' : ''}" onclick="setActivePlatform('instagram')">
-        <div class="social-cell-badge" style="background:#E1306C">IG</div>
-        <div class="social-cell-info">
-          <div class="social-cell-name">Instagram</div>
-          <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : igFmtN(igData.profile?.followers_count ?? '—')}</div>
-          <div class="social-cell-sub">followers${igState === 'live' ? ' · live' : igState === 'expired' ? ' · cached' : ''}</div>
-        </div>
-      </div>
       <div class="social-platform-cell${ytActive ? ' active' : ''}" onclick="setActivePlatform('youtube')">
         <div class="social-cell-badge" style="background:#FF0000">YT</div>
         <div class="social-cell-info">
@@ -2411,6 +2638,22 @@ function socialTopCard(isLoading) {
           <div class="social-cell-name">TikTok</div>
           <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : fmtNum(tiktokLiveData.user?.follower_count ?? tt.followers)}</div>
           <div class="social-cell-sub">followers${tiktokLiveData.user ? (ttConnectionState === 'live' ? ' · live' : ' · cached') : ''}</div>
+        </div>
+      </div>
+      <div class="social-platform-cell${igActive ? ' active' : ''}" onclick="setActivePlatform('instagram')">
+        <div class="social-cell-badge" style="background:#E1306C">IG</div>
+        <div class="social-cell-info">
+          <div class="social-cell-name">Instagram</div>
+          <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : igFmtN(igData.profile?.followers_count)}</div>
+          <div class="social-cell-sub">followers${igState === 'live' ? ' · live' : igState === 'expired' ? ' · cached' : ''}</div>
+        </div>
+      </div>
+      <div class="social-platform-cell${fbActive ? ' active' : ''}" onclick="setActivePlatform('facebook')">
+        <div class="social-cell-badge" style="background:#1877F2">FB</div>
+        <div class="social-cell-info">
+          <div class="social-cell-name">Facebook</div>
+          <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : igFmtN(fbData.profile?.followers_count)}</div>
+          <div class="social-cell-sub">followers${fbState === 'live' ? ' · live' : fbState === 'expired' ? ' · cached' : ''}</div>
         </div>
       </div>
     </div>
@@ -2678,7 +2921,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     history.replaceState({}, '', window.location.pathname)
     tiktokLiveData.error  = `TikTok denied authorization: ${ttError}${ttErrDesc ? ' — ' + ttErrDesc : ''}`
     ttConnectionState     = 'no-data'
-    await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase()])
+    await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase(), initFacebookFromSupabase()])
   } else if (ttCode) {
     history.replaceState({}, '', window.location.pathname)
     document.getElementById('analytics-root').innerHTML =
@@ -2687,9 +2930,9 @@ document.addEventListener('DOMContentLoaded', async () => {
          <div class="tt-loader-msg" id="tt-loading-msg">Connecting to TikTok...</div>
          <div class="tt-loader-sub">Fetching all videos — this may take a moment</div>
        </div>`
-    await Promise.all([handleTikTokCallback(ttCode), initInstagramFromSupabase()])
+    await Promise.all([handleTikTokCallback(ttCode), initInstagramFromSupabase(), initFacebookFromSupabase()])
   } else {
-    await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase()])
+    await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase(), initFacebookFromSupabase()])
   }
 
   showLoadingState()
@@ -2720,7 +2963,7 @@ async function refreshAnalytics() {
   const btn = document.getElementById('refresh-btn')
   if (btn) { btn.classList.add('spinning'); btn.disabled = true }
 
-  await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase()])
+  await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase(), initFacebookFromSupabase()])
 
   showLoadingState()
   const data = await loadAllAnalytics()
