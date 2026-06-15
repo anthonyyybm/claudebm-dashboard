@@ -27,6 +27,21 @@ export default function Board({ active }) {
   const [filterCat,   setFilterCat]   = useState('all')
   const [filterPeriod,setFilterPeriod]= useState('all')
   const [search,      setSearch]      = useState('')
+  const [collapsedCols, setCollapsedCols] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('board-collapsed-cols'))
+      if (saved) return saved
+    } catch {}
+    return { done: true }
+  })
+
+  useEffect(() => {
+    localStorage.setItem('board-collapsed-cols', JSON.stringify(collapsedCols))
+  }, [collapsedCols])
+
+  function toggleCollapse(state) {
+    setCollapsedCols(prev => ({ ...prev, [state]: !prev[state] }))
+  }
 
   useEffect(() => { if (active) loadTasks() }, [active])
 
@@ -197,6 +212,8 @@ export default function Board({ active }) {
             allTasks={tasks}
             draggedId={draggedId}
             isDragOver={dragOver === col.state}
+            collapsed={!!collapsedCols[col.state]}
+            onToggleCollapse={() => toggleCollapse(col.state)}
             onDragStart={onDragStart}
             onDragOver={e => onDragOver(e, col.state)}
             onDrop={e => onDrop(e, col.state)}
@@ -301,17 +318,22 @@ export default function Board({ active }) {
 }
 
 /* ─── Column ─────────────────────────────────────────────────── */
-function KanbanColumn({ col, tasks, allTasks, draggedId, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onOpenTask, onAddCard }) {
+function KanbanColumn({ col, tasks, allTasks, draggedId, isDragOver, collapsed, onToggleCollapse, onDragStart, onDragOver, onDrop, onDragEnd, onOpenTask, onAddCard }) {
   return (
-    <div className={`kanban-col${isDragOver ? ' drag-over' : ''}`} onDragOver={onDragOver} onDrop={onDrop}>
-      <div className="col-header">
+    <div className={`kanban-col${isDragOver ? ' drag-over' : ''}${collapsed ? ' collapsed' : ''}`} onDragOver={onDragOver} onDrop={onDrop}>
+      <div className="col-header" onClick={onToggleCollapse}>
+        <span className="col-collapse-icon">{collapsed ? '▸' : '▾'}</span>
         <span className="col-name" style={{ color: col.color }}>{col.label}</span>
         <span className="col-count">{tasks.length}</span>
       </div>
-      {tasks.map(task => (
-        <TaskCard key={task.id} task={task} allTasks={allTasks} isDragging={draggedId === task.id} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpenTask} />
-      ))}
-      <button className="add-card-btn" onClick={onAddCard}><span>+</span> Add card</button>
+      {!collapsed && (
+        <>
+          {tasks.map(task => (
+            <TaskCard key={task.id} task={task} allTasks={allTasks} isDragging={draggedId === task.id} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpenTask} />
+          ))}
+          <button className="add-card-btn" onClick={onAddCard}><span>+</span> Add card</button>
+        </>
+      )}
     </div>
   )
 }
