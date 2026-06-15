@@ -322,18 +322,16 @@ function KanbanColumn({ col, tasks, allTasks, draggedId, isDragOver, collapsed, 
   return (
     <div className={`kanban-col${isDragOver ? ' drag-over' : ''}${collapsed ? ' collapsed' : ''}`} onDragOver={onDragOver} onDrop={onDrop}>
       <div className="col-header" onClick={onToggleCollapse}>
-        <span className="col-collapse-icon">{collapsed ? '▸' : '▾'}</span>
+        <span className="col-collapse-icon">▾</span>
         <span className="col-name" style={{ color: col.color }}>{col.label}</span>
         <span className="col-count">{tasks.length}</span>
       </div>
-      {!collapsed && (
-        <>
-          {tasks.map(task => (
-            <TaskCard key={task.id} task={task} allTasks={allTasks} isDragging={draggedId === task.id} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpenTask} />
-          ))}
-          <button className="add-card-btn" onClick={onAddCard}><span>+</span> Add card</button>
-        </>
-      )}
+      <div className="kanban-col-body">
+        {tasks.map(task => (
+          <TaskCard key={task.id} task={task} allTasks={allTasks} isDragging={draggedId === task.id} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpenTask} />
+        ))}
+        <button className="add-card-btn" onClick={onAddCard}><span>+</span> Add card</button>
+      </div>
     </div>
   )
 }

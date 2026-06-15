@@ -518,12 +518,14 @@ input, textarea, select { font: inherit; }
   display: flex;
   flex-direction: column;
   gap: 8px;
+  transition: min-width 0.25s ease, max-width 0.25s ease, gap 0.25s ease;
 }
-.kanban-col.drag-over { outline: 1.5px dashed var(--cyan); border-radius: var(--radius); }
+.kanban-col.drag-over { outline: 1.5px dashed var(--cyan); border-radius: var(--radius); transition: outline-color 0.15s ease; }
 
 .kanban-col.collapsed {
   min-width: 36px;
   max-width: 36px;
+  gap: 0;
 }
 .kanban-col.collapsed .col-header {
   flex: 1;
@@ -539,6 +541,24 @@ input, textarea, select { font: inherit; }
 .kanban-col.collapsed .col-count {
   writing-mode: vertical-rl;
 }
+.kanban-col.collapsed .col-collapse-icon {
+  transform: rotate(-90deg);
+}
+
+.kanban-col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  max-height: 4000px;
+  opacity: 1;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+.kanban-col.collapsed .kanban-col-body {
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.15s ease;
+}
 
 .col-header {
   display: flex;
@@ -551,12 +571,15 @@ input, textarea, select { font: inherit; }
   border: 1px solid var(--border);
   cursor: pointer;
   user-select: none;
+  transition: border-color 0.15s ease;
 }
 .col-header:hover { border-color: rgba(0,254,250,0.25); }
 .col-collapse-icon {
+  display: inline-block;
   font-size: 9px;
   color: var(--text3);
   flex-shrink: 0;
+  transition: transform 0.25s ease;
 }
 .col-name {
   font-family: var(--font);
@@ -565,6 +588,7 @@ input, textarea, select { font: inherit; }
   text-transform: uppercase;
   font-weight: 500;
   flex: 1;
+  transition: opacity 0.2s ease;
 }
 .col-count {
   font-family: var(--font);
