@@ -4,14 +4,14 @@ import { showToast } from '../lib/toast.js'
 import { confirmDialog } from '../lib/confirm.js'
 import { fmtDate } from '../lib/utils.js'
 import { CATEGORY_OPTIONS, CAT_COLOR, BADGE_COLOR_VALUE } from '../lib/categories.js'
-import { STATUS_OPTIONS, PRIORITY_OPTIONS } from '../lib/taskMeta.js'
+import { STATUS_OPTIONS, PRIORITY_OPTIONS, statusMeta } from '../lib/taskMeta.js'
 import TaskActivity from './TaskActivity.jsx'
 import PropChipSelect from './PropChipSelect.jsx'
 
 const PLAN_STATUS_OPTIONS = ['draft', 'submitted', 'awaiting', 'approved', 'deferred', 'on_hold']
 const PLAN_STATUS_CHIP_OPTIONS = PLAN_STATUS_OPTIONS.map(s => ({ value: s, label: s.replace('_', ' ') }))
 
-export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplicate }) {
+export default function TaskModal({ task, allTasks = [], onClose, onUpdate, onDelete, onDuplicate, onSelectTask, onAddSubtask, onLinkSubtask, onUnlinkSubtask }) {
   const [title,       setTitle]       = useState(task.title || '')
   const [description, setDescription] = useState(task.description || '')
   const [notes,       setNotes]       = useState(task.notes || '')
@@ -21,6 +21,14 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplica
   const [dueDate,     setDueDate]     = useState(task.due_date || '')
   const [planStatus,  setPlanStatus]  = useState(task.plan_status || '')
   const [isDirty,     setIsDirty]     = useState(false)
+  const [newSubtask,  setNewSubtask]  = useState('')
+  const [linkTaskId,  setLinkTaskId]  = useState('')
+
+  const parentTask = task.parent_task_id ? allTasks.find(t => t.id === task.parent_task_id) : null
+  const subtasks = allTasks.filter(t => t.parent_task_id === task.id)
+  const linkableTasks = allTasks.filter(t =>
+    t.id !== task.id && t.id !== task.parent_task_id && !t.parent_task_id
+  )
 
   // Sync plan status from parent when it changes (e.g. after flag/unflag)
   useEffect(() => {
@@ -67,6 +75,19 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplica
 
   function duplicate() {
     onDuplicate(task)
+  }
+
+  async function addSubtask() {
+    const title = newSubtask.trim()
+    if (!title) return
+    await onAddSubtask(task.id, title)
+    setNewSubtask('')
+  }
+
+  function linkExisting(e) {
+    const id = e.target.value
+    if (id) onLinkSubtask(id, task.id)
+    setLinkTaskId('')
   }
 
   const isPlan = task.is_plan
@@ -216,6 +237,55 @@ export default function TaskModal({ task, onClose, onUpdate, onDelete, onDuplica
                   placeholder="Add notes..."
                   rows={3}
                 />
+              </div>
+
+              {/* Parent task */}
+              {parentTask && (
+                <div className="task-modal-section">
+                  <div className="detail-label" style={{ marginBottom: 6 }}>Parent Task</div>
+                  <div className="subtask-row">
+                    <span className="priority-dot" style={{ background: statusMeta(parentTask.state).color }} />
+                    <span className="subtask-title" onClick={() => onSelectTask(parentTask)}>{parentTask.title}</span>
+                    <span className="badge gray">{statusMeta(parentTask.state).label}</span>
+                    <button className="task-activity-action danger" onClick={() => onUnlinkSubtask(task.id)}>Unlink</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Subtasks */}
+              <div className="task-modal-section">
+                <div className="detail-label" style={{ marginBottom: 6 }}>
+                  Subtasks{subtasks.length > 0 && ` (${subtasks.filter(s => s.state === 'done').length}/${subtasks.length})`}
+                </div>
+
+                {subtasks.length === 0 && <div className="task-activity-empty">No subtasks yet.</div>}
+
+                {subtasks.map(st => (
+                  <div className="subtask-row" key={st.id}>
+                    <span className="priority-dot" style={{ background: statusMeta(st.state).color }} />
+                    <span className="subtask-title" onClick={() => onSelectTask(st)}>{st.title}</span>
+                    <span className="badge gray">{statusMeta(st.state).label}</span>
+                    <button className="task-activity-action danger" onClick={() => onUnlinkSubtask(st.id)}>Unlink</button>
+                  </div>
+                ))}
+
+                <div className="subtask-add">
+                  <input
+                    className="input"
+                    value={newSubtask}
+                    onChange={e => setNewSubtask(e.target.value)}
+                    placeholder="Add subtask..."
+                    onKeyDown={e => { if (e.key === 'Enter' && newSubtask.trim()) addSubtask() }}
+                  />
+                  <button className="btn" disabled={!newSubtask.trim()} onClick={addSubtask}>+ Add</button>
+                </div>
+
+                {linkableTasks.length > 0 && (
+                  <select className="input w-full" style={{ marginTop: 8 }} value={linkTaskId} onChange={linkExisting}>
+                    <option value="">Link existing task as subtask...</option>
+                    {linkableTasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                  </select>
+                )}
               </div>
 
               {/* Activity */}

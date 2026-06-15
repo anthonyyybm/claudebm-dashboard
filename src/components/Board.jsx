@@ -60,6 +60,34 @@ export default function Board({ active }) {
     showToast('Task created', 'success')
   }
 
+  async function addSubtask(parentId, title) {
+    const parent = tasks.find(t => t.id === parentId)
+    const { data, error } = await sb.from('tasks')
+      .insert({
+        title,
+        state: 'idea',
+        category: parent?.category || 'admin',
+        priority: 'medium',
+        parent_task_id: parentId,
+        created_at: new Date().toISOString(),
+      })
+      .select().single()
+    if (error) { showToast('Failed to add subtask', 'error'); return null }
+    setTasks(prev => [data, ...prev])
+    showToast('Subtask added', 'success')
+    return data
+  }
+
+  async function linkSubtask(taskId, parentId) {
+    await updateTask(taskId, { parent_task_id: parentId })
+    showToast('Linked as subtask', 'success')
+  }
+
+  async function unlinkSubtask(taskId) {
+    await updateTask(taskId, { parent_task_id: null })
+    showToast('Subtask unlinked', 'success')
+  }
+
   async function duplicateTask(task) {
     const { data, error } = await sb.from('tasks')
       .insert({
@@ -166,6 +194,7 @@ export default function Board({ active }) {
             key={col.state}
             col={col}
             tasks={byState(col.state)}
+            allTasks={tasks}
             draggedId={draggedId}
             isDragOver={dragOver === col.state}
             onDragStart={onDragStart}
@@ -182,10 +211,15 @@ export default function Board({ active }) {
       {selectedTask && (
         <TaskModal
           task={selectedTask}
+          allTasks={tasks}
           onClose={() => setSelectedTask(null)}
           onUpdate={updateTask}
           onDelete={deleteTask}
           onDuplicate={duplicateTask}
+          onSelectTask={setSelectedTask}
+          onAddSubtask={addSubtask}
+          onLinkSubtask={linkSubtask}
+          onUnlinkSubtask={unlinkSubtask}
         />
       )}
 
@@ -267,7 +301,7 @@ export default function Board({ active }) {
 }
 
 /* ─── Column ─────────────────────────────────────────────────── */
-function KanbanColumn({ col, tasks, draggedId, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onOpenTask, onAddCard }) {
+function KanbanColumn({ col, tasks, allTasks, draggedId, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onOpenTask, onAddCard }) {
   return (
     <div className={`kanban-col${isDragOver ? ' drag-over' : ''}`} onDragOver={onDragOver} onDrop={onDrop}>
       <div className="col-header">
@@ -275,7 +309,7 @@ function KanbanColumn({ col, tasks, draggedId, isDragOver, onDragStart, onDragOv
         <span className="col-count">{tasks.length}</span>
       </div>
       {tasks.map(task => (
-        <TaskCard key={task.id} task={task} isDragging={draggedId === task.id} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpenTask} />
+        <TaskCard key={task.id} task={task} allTasks={allTasks} isDragging={draggedId === task.id} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpenTask} />
       ))}
       <button className="add-card-btn" onClick={onAddCard}><span>+</span> Add card</button>
     </div>
@@ -283,7 +317,11 @@ function KanbanColumn({ col, tasks, draggedId, isDragOver, onDragStart, onDragOv
 }
 
 /* ─── Task Card ──────────────────────────────────────────────── */
-function TaskCard({ task, isDragging, onDragStart, onDragEnd, onOpen }) {
+function TaskCard({ task, allTasks, isDragging, onDragStart, onDragEnd, onOpen }) {
+  const parentTask = task.parent_task_id ? allTasks.find(t => t.id === task.parent_task_id) : null
+  const subtasks = allTasks.filter(t => t.parent_task_id === task.id)
+  const subtasksDone = subtasks.filter(t => t.state === 'done').length
+
   return (
     <div
       className={`task-card${isDragging ? ' dragging' : ''}`}
@@ -292,12 +330,16 @@ function TaskCard({ task, isDragging, onDragStart, onDragEnd, onOpen }) {
       onDragEnd={onDragEnd}
       onClick={() => onOpen(task)}
     >
+      {parentTask && (
+        <div className="task-parent-link">↳ {parentTask.title}</div>
+      )}
       <div className="task-title">{task.title}</div>
       <div className="task-meta">
         {task.category && <span className={`badge ${CAT_COLOR[task.category] || 'gray'}`}>{task.category.replace(/_/g, ' ')}</span>}
         <span className={`priority-dot ${task.priority || 'medium'}`} title={task.priority} />
         {task.is_plan && <span className="badge yellow">PLAN</span>}
         {task.is_win  && <span className="badge accent">WIN</span>}
+        {subtasks.length > 0 && <span className="badge gray">☑ {subtasksDone}/{subtasks.length}</span>}
       </div>
       {task.description && (
         <div className="task-card-desc">{task.description}</div>
