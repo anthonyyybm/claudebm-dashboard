@@ -46,6 +46,7 @@ export default function TaskModal({ task, allTasks = [], onClose, onUpdate, onDe
       due_date:    dueDate || null,
       plan_status: planStatus || null,
     }
+    if (!planStatus && task.is_plan) patch.is_plan = false
     await onUpdate(task.id, patch)
     setIsDirty(false)
     showToast('Saved', 'success')
