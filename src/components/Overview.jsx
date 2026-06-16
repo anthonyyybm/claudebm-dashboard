@@ -554,6 +554,16 @@ function RecentActivity() {
   )
 }
 
+/* ─── Metric cell ────────────────────────────────────────────── */
+function Metric({ label, value }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 5, padding: '5px 6px' }}>
+      <div style={{ fontSize: 8, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: value === '—' ? 'var(--text3)' : 'var(--text2)' }}>{value}</div>
+    </div>
+  )
+}
+
 /* ─── Social Snapshot ────────────────────────────────────────── */
 function SocialSnapshot() {
   const [data,    setData]    = useState(null)
@@ -567,7 +577,10 @@ function SocialSnapshot() {
     {
       name: 'TikTok',  abbr: 'TT', color: '#00C2A8',
       followers:       data?.tiktok?.followers,
+      total_views:     data?.tiktok?.total_views,
       avg_views:       data?.tiktok?.avg_views,
+      engagement_rate: data?.tiktok?.engagement_rate,
+      total_likes:     data?.tiktok?.total_likes,
       videos_week:     data?.tiktok?.videos_this_week,
       ok:              data?.tiktok?.success,
       snapshot_date:   data?.tiktok?.snapshot_date,
@@ -575,17 +588,21 @@ function SocialSnapshot() {
     {
       name: 'YouTube', abbr: 'YT', color: '#FF0000',
       followers:       data?.youtube?.subscribers,
-      avg_views:       data?.youtube?.avg_views,
-      videos_week:     data?.youtube?.videos_this_week,
       total_views:     data?.youtube?.total_views,
+      avg_views:       data?.youtube?.avg_views,
+      engagement_rate: null,
+      total_likes:     data?.youtube?.avg_likes != null ? `~${fmtN(data.youtube.avg_likes)} avg` : null,
+      videos_week:     data?.youtube?.videos_this_week,
+      video_count:     data?.youtube?.video_count,
       ok:              data?.youtube?.success,
     },
     {
       name: 'Instagram', abbr: 'IG', color: '#E1306C',
-      followers: null, avg_views: null, videos_week: null, ok: false,
+      followers: null, total_views: null, avg_views: null, engagement_rate: null, total_likes: null, videos_week: null, ok: false,
     },
   ]
 
+  // Each platform rendered as a stacked metric block instead of a tight single row
   return (
     <div className="card">
       <div className="card-title">Social Snapshot</div>
@@ -593,33 +610,33 @@ function SocialSnapshot() {
         ? <div className="skeleton" style={{ height: 90 }} />
         : (
           <div>
-            {/* Column headers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 52px 52px 38px', gap: 6, padding: '4px 0 8px', borderBottom: '1px solid var(--border)' }}>
-              <span />
-              <span style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Platform</span>
-              <span style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Followers</span>
-              <span style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Avg Views</span>
-              <span style={{ fontSize: 9, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Videos</span>
-            </div>
-            {rows.map(r => (
-              <div key={r.name} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 52px 52px 38px', gap: 6, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ width: 22, height: 22, borderRadius: 5, background: r.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>
-                  {r.abbr}
-                </span>
-                <span style={{ fontSize: 12 }}>
-                  {r.name}
-                  {r.snapshot_date && <span style={{ display: 'block', fontSize: 9, color: 'var(--text3)' }}>{r.snapshot_date}</span>}
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'right' }}>{r.followers != null ? fmtN(r.followers) : '—'}</span>
-                <span style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>{r.avg_views != null ? fmtN(r.avg_views) : '—'}</span>
-                <span style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>{r.videos_week != null ? r.videos_week : '—'}</span>
+            {rows.map((r, ri) => (
+              <div key={r.name} style={{ padding: '10px 0', borderBottom: ri < rows.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                {/* Platform header row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ width: 22, height: 22, borderRadius: 5, background: r.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>
+                    {r.abbr}
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>{r.name}</span>
+                  {r.snapshot_date && <span style={{ fontSize: 9, color: 'var(--text3)', marginLeft: 'auto' }}>{r.snapshot_date}</span>}
+                  {!r.ok && !r.snapshot_date && <span style={{ fontSize: 9, color: 'var(--text3)', marginLeft: 'auto' }}>—</span>}
+                </div>
+                {/* Metrics grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px 4px' }}>
+                  <Metric label="Followers"   value={r.followers       != null ? fmtN(r.followers) : '—'} />
+                  <Metric label="Total Views"  value={r.total_views     != null ? fmtN(r.total_views) : '—'} />
+                  <Metric label="Avg Views"    value={r.avg_views       != null ? fmtN(r.avg_views) : '—'} />
+                  <Metric label="Eng Rate"     value={r.engagement_rate != null ? `${r.engagement_rate}%` : '—'} />
+                  <Metric label="Likes"        value={r.total_likes     != null ? (typeof r.total_likes === 'string' ? r.total_likes : fmtN(r.total_likes)) : '—'} />
+                  <Metric label="Videos/Wk"    value={r.videos_week     != null ? r.videos_week : '—'} />
+                </div>
+                {r.video_count != null && (
+                  <div style={{ fontSize: 9, color: 'var(--text3)', marginTop: 6 }}>
+                    {fmtN(r.video_count)} total videos on channel
+                  </div>
+                )}
               </div>
             ))}
-            {data?.youtube?.total_views != null && (
-              <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 8, textAlign: 'right' }}>
-                YT total views: {fmtN(data.youtube.total_views)}
-              </div>
-            )}
           </div>
         )
       }

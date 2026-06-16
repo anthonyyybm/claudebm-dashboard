@@ -29,12 +29,17 @@ export async function fetchYouTubeData() {
     const totalViews = recentVideos.reduce((s, v) => s + parseInt(v.statistics.viewCount || 0), 0)
     const avgViews   = recentVideos.length > 0 ? Math.round(totalViews / recentVideos.length) : 0
 
+    const recentLikes = recentVideos.reduce((s, v) => s + parseInt(v.statistics.likeCount || 0), 0)
+    const avgLikes    = recentVideos.length > 0 ? Math.round(recentLikes / recentVideos.length) : 0
+
     return {
       success: true,
       subscribers: parseInt(stats.subscriberCount),
       avg_views: avgViews,
+      avg_likes: avgLikes,
       videos_this_week: recentVideos.length,
       total_views: parseInt(stats.viewCount),
+      video_count: parseInt(stats.videoCount),
     }
   } catch (e) {
     return { success: false, error: e.message }
@@ -53,6 +58,9 @@ export async function fetchTikTokData() {
       followers:        data.followers || null,
       avg_views:        m.avg_views_7d || m.avg_views || 0,
       videos_this_week: m.posts_count  || data.videos_this_week || 0,
+      total_views:      m.total_views  || null,
+      total_likes:      m.total_likes  || null,
+      engagement_rate:  m.engagement_rate != null ? m.engagement_rate : null,
       snapshot_date:    data.snapshot_date || null,
     }
   } catch (e) {
