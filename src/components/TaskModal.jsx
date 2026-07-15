@@ -7,6 +7,7 @@ import { CATEGORY_OPTIONS, CAT_COLOR, BADGE_COLOR_VALUE } from '../lib/categorie
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, statusMeta } from '../lib/taskMeta.js'
 import TaskActivity from './TaskActivity.jsx'
 import PropChipSelect from './PropChipSelect.jsx'
+import MarkdownField from './MarkdownField.jsx'
 
 const PLAN_STATUS_OPTIONS = ['draft', 'submitted', 'awaiting', 'approved', 'deferred', 'on_hold']
 const PLAN_STATUS_CHIP_OPTIONS = PLAN_STATUS_OPTIONS.map(s => ({ value: s, label: s.replace('_', ' ') }))
@@ -219,24 +220,20 @@ export default function TaskModal({ task, allTasks = [], onClose, onUpdate, onDe
               {/* Description */}
               <div className="task-modal-section">
                 <div className="detail-label" style={{ marginBottom: 6 }}>Description</div>
-                <textarea
-                  className="task-modal-textarea"
+                <MarkdownField
                   value={description}
-                  onChange={e => { setDescription(e.target.value); setIsDirty(true) }}
+                  onChange={v => { setDescription(v); setIsDirty(true) }}
                   placeholder="Add a description..."
-                  rows={3}
                 />
               </div>
 
               {/* Notes */}
               <div className="task-modal-section">
                 <div className="detail-label" style={{ marginBottom: 6 }}>Notes</div>
-                <textarea
-                  className="task-modal-textarea"
+                <MarkdownField
                   value={notes}
-                  onChange={e => { setNotes(e.target.value); setIsDirty(true) }}
+                  onChange={v => { setNotes(v); setIsDirty(true) }}
                   placeholder="Add notes..."
-                  rows={3}
                 />
               </div>
 

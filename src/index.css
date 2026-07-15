@@ -501,12 +501,44 @@ input, textarea, select { font: inherit; }
 }
 
 /* ─── Board (Kanban) ─────────────────────────────────────────── */
+.board-swimlanes {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cat-swimlane-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--surface2);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease;
+  margin-bottom: 10px;
+}
+.cat-swimlane-header:hover { border-color: rgba(0,254,250,0.25); }
+.cat-swimlane.collapsed .cat-swimlane-header { margin-bottom: 0; }
+.cat-swimlane.collapsed .col-collapse-icon { transform: rotate(-90deg); }
+.cat-swimlane-name {
+  font-family: var(--font);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+}
+.cat-swimlane.collapsed .cat-swimlane-name { opacity: 0.6; }
+
 .board-wrap {
   display: flex;
   gap: 12px;
   overflow-x: auto;
   padding-bottom: 16px;
-  min-height: calc(100vh - 100px);
 }
 .board-wrap::-webkit-scrollbar { height: 6px; }
 .board-wrap::-webkit-scrollbar-track { background: transparent; }
@@ -1668,12 +1700,36 @@ select.input option,
   font-size: 11px;
   color: var(--text3);
   margin-top: 5px;
+  max-height: 33px;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  line-height: 1.5;
 }
+
+/* ─── Markdown content (cards + modal fields) ─────────────────── */
+.md-content { line-height: 1.5; }
+.md-content > *:first-child { margin-top: 0; }
+.md-content > *:last-child { margin-bottom: 0; }
+.md-content p { margin: 0 0 6px; }
+.md-content ul, .md-content ol { margin: 4px 0 6px; padding-left: 18px; }
+.md-content li { margin-bottom: 2px; }
+.md-content strong { color: var(--text); font-weight: 600; }
+.md-content code { background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px; font-size: 0.95em; }
+.md-content a { color: var(--cyan); }
+
+.task-card-desc.md-content p { margin: 0 0 2px; }
+.task-card-desc.md-content ul, .task-card-desc.md-content ol { margin: 0 0 2px; padding-left: 14px; }
+
+.md-field-view {
+  min-height: 32px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text2);
+  cursor: text;
+  transition: border-color .15s, background .15s;
+}
+.md-field-view:hover { border-color: var(--border); background: var(--deeper); }
+.md-field-view.empty { color: var(--text3); }
 
 /* ─── Goal card updates ──────────────────────────────────────── */
 .goal-card-clickable {

@@ -4,6 +4,10 @@ node_modules/
 dist/
 *.local
 
+# Env vars
+.env
+.env.local
+
 # Migration scripts
 migrate.js
 migrate.py

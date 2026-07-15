@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { sb } from '../lib/supabase.js'
 import { showToast } from '../lib/toast.js'
 import TaskModal from './TaskModal.jsx'
+import PropChipSelect from './PropChipSelect.jsx'
+import MarkdownText from './MarkdownText.jsx'
 import { CATEGORY_OPTIONS, CAT_COLOR } from '../lib/categories.js'
 import { STATUS_OPTIONS, statusMeta } from '../lib/taskMeta.js'
 import { logActivity, getCommentAuthor } from '../lib/activity.js'
@@ -12,11 +14,14 @@ const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
 
 const CAT_OPTIONS = ['all', ...CATEGORY_OPTIONS.map(c => c.value)]
 
+const KNOWN_CATEGORIES = new Set(CATEGORY_OPTIONS.map(c => c.value))
+const UNCATEGORIZED_KEY = '__uncategorized'
+
 export default function Board({ active }) {
   const [tasks,       setTasks]       = useState([])
   const [loading,     setLoading]     = useState(true)
   const [draggedId,   setDraggedId]   = useState(null)
-  const [dragOver,    setDragOver]    = useState(null)
+  const [dragOverKey, setDragOverKey] = useState(null)
   const [blockModal,  setBlockModal]  = useState(null)
   const [blockReason, setBlockReason] = useState('')
   const [blockWaiting,setBlockWaiting]= useState('')
@@ -34,13 +39,28 @@ export default function Board({ active }) {
     } catch {}
     return { done: true }
   })
+  const [collapsedCats, setCollapsedCats] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('board-collapsed-cats'))
+      if (saved) return saved
+    } catch {}
+    return {}
+  })
 
   useEffect(() => {
     localStorage.setItem('board-collapsed-cols', JSON.stringify(collapsedCols))
   }, [collapsedCols])
 
+  useEffect(() => {
+    localStorage.setItem('board-collapsed-cats', JSON.stringify(collapsedCats))
+  }, [collapsedCats])
+
   function toggleCollapse(state) {
     setCollapsedCols(prev => ({ ...prev, [state]: !prev[state] }))
+  }
+
+  function toggleCatCollapse(key) {
+    setCollapsedCats(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
   useEffect(() => { if (active) loadTasks() }, [active])
@@ -55,6 +75,9 @@ export default function Board({ active }) {
 
   async function updateTask(id, patch) {
     const prevTask = tasks.find(t => t.id === id)
+    if (patch.state === 'done' && prevTask && prevTask.state !== 'done' && !patch.date_completed) {
+      patch = { ...patch, date_completed: new Date().toISOString() }
+    }
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t))
     setSelectedTask(prev => prev?.id === id ? { ...prev, ...patch } : prev)
     const { error } = await sb.from('tasks').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
@@ -66,6 +89,17 @@ export default function Board({ active }) {
     }
   }
 
+  // Centralized status-change entry point for drag-and-drop and card quick-actions
+  function moveTask(id, newState) {
+    const task = tasks.find(t => t.id === id)
+    if (!task || task.state === newState) return
+    if (newState === 'blocked') {
+      setBlockModal(task)
+      return
+    }
+    updateTask(id, { state: newState })
+  }
+
   async function createTask(state, form) {
     const { data, error } = await sb.from('tasks')
       .insert({ title: form.title, state, category: form.category, priority: form.priority, description: form.description || null, created_at: new Date().toISOString() })
@@ -73,6 +107,11 @@ export default function Board({ active }) {
     if (error) { showToast('Failed to create task', 'error'); return }
     setTasks(prev => [data, ...prev])
     showToast('Task created', 'success')
+  }
+
+  function openAddModal(state, category) {
+    setAddForm({ title: '', category: category && KNOWN_CATEGORIES.has(category) ? category : 'admin', priority: 'medium', description: '' })
+    setAddModal({ state })
   }
 
   async function addSubtask(parentId, title) {
@@ -135,18 +174,13 @@ export default function Board({ active }) {
 
   // Drag & drop
   function onDragStart(e, id) { setDraggedId(id); e.dataTransfer.effectAllowed = 'move' }
-  function onDragOver(e, state) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver(state) }
+  function onDragOver(e, key) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverKey(key) }
   function onDrop(e, state) {
     e.preventDefault()
-    if (!draggedId) return
-    const task = tasks.find(t => t.id === draggedId)
-    if (task && task.state !== state) {
-      if (state === 'blocked') { setBlockModal(task) }
-      else { updateTask(draggedId, { state }) }
-    }
-    setDraggedId(null); setDragOver(null)
+    if (draggedId) moveTask(draggedId, state)
+    setDraggedId(null); setDragOverKey(null)
   }
-  function onDragEnd() { setDraggedId(null); setDragOver(null) }
+  function onDragEnd() { setDraggedId(null); setDragOverKey(null) }
 
   // Filter + sort
   const filteredTasks = useMemo(() => {
@@ -167,7 +201,26 @@ export default function Board({ active }) {
     return sorted
   }, [tasks, filterCat, filterPeriod, search, sortBy])
 
-  const byState = (state) => filteredTasks.filter(t => t.state === state)
+  // Group into category swimlanes
+  const categoryGroups = useMemo(() => {
+    const defs = CATEGORY_OPTIONS.map(c => ({ key: c.value, value: c.value, label: c.label }))
+    if (tasks.some(t => !t.category || !KNOWN_CATEGORIES.has(t.category))) {
+      defs.push({ key: UNCATEGORIZED_KEY, value: null, label: 'Uncategorized' })
+    }
+    return defs
+      .map(def => {
+        const matches = t => def.value === null ? (!t.category || !KNOWN_CATEGORIES.has(t.category)) : t.category === def.value
+        const allInCat = tasks.filter(matches)
+        const filteredInCat = filteredTasks.filter(matches)
+        return {
+          ...def,
+          count: filteredInCat.length,
+          tasks: filteredInCat,
+          allBlocked: allInCat.length > 0 && allInCat.every(t => t.state === 'blocked'),
+        }
+      })
+      .filter(g => g.count > 0)
+  }, [tasks, filteredTasks])
 
   if (!active) return null
 
@@ -203,25 +256,30 @@ export default function Board({ active }) {
 
       {loading && <div className="skeleton h-big" style={{ marginBottom: 12 }} />}
 
-      <div className="board-wrap">
-        {COLUMNS.map(col => (
-          <KanbanColumn
-            key={col.state}
-            col={col}
-            tasks={byState(col.state)}
+      <div className="board-swimlanes">
+        {categoryGroups.map(group => (
+          <CategorySwimlane
+            key={group.key}
+            group={group}
             allTasks={tasks}
             draggedId={draggedId}
-            isDragOver={dragOver === col.state}
-            collapsed={!!collapsedCols[col.state]}
-            onToggleCollapse={() => toggleCollapse(col.state)}
+            dragOverKey={dragOverKey}
+            collapsed={!!collapsedCats[group.key]}
+            onToggleCollapse={() => toggleCatCollapse(group.key)}
+            collapsedCols={collapsedCols}
+            onToggleColCollapse={toggleCollapse}
             onDragStart={onDragStart}
-            onDragOver={e => onDragOver(e, col.state)}
-            onDrop={e => onDrop(e, col.state)}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
             onDragEnd={onDragEnd}
             onOpenTask={setSelectedTask}
-            onAddCard={() => { setAddForm({ title: '', category: 'admin', priority: 'medium', description: '' }); setAddModal({ state: col.state }) }}
+            onMoveTask={moveTask}
+            onAddCard={openAddModal}
           />
         ))}
+        {!loading && categoryGroups.length === 0 && (
+          <div className="task-activity-empty">No tasks match the current filters.</div>
+        )}
       </div>
 
       {/* Task detail modal */}
@@ -317,8 +375,47 @@ export default function Board({ active }) {
   )
 }
 
+/* ─── Category Swimlane ──────────────────────────────────────── */
+function CategorySwimlane({ group, allTasks, draggedId, dragOverKey, collapsed, onToggleCollapse, collapsedCols, onToggleColCollapse, onDragStart, onDragOver, onDrop, onDragEnd, onOpenTask, onMoveTask, onAddCard }) {
+  const byState = (state) => group.tasks.filter(t => t.state === state)
+
+  return (
+    <div className={`cat-swimlane${collapsed ? ' collapsed' : ''}`}>
+      <div className="cat-swimlane-header" onClick={onToggleCollapse}>
+        <span className="col-collapse-icon">▾</span>
+        <span className="cat-swimlane-name">{group.label}</span>
+        <span className="col-count">{group.count}</span>
+        {group.allBlocked && <span className="badge red">Blocked</span>}
+      </div>
+      {!collapsed && (
+        <div className="board-wrap">
+          {COLUMNS.map(col => (
+            <KanbanColumn
+              key={col.state}
+              col={col}
+              tasks={byState(col.state)}
+              allTasks={allTasks}
+              draggedId={draggedId}
+              isDragOver={dragOverKey === `${group.key}:${col.state}`}
+              collapsed={!!collapsedCols[col.state]}
+              onToggleCollapse={() => onToggleColCollapse(col.state)}
+              onDragStart={onDragStart}
+              onDragOver={e => onDragOver(e, `${group.key}:${col.state}`)}
+              onDrop={e => onDrop(e, col.state)}
+              onDragEnd={onDragEnd}
+              onOpenTask={onOpenTask}
+              onMoveTask={onMoveTask}
+              onAddCard={() => onAddCard(col.state, group.value)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ─── Column ─────────────────────────────────────────────────── */
-function KanbanColumn({ col, tasks, allTasks, draggedId, isDragOver, collapsed, onToggleCollapse, onDragStart, onDragOver, onDrop, onDragEnd, onOpenTask, onAddCard }) {
+function KanbanColumn({ col, tasks, allTasks, draggedId, isDragOver, collapsed, onToggleCollapse, onDragStart, onDragOver, onDrop, onDragEnd, onOpenTask, onMoveTask, onAddCard }) {
   return (
     <div className={`kanban-col${isDragOver ? ' drag-over' : ''}${collapsed ? ' collapsed' : ''}`} onDragOver={onDragOver} onDrop={onDrop}>
       <div className="col-header" onClick={onToggleCollapse}>
@@ -328,7 +425,7 @@ function KanbanColumn({ col, tasks, allTasks, draggedId, isDragOver, collapsed, 
       </div>
       <div className="kanban-col-body">
         {tasks.map(task => (
-          <TaskCard key={task.id} task={task} allTasks={allTasks} isDragging={draggedId === task.id} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpenTask} />
+          <TaskCard key={task.id} task={task} allTasks={allTasks} isDragging={draggedId === task.id} onDragStart={onDragStart} onDragEnd={onDragEnd} onOpen={onOpenTask} onMoveTask={onMoveTask} />
         ))}
         <button className="add-card-btn" onClick={onAddCard}><span>+</span> Add card</button>
       </div>
@@ -337,7 +434,7 @@ function KanbanColumn({ col, tasks, allTasks, draggedId, isDragOver, collapsed, 
 }
 
 /* ─── Task Card ──────────────────────────────────────────────── */
-function TaskCard({ task, allTasks, isDragging, onDragStart, onDragEnd, onOpen }) {
+function TaskCard({ task, allTasks, isDragging, onDragStart, onDragEnd, onOpen, onMoveTask }) {
   const parentTask = task.parent_task_id ? allTasks.find(t => t.id === task.parent_task_id) : null
   const subtasks = allTasks.filter(t => t.parent_task_id === task.id)
   const subtasksDone = subtasks.filter(t => t.state === 'done').length
@@ -360,9 +457,12 @@ function TaskCard({ task, allTasks, isDragging, onDragStart, onDragEnd, onOpen }
         {task.is_plan && <span className="badge yellow">PLAN</span>}
         {task.is_win  && <span className="badge accent">WIN</span>}
         {subtasks.length > 0 && <span className="badge gray">☑ {subtasksDone}/{subtasks.length}</span>}
+        <div style={{ display: 'contents' }} onClick={e => e.stopPropagation()}>
+          <PropChipSelect value={task.state} options={STATUS_OPTIONS} onChange={v => onMoveTask(task.id, v)} />
+        </div>
       </div>
       {task.description && (
-        <div className="task-card-desc">{task.description}</div>
+        <MarkdownText className="task-card-desc">{task.description}</MarkdownText>
       )}
     </div>
   )
