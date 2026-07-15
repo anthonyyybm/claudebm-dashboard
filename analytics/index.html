@@ -1,0 +1,3271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Social Media Analytics | Boosted Movers</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='14' fill='%231a7a4a'/><text y='.9em' font-size='52' font-family='system-ui' font-weight='700' fill='white' x='12' y='68'>BM</text></svg>">
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <script src="../assets/js/analytics-api.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    /* ─── BM light palette (default) ────────────────────────── */
+    :root {
+      --bg:           #f4f7f4;
+      --surface:      #ffffff;
+      --surface2:     #eaf0ea;
+      --border:       #cfdbd0;
+      --text:         #1a2e1e;
+      --text2:        #4a6a52;
+      --text3:        #7a9a82;
+      --accent:       #16a34a;
+      --accent-hover: #15803d;
+      --accent-light: #dcfce7;
+      --accent-text:  #15803d;
+      --danger:       #dc2626;
+      --danger-light: #fef2f2;
+      --amber:        #d97706;
+      --amber-light:  #fffbeb;
+      --success:      #16a34a;
+      --success-light:#f0fdf4;
+      --shadow:       0 1px 4px rgba(0,0,0,.1);
+    }
+
+    /* ─── BM dark palette ────────────────────────────────────── */
+    body.dark {
+      --bg:           #0f1410;
+      --surface:      #161e18;
+      --surface2:     #1e2a20;
+      --border:       #2a3c2e;
+      --text:         #e8f0ea;
+      --text2:        #7a9a82;
+      --text3:        #4a6a52;
+      --accent:       #22c55e;
+      --accent-hover: #16a34a;
+      --accent-light: #1a2e1e;
+      --accent-text:  #4ade80;
+      --danger:       #f87171;
+      --danger-light: #2d1b1b;
+      --amber:        #fbbf24;
+      --amber-light:  #2d2010;
+      --success:      #22c55e;
+      --success-light:#1a2e1e;
+      --shadow:       0 1px 4px rgba(0,0,0,.3);
+    }
+
+    /* ─── Analytics-specific ─────────────────────────────────── */
+    .a-metric {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .a-metric:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,.2); }
+    .a-chg-pos { font-size: 11px; font-weight: 600; color: var(--success); margin-top: 3px; }
+    .a-chg-neg { font-size: 11px; font-weight: 600; color: var(--danger);  margin-top: 3px; }
+    .a-chg-nil { font-size: 11px; color: var(--text3); margin-top: 3px; }
+    .platform-section { padding-bottom: 28px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+    .platform-section:last-child { border-bottom: none; padding-bottom: 0; }
+    .platform-badge {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .5px; flex-shrink: 0;
+    }
+    .goals-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+    .goals-row { margin-bottom: 12px; }
+    .goals-row:last-child { margin-bottom: 0; }
+    .goals-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; gap: 12px; }
+    .goals-label { font-size: 13px; color: var(--text); }
+    .goals-progress { font-size: 12px; font-weight: 600; color: var(--text2); white-space: nowrap; }
+    .ag3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 8px; }
+    .ag4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+    @media (max-width: 900px) { .ag4 { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 480px) { .ag4 { grid-template-columns: 1fr; } }
+    .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); }
+    @media (max-width: 900px) { .ag3 { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 480px) { .ag3 { grid-template-columns: 1fr; } }
+
+    /* ─── Skeleton shimmer ── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+      height: 2rem;
+      width: 60%;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ─── Fade-in ── */
+    .metric-fade-in { animation: fadeIn .4s ease; }
+
+    /* ─── Header row ── */
+    .analytics-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 18px; flex-wrap: wrap; gap: 10px;
+    }
+    .analytics-header-right {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .last-refreshed { font-size: 11px; color: var(--text3); }
+    .refresh-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border); color: var(--text2);
+      background: var(--surface); cursor: pointer; transition: all .15s;
+    }
+    .refresh-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent-text); }
+    .refresh-btn.spinning .refresh-icon { display: inline-block; animation: spin .8s linear infinite; }
+    .refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* ─── Status badges ── */
+    .data-badge-cached {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600;
+      background: var(--amber-light); color: var(--amber); border: 1px solid var(--amber);
+      margin-left: 8px; vertical-align: middle;
+    }
+    .data-badge-live {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600;
+      background: var(--success-light); color: var(--success); border: 1px solid var(--success);
+      margin-left: 8px; vertical-align: middle;
+    }
+
+    /* ─── Instagram coming soon ── */
+    .platform-section.coming-soon-section { position: relative; }
+    .coming-soon-overlay {
+      position: absolute; inset: 0;
+      background: rgba(13,17,23,0.45);
+      border-radius: var(--radius); pointer-events: none; z-index: 1;
+    }
+    .coming-soon-badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600;
+      background: var(--amber-light); color: var(--amber); border: 1px solid var(--amber);
+      margin-left: 8px;
+    }
+    .coming-soon-checklist {
+      margin-top: 12px; padding: 12px 14px;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .check-item { display: flex; align-items: center; gap: 7px; font-size: 12px; padding: 4px 0; color: var(--text3); }
+    .check-item.done { color: var(--success); }
+    .check-item.pending { color: var(--text3); }
+
+    /* ─── TikTok OAuth connect button ── */
+    .tt-connect-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+      background: #010101; color: #fff; border: none; cursor: pointer;
+      transition: opacity .15s; letter-spacing: .2px;
+    }
+    .tt-connect-btn:hover { opacity: .82; }
+    .tt-connect-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    /* ─── TikTok status banners ── */
+    .tt-status-live {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 10px 12px; margin-bottom: 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); font-size: 11px;
+    }
+    .tt-status-expired {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 10px 12px; margin-bottom: 12px;
+      background: var(--surface2); border: 1px solid var(--amber);
+      border-radius: var(--radius); font-size: 11px;
+    }
+    .tt-status-note { font-size: 10px; color: var(--text3); }
+
+    /* ─── TikTok video rows ── */
+    .tt-video-section { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .tt-video-section-title {
+      font-size: 10px; text-transform: uppercase; letter-spacing: .6px;
+      color: var(--text3); font-weight: 700; margin-bottom: 8px;
+    }
+
+    /* ─── TikTok analytics: 6-col summary grid ── */
+    .ag6 { display: grid; grid-template-columns: repeat(6,1fr); gap: 8px; margin-bottom: 14px; }
+    @media (max-width: 1100px) { .ag6 { grid-template-columns: repeat(3,1fr); } }
+    @media (max-width: 600px)  { .ag6 { grid-template-columns: repeat(2,1fr); } }
+
+    /* ─── Top video highlighted card ── */
+    .tt-top-video-card {
+      display: flex; gap: 12px; align-items: flex-start;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-left: 3px solid #00C2A8; border-radius: var(--radius);
+      padding: 12px; margin-bottom: 14px;
+    }
+    .tt-top-video-badge {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      background: #00C2A8; color: #fff; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px;
+    }
+
+    /* ─── Tab switcher ── */
+    .tt-tabs { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+    .tt-tab {
+      padding: 4px 14px; border-radius: 6px; font-size: 11px; font-weight: 600;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text2); cursor: pointer; transition: all .15s;
+    }
+    .tt-tab.active { background: #00C2A8; color: #fff; border-color: #00C2A8; }
+    .tt-tab:hover:not(.active) { border-color: #00C2A8; color: #00C2A8; }
+
+    /* ─── Video table rows ── */
+    .tt-vt-row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .tt-vt-row:last-child { border-bottom: none; }
+    .tt-vt-thumb { width: 32px; height: 44px; border-radius: 4px; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border); }
+    .tt-vt-meta { flex: 1; min-width: 0; }
+    .tt-vt-title { font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tt-vt-stats { display: flex; gap: 8px; font-size: 10px; color: var(--text3); margin-bottom: 4px; flex-wrap: wrap; }
+    .tt-vt-bar-wrap { height: 3px; background: var(--border); border-radius: 2px; }
+    .tt-vt-bar { height: 3px; background: #00C2A8; border-radius: 2px; transition: width .3s; }
+    .tt-vt-date { font-size: 10px; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
+
+    /* ─── Loading / error states ── */
+    .tt-loading-state { padding: 28px; text-align: center; color: var(--text3); font-size: 12px; }
+    .tt-error-state {
+      padding: 12px 14px; font-size: 12px; color: var(--danger);
+      background: var(--surface2); border: 1px solid var(--danger);
+      border-radius: var(--radius); margin-top: 8px;
+    }
+
+    /* ─── Spinner loader ── */
+    .tt-loader-wrap { padding: 60px 20px; text-align: center; }
+    .tt-spinner {
+      width: 36px; height: 36px; margin: 0 auto 14px;
+      border: 3px solid var(--border); border-top-color: #00C2A8;
+      border-radius: 50%; animation: ttSpin .75s linear infinite;
+    }
+    @keyframes ttSpin { to { transform: rotate(360deg); } }
+    .tt-loader-msg { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 4px; }
+    .tt-loader-sub { font-size: 11px; color: var(--text3); }
+
+    /* ─── Tooltip system ── */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]::before {
+      content: attr(data-tooltip);
+      position: absolute; bottom: calc(100% + 8px); left: 50%;
+      transform: translateX(-50%);
+      background: rgba(22,27,34,.96); color: #e6edf3;
+      font-size: 10px; line-height: 1.5; font-weight: 400;
+      padding: 6px 10px; border-radius: 6px;
+      width: 180px; text-align: center;
+      pointer-events: none; opacity: 0;
+      transition: opacity .18s; z-index: 300;
+      white-space: normal; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    }
+    [data-tooltip]::after {
+      content: ''; position: absolute; bottom: calc(100% + 3px); left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent; border-top-color: rgba(22,27,34,.96);
+      pointer-events: none; opacity: 0; transition: opacity .18s; z-index: 300;
+    }
+    [data-tooltip]:hover::before, [data-tooltip]:hover::after { opacity: 1; }
+
+    /* ─── Monthly top videos ── */
+    .tt-monthly-scroll {
+      display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px;
+      scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    }
+    .tt-monthly-scroll::-webkit-scrollbar { height: 4px; }
+    .tt-monthly-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .tt-monthly-card {
+      min-width: 120px; max-width: 120px; flex-shrink: 0;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .tt-monthly-label {
+      font-size: 9px; font-weight: 700; color: #00C2A8;
+      letter-spacing: .5px; text-transform: uppercase; padding: 6px 8px 4px;
+    }
+    .tt-monthly-thumb { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; }
+    .tt-monthly-thumb-placeholder {
+      width: 100%; aspect-ratio: 9/16; background: var(--surface);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: var(--text3);
+    }
+    .tt-monthly-info { padding: 7px 8px 8px; }
+    .tt-monthly-title {
+      font-size: 9px; font-weight: 600; color: var(--text); line-height: 1.35; margin-bottom: 5px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .tt-monthly-stats { display: flex; flex-direction: column; gap: 2px; font-size: 9px; color: var(--text3); }
+
+    /* ─── Charts tab ── */
+    .tt-chart-block { margin-bottom: 18px; }
+    .tt-chart-label { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+    .tt-chart-wrap { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 8px 6px; overflow: hidden; }
+
+    /* ─── Metric card with sparkline ── */
+    .tt-metric-inner { display: flex; justify-content: space-between; align-items: flex-end; gap: 6px; }
+    .tt-metric-inner svg { flex-shrink: 0; align-self: flex-end; }
+
+    /* ─── Overview / Trends main tab bar ── */
+    .tt-main-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid var(--border); }
+    .tt-main-tab {
+      padding: 7px 18px; font-size: 12px; font-weight: 600;
+      border: none; background: none; color: var(--text3);
+      cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px;
+      transition: color .15s, border-color .15s;
+    }
+    .tt-main-tab.active { color: #00C2A8; border-bottom-color: #00C2A8; }
+    .tt-main-tab:hover:not(.active) { color: var(--text2); }
+
+    /* ─── Chart time-range filter ── */
+    .tt-range-wrap { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; }
+    .tt-range-btn {
+      padding: 3px 10px; border-radius: 5px; font-size: 10px; font-weight: 600;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text3); cursor: pointer; transition: all .15s;
+    }
+    .tt-range-btn.active { background: var(--surface2); border-color: var(--text2); color: var(--text); }
+    .tt-range-btn:hover:not(.active) { border-color: var(--text2); color: var(--text2); }
+
+    /* ─── TikTok profile card ── */
+    .tt-profile-card {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 10px;
+    }
+    .tt-profile-left { display: flex; align-items: center; gap: 10px; }
+    .tt-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); flex-shrink: 0; }
+    .tt-avatar-placeholder { background: #00C2A8; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+    .tt-display-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .tt-profile-handle { font-size: 11px; color: var(--text3); }
+    .tt-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+    @media (max-width: 480px) { .tt-stats-row { grid-template-columns: repeat(2, 1fr); } }
+    .tt-stat-cell {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 8px; text-align: center;
+    }
+    .tt-stat-val { font-size: 16px; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 3px; }
+    .tt-stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); font-weight: 600; }
+
+    /* ─── Social overview / platform selector ── */
+    .social-top-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 20px; }
+    .social-top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .social-top-title { font-size: 13px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .5px; }
+    .social-platforms-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    @media (max-width: 700px) { .social-platforms-row { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 400px) { .social-platforms-row { grid-template-columns: 1fr; } }
+    .social-platform-cell {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 8px;
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .social-platform-cell:hover:not(.active) { border-color: var(--text3); background: var(--surface); }
+    .social-platform-cell.active { border-color: var(--accent) !important; background: var(--accent-light) !important; }
+    .social-platform-cell.coming-soon-cell { opacity: 0.45; filter: grayscale(0.2); }
+    .social-cell-badge { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 9px; font-weight: 700; letter-spacing: .4px; flex-shrink: 0; }
+    .social-cell-info { min-width: 0; }
+    .social-cell-name { font-size: 11px; color: var(--text3); margin-bottom: 2px; }
+    .social-cell-val { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1; }
+    .social-cell-sub { font-size: 10px; color: var(--text3); margin-top: 1px; }
+
+    /* ─── Feature card style (MoverMetrics) on section headers ── */
+    .section-header-accent {
+      display: inline-block; width: 3px; height: 18px;
+      background: var(--accent); border-radius: 2px; margin-right: 8px; vertical-align: middle;
+    }
+
+    /* ─── YouTube video table (16:9 thumbs) ── */
+    .yt-vt-thumb {
+      width: 56px; height: 32px; border-radius: 4px; object-fit: cover; flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+    .yt-vt-thumb-placeholder {
+      width: 56px; height: 32px; border-radius: 4px; flex-shrink: 0;
+      background: var(--surface2); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; color: var(--text3);
+    }
+
+    /* ─── YouTube 5-col stats grid ── */
+    .ag5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; margin-bottom: 14px; }
+    @media (max-width: 1000px) { .ag5 { grid-template-columns: repeat(3,1fr); } }
+    @media (max-width: 600px)  { .ag5 { grid-template-columns: repeat(2,1fr); } }
+
+    /* ─── Theme toggle ── */
+    .theme-toggle {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 4px 10px 4px 6px;
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      color: var(--text2); transition: background .15s, border-color .15s, color .15s;
+    }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+    .theme-toggle-icon { font-size: 14px; line-height: 1; }
+
+    /* ─── Footer ── */
+    .analytics-footer {
+      margin-top: 32px; padding: 20px 24px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px;
+      font-size: 12px; color: var(--text3);
+    }
+    .footer-links { display: flex; align-items: center; gap: 14px; }
+    .footer-links a {
+      color: var(--text3); text-decoration: none; font-weight: 500;
+      transition: color .15s;
+    }
+    .footer-links a:hover { color: var(--accent); }
+    .footer-sep { color: var(--border); }
+    .footer-copy { color: var(--text3); }
+  </style>
+</head>
+<body>
+
+<!-- ─── Topbar ──────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo-mark">BM</div>
+    <div>
+      <span class="logo-text">Boosted Movers</span>
+      <span class="logo-sub">Analytics</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <a href="../index.html" class="btn btn-ghost" style="text-decoration:none;font-size:12px">← Dashboard</a>
+    <div class="time-display" id="time-display">—</div>
+  </div>
+</header>
+
+<!-- ─── Content ─────────────────────────────────────────────── -->
+<main class="content">
+  <div id="analytics-root"></div>
+
+  <footer class="analytics-footer">
+    <div class="footer-links">
+      <a href="../legal/terms.html">Terms of Service</a>
+      <span class="footer-sep">·</span>
+      <a href="../legal/privacy.html">Privacy Policy</a>
+      <span class="footer-sep">·</span>
+      <a href="mailto:anthony@boostedmovers.com">Contact</a>
+    </div>
+    <div class="footer-copy">© 2026 Boosted Movers. All rights reserved.</div>
+  </footer>
+</main>
+
+<script>
+// ─── THEME ───────────────────────────────────────────────────────
+const savedTheme = localStorage.getItem('bm_theme') || 'dark'
+if (savedTheme === 'dark') document.body.classList.add('dark')
+
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark')
+  localStorage.setItem('bm_theme', isDark ? 'dark' : 'light')
+  const btn = document.getElementById('theme-toggle-btn')
+  if (btn) {
+    btn.querySelector('.theme-toggle-icon').textContent = isDark ? '🌙' : '☀️'
+    btn.querySelector('.theme-toggle-label').textContent = isDark ? 'Dark' : 'Light'
+  }
+}
+window.toggleTheme = toggleTheme
+
+// ─── SUPABASE CLIENT ─────────────────────────────────────────────
+const SUPABASE_URL     = 'https://bmtbzcnrlojacvafyrxi.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtdGJ6Y25ybG9qYWN2YWZ5cnhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMDk0MDgsImV4cCI6MjA4OTc4NTQwOH0.wVJas9i0sx3oq3A4BNh2cw5iy4Xgxdb6JDA-68Tw_IQ'
+const { createClient } = supabase
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// ─── SUPABASE TOKEN FUNCTIONS ────────────────────────────────────
+async function sbGetToken() {
+  const { data, error } = await sb.from('tiktok_tokens')
+    .select('*').eq('account_name', 'boosted_movers').maybeSingle()
+  if (error) console.error('[sb] getToken error:', error)
+  if (!data && !error) console.warn('[sb] getToken: no data returned — RLS may be blocking SELECT for anon')
+  return data
+}
+
+async function sbSaveToken(access_token, open_id) {
+  const now = new Date().toISOString()
+  const { error } = await sb.from('tiktok_tokens').upsert({
+    account_name: 'boosted_movers',
+    access_token,
+    open_id: open_id || null,
+    updated_at: now,
+    created_at: now
+  }, { onConflict: 'account_name' })
+  if (error) console.error('[sb] saveToken error:', error)
+}
+
+async function sbDeleteToken() {
+  const { error } = await sb.from('tiktok_tokens')
+    .delete().eq('account_name', 'boosted_movers')
+  if (error) console.error('[sb] deleteToken error:', error)
+}
+
+async function sbGetCache() {
+  const { data, error } = await sb.from('tiktok_cache')
+    .select('*').eq('account_name', 'boosted_movers').maybeSingle()
+  if (error) console.error('[sb] getCache error:', error)
+  if (!data && !error) console.warn('[sb] getCache: no data returned — RLS may be blocking SELECT for anon. Run: ALTER TABLE tiktok_cache DISABLE ROW LEVEL SECURITY;')
+  return data
+}
+
+async function sbSaveCache(user_data, videos_data) {
+  const now = new Date().toISOString()
+  const { error } = await sb.from('tiktok_cache').upsert({
+    account_name: 'boosted_movers',
+    user_data,
+    videos_data,
+    last_fetched_at: now,
+    updated_at: now
+  }, { onConflict: 'account_name' })
+  if (error) console.error('[sb] saveCache error:', error)
+}
+
+function isTokenExpired(tokenRow) {
+  if (!tokenRow?.updated_at) return true
+  return (Date.now() - new Date(tokenRow.updated_at).getTime()) > 24 * 3600 * 1000
+}
+
+// ─── SUPABASE INSTAGRAM FUNCTIONS ────────────────────────────────
+async function sbGetIGToken() {
+  const { data, error } = await sb.from('instagram_tokens')
+    .select('*').eq('account_name', 'boostedgranny').maybeSingle()
+  if (error) console.error('[sb] getIGToken error:', error)
+  return data
+}
+
+async function sbGetIGCache() {
+  const { data, error } = await sb.from('instagram_cache')
+    .select('*').eq('account_name', 'boostedgranny').maybeSingle()
+  if (error) console.error('[sb] getIGCache error:', error)
+  return data
+}
+
+async function sbSaveIGCache(profile_data, media_data, insights_data) {
+  const now = new Date().toISOString()
+  const { error } = await sb.from('instagram_cache').upsert({
+    account_name: 'boostedgranny',
+    profile_data,
+    media_data,
+    insights_data,
+    last_fetched_at: now,
+    updated_at: now
+  }, { onConflict: 'account_name' })
+  if (error) console.error('[sb] saveIGCache error:', error)
+}
+
+// ─── SUPABASE FACEBOOK FUNCTIONS ──────────────────────────────────
+async function sbGetFBToken() {
+  const { data, error } = await sb.from('facebook_tokens')
+    .select('*').eq('account_name', 'granny_grit').maybeSingle()
+  if (error) console.error('[sb] getFBToken error:', error)
+  return data
+}
+
+async function sbGetFBCache() {
+  const { data, error } = await sb.from('facebook_cache')
+    .select('*').eq('account_name', 'granny_grit').maybeSingle()
+  if (error) console.error('[sb] getFBCache error:', error)
+  return data
+}
+
+async function sbSaveFBCache(profile_data, posts_data, insights_data) {
+  const now = new Date().toISOString()
+  const { error } = await sb.from('facebook_cache').upsert({
+    account_name: 'granny_grit',
+    profile_data,
+    posts_data,
+    insights_data,
+    last_fetched_at: now,
+    updated_at: now
+  }, { onConflict: 'account_name' })
+  if (error) console.error('[sb] saveFBCache error:', error)
+}
+
+// ─── INSTAGRAM API FUNCTIONS ─────────────────────────────────────
+function igEscH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+function igFmtN(n) {
+  if (!n && n !== 0) return '—'
+  const v = Number(n)
+  if (v >= 1000000) return (v/1000000).toFixed(1).replace(/\.0$/,'')+'M'
+  if (v >= 1000) return (v/1000).toFixed(1).replace(/\.0$/,'')+'K'
+  return String(v)
+}
+function igFmtDate(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// ─── INSTAGRAM ANALYTICS HELPERS ─────────────────────────────────
+function igGroupByMonth(media) {
+  const map = {}
+  media.forEach(p => {
+    if (!p.timestamp) return
+    const d   = new Date(p.timestamp)
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    const lbl = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+    if (!map[key]) map[key] = { key, label: lbl, posts: [], likes: 0, comments: 0, count: 0 }
+    map[key].posts.push(p)
+    map[key].likes    += p.like_count     || 0
+    map[key].comments += p.comments_count || 0
+    map[key].count    += 1
+  })
+  return Object.values(map).sort((a, b) => a.key.localeCompare(b.key))
+}
+
+function igEnrichData(data) {
+  return data.map(m => ({
+    ...m,
+    eng: m.count ? +((m.likes + m.comments) / m.count).toFixed(1) : 0,
+    avg: m.count ? Math.round(m.likes / m.count) : 0
+  }))
+}
+
+function getIGChartData(media, range) {
+  const now     = new Date()
+  const byMonth = igGroupByMonth(media)
+  if (range === 'all') return igEnrichData(byMonth)
+  const n = range === '6m' ? 6 : 3
+  const cutoff = new Date(now)
+  cutoff.setMonth(cutoff.getMonth() - n)
+  const cutKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}`
+  return igEnrichData(byMonth.filter(m => m.key >= cutKey))
+}
+
+function renderIGTopReel(media, selectedMonth) {
+  const byMonth = igGroupByMonth(media)
+  if (!byMonth.length) return '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text3)">No post data available</div>'
+  const opts = byMonth.slice().reverse().map(m =>
+    `<option value="${m.key}"${m.key === selectedMonth ? ' selected' : ''}>${m.label}</option>`
+  ).join('')
+  const monthData = byMonth.find(m => m.key === selectedMonth)
+  let cardHtml
+  if (!monthData || !monthData.posts.length) {
+    cardHtml = `<div style="padding:14px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">No posts this month</div>`
+  } else {
+    const top = monthData.posts.reduce((a, b) =>
+      ((b.like_count||0) + (b.comments_count||0)) > ((a.like_count||0) + (a.comments_count||0)) ? b : a
+    )
+    const typeLabel = top.media_type === 'VIDEO' ? 'REEL' : top.media_type === 'CAROUSEL_ALBUM' ? 'CAROUSEL' : 'IMAGE'
+    const thumbSrc  = top.thumbnail_url || (top.media_type !== 'VIDEO' ? top.media_url : null)
+    const thumb = thumbSrc
+      ? `<img src="${igEscH(thumbSrc)}" style="width:56px;height:78px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)" alt="">`
+      : `<div style="width:56px;height:78px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;color:var(--text3)">📷</div>`
+    const caption = igEscH((top.caption || '').substring(0, 60) + ((top.caption || '').length > 60 ? '…' : ''))
+    cardHtml = `<div class="tt-top-video-card" style="border-left-color:#E1306C">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div class="tt-top-video-badge" style="background:#E1306C">🏆 Top ${typeLabel} — ${monthData.label}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:7px;line-height:1.4">${caption || '(no caption)'}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text2)">♥ <strong>${igFmtN(top.like_count)}</strong> likes</span>
+          <span style="font-size:11px;color:var(--text2)">💬 <strong>${igFmtN(top.comments_count)}</strong> comments</span>
+          ${top.timestamp ? `<span style="font-size:11px;color:var(--text3)">${igFmtDate(top.timestamp)}</span>` : ''}
+        </div>
+      </div>
+    </div>`
+  }
+  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:700">🏆 Top Post of the Month</div>
+    <select onchange="setIGMonthFilter(this.value)" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;outline:none">${opts}</select>
+  </div>${cardHtml}`
+}
+
+function renderIGPostTableRows(posts, allPosts) {
+  if (!posts || !posts.length) return '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text3)">No posts found</div>'
+  const maxEng = Math.max(...allPosts.map(p => (p.like_count||0) + (p.comments_count||0)), 1)
+  return posts.map(p => {
+    const caption   = igEscH((p.caption || '').substring(0, 80) + ((p.caption || '').length > 80 ? '…' : ''))
+    const typeLabel = p.media_type === 'VIDEO' ? 'REEL' : p.media_type === 'CAROUSEL_ALBUM' ? 'CAROUSEL' : 'IMAGE'
+    const typeColor = typeLabel === 'REEL' ? '#E1306C' : typeLabel === 'CAROUSEL' ? '#8b5cf6' : '#3b82f6'
+    const thumbSrc  = p.thumbnail_url || (p.media_type !== 'VIDEO' ? p.media_url : null)
+    const thumb     = thumbSrc
+      ? `<img src="${igEscH(thumbSrc)}" class="tt-vt-thumb" alt="">`
+      : `<div class="tt-vt-thumb" style="background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3)">📷</div>`
+    const eng    = (p.like_count||0) + (p.comments_count||0)
+    const barPct = Math.round((eng / maxEng) * 100)
+    return `<div class="tt-vt-row">
+      ${thumb}
+      <div class="tt-vt-meta">
+        <div style="margin-bottom:3px">
+          <span style="font-size:8px;font-weight:700;background:${typeColor};color:#fff;padding:1px 5px;border-radius:3px">${typeLabel}</span>
+        </div>
+        <div class="tt-vt-title" title="${igEscH(p.caption||'')}">${caption || '(no caption)'}</div>
+        <div class="tt-vt-stats">
+          <span>♥ ${igFmtN(p.like_count)}</span>
+          <span>💬 ${igFmtN(p.comments_count)}</span>
+        </div>
+        <div class="tt-vt-bar-wrap"><div class="tt-vt-bar" style="width:${barPct}%;background:#E1306C"></div></div>
+      </div>
+      <div class="tt-vt-date">${igFmtDate(p.timestamp)}</div>
+    </div>`
+  }).join('')
+}
+
+function renderIGPaginatedTable(pool, allPosts, page, pageSize) {
+  const totalPages = Math.ceil(pool.length / pageSize)
+  const rows = renderIGPostTableRows(pool.slice(page * pageSize, (page + 1) * pageSize), allPosts)
+  if (totalPages <= 1) return rows
+  return `${rows}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+    <button class="refresh-btn" style="font-size:11px;padding:3px 10px" onclick="setIGPostPage(${page-1})"${page===0?' disabled':''}>← Prev</button>
+    <span style="font-size:11px;color:var(--text3)">Page ${page+1} of ${totalPages} · ${pool.length} posts</span>
+    <button class="refresh-btn" style="font-size:11px;padding:3px 10px" onclick="setIGPostPage(${page+1})"${page>=totalPages-1?' disabled':''}>Next →</button>
+  </div>`
+}
+
+function renderIGOverviewContent(profile, media) {
+  const byMonth    = igGroupByMonth(media)
+  const mLikes     = byMonth.map(m => m.likes)
+  const mComments  = byMonth.map(m => m.comments)
+  const mEng       = byMonth.map(m => m.count ? +((m.likes+m.comments)/m.count).toFixed(1) : 0)
+  const mAvg       = byMonth.map(m => m.count ? Math.round(m.likes/m.count) : 0)
+  const mCount     = byMonth.map(m => m.count)
+
+  const totalLikes    = media.reduce((s, p) => s + (p.like_count     || 0), 0)
+  const totalComments = media.reduce((s, p) => s + (p.comments_count || 0), 0)
+  const followers     = profile.followers_count || 0
+  const avgLikes      = media.length ? Math.round(totalLikes / media.length) : 0
+  const avgComments   = media.length ? Math.round(totalComments / media.length) : 0
+  const engRate       = followers > 0 ? ((totalLikes + totalComments) / followers * 100).toFixed(2) : '0.00'
+
+  function momDelta(arr) {
+    if (arr.length < 2) return null
+    const prev = arr[arr.length-2], cur = arr[arr.length-1]
+    return prev ? (((cur-prev)/prev)*100).toFixed(1) : null
+  }
+  const mAvgComments = byMonth.map(m => m.count ? Math.round(m.comments / m.count) : 0)
+  const dL = momDelta(mLikes), dC = momDelta(mComments), dE = momDelta(mEng), dAvg = momDelta(mAvg), dAvgC = momDelta(mAvgComments)
+
+  const tipFollowers  = `${igFmtN(followers)} followers. ${media.length} posts tracked.`
+  const tipLikes      = `${igFmtN(totalLikes)} total likes across ${media.length} posts.${dL !== null ? ' ' + (dL >= 0 ? `Up ${dL}%` : `Down ${Math.abs(dL)}%`) + ' from last month.' : ''}`
+  const tipComments   = `${igFmtN(totalComments)} total comments. Avg ${igFmtN(avgComments)}/post.${dC !== null ? ' ' + (dC >= 0 ? `Up ${dC}%` : `Down ${Math.abs(dC)}%`) + ' from last month.' : ''}`
+  const tipAvgLikes   = `${igFmtN(avgLikes)} avg likes per post.${dAvg !== null ? ' ' + (dAvg >= 0 ? `Trending up.` : `Trending down.`) : ''}`
+  const tipAvgComments = `${igFmtN(avgComments)} avg comments per post.`
+  const tipEng        = `${engRate}% engagement rate (likes+comments / followers). ${+engRate > 3 ? '✅ Above average (2–3%).' : '⚠ Try stronger CTAs and reels.'}`
+
+  const metrics = `<div class="ag6" style="margin-bottom:14px">
+    <div class="a-metric" data-tooltip="${tipFollowers}">
+      <div class="metric-label">FOLLOWERS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(followers)}</div><div class="a-chg-nil">account total</div></div>${ttSparkline([], '#E1306C')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipLikes}">
+      <div class="metric-label">TOTAL LIKES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalLikes)}</div>${changeEl(dL)}<div class="metric-sub">${media.length} posts</div></div>${ttSparkline(mLikes,'#E1306C')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipComments}">
+      <div class="metric-label">TOTAL COMMENTS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalComments)}</div>${changeEl(dC)}<div class="metric-sub">${media.length} posts</div></div>${ttSparkline(mComments,'#8b5cf6')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipAvgLikes}">
+      <div class="metric-label">AVG LIKES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(avgLikes)}</div>${changeEl(dAvg)}<div class="metric-sub">per post</div></div>${ttSparkline(mAvg,'#f43f5e')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipAvgComments}">
+      <div class="metric-label">AVG COMMENTS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(avgComments)}</div>${changeEl(dAvgC)}<div class="metric-sub">per post</div></div>${ttSparkline(mEng,'#f59e0b')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipEng}">
+      <div class="metric-label">ENGAGEMENT RATE</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div>${changeEl(dE)}<div class="metric-sub">(likes+comments)/followers</div></div>${ttSparkline(mEng,'#3b82f6')}</div>
+    </div>
+  </div>`
+
+  const topReel = media.length
+    ? `<div id="ig-monthly-top" style="margin-bottom:16px">${renderIGTopReel(media, igMonthFilter)}</div>`
+    : ''
+
+  const tableContent = igPostTab === 'last5'
+    ? renderIGPostTableRows(media.slice(0, 5), media)
+    : renderIGPaginatedTable(igPostTab === 'all' ? media : media.slice(0, 20), media, igPostPage, 5)
+
+  return `${metrics}${topReel}
+  <div class="tt-tabs">
+    <button class="tt-tab${igPostTab==='last5'?' active':''}" data-igtab="last5" onclick="switchIGPostTab('last5')" style="${igPostTab==='last5'?'background:#E1306C;border-color:#E1306C;color:#fff;':''}">Last 5</button>
+    <button class="tt-tab${igPostTab==='last20'?' active':''}" data-igtab="last20" onclick="switchIGPostTab('last20')" style="${igPostTab==='last20'?'background:#E1306C;border-color:#E1306C;color:#fff;':''}">Last 20</button>
+    <button class="tt-tab${igPostTab==='all'?' active':''}" data-igtab="all" onclick="switchIGPostTab('all')" style="${igPostTab==='all'?'background:#E1306C;border-color:#E1306C;color:#fff;':''}">All Posts</button>
+    <span style="margin-left:auto;font-size:10px;color:var(--text3);align-self:center">${media.length} total</span>
+  </div>
+  <div id="ig-post-table">${tableContent}</div>`
+}
+
+function renderIGTrendsTab(media) {
+  const metricCfg = [
+    { key: 'likes',    label: 'Likes',          color: '#E1306C' },
+    { key: 'comments', label: 'Comments',        color: '#8b5cf6' },
+    { key: 'eng',      label: 'Avg Engagement',  color: '#f59e0b' },
+    { key: 'count',    label: 'Posts Published', color: '#3b82f6' },
+    { key: 'avg',      label: 'Avg Likes',       color: '#f43f5e' },
+  ]
+  const rangeCfg = [
+    { key: 'all', label: 'All Time' },
+    { key: '6m',  label: 'Last 6 Mo' },
+    { key: '3m',  label: 'Last 3 Mo' },
+  ]
+  const data   = getIGChartData(media, igChartRange)
+  const mc     = metricCfg.find(m => m.key === igChartMetric) || metricCfg[0]
+  const metricTabs = metricCfg.map(m =>
+    `<button class="tt-tab${igChartMetric===m.key?' active':''}" onclick="switchIGChartMetric('${m.key}')"
+      style="${igChartMetric===m.key?`background:${m.color};border-color:${m.color};color:#fff;`:''}">${m.label}</button>`
+  ).join('')
+  const rangeBtns = rangeCfg.map(r =>
+    `<button class="tt-range-btn${igChartRange===r.key?' active':''}" onclick="switchIGChartRange('${r.key}')">${r.label}</button>`
+  ).join('')
+  const rangeLbl = rangeCfg.find(r => r.key === igChartRange)?.label || ''
+  const insight  = data.length >= 2 ? generateChartInsight(data, mc.key, mc.label) : ''
+  const legend = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${insight?'5px':'6px'}">
+    <span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);font-weight:600">
+      <span style="width:14px;height:2px;background:${mc.color};border-radius:1px;display:inline-block"></span>${mc.label}
+    </span>
+    <span style="font-size:10px;color:var(--text3)">· ${rangeLbl}</span>
+    <span style="font-size:10px;color:var(--text3)">· ${data.length} data point${data.length!==1?'s':''}</span>
+  </div>${insight?`<p style="font-size:10px;font-style:italic;color:var(--text3);margin:0 0 7px;line-height:1.5">${igEscH(insight)}</p>`:''}`
+  const chartHtml = data.length < 2
+    ? `<div style="padding:20px;text-align:center;font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">Not enough data for this range</div>`
+    : `<div class="tt-chart-wrap">${legend}${renderLineChart(data, mc.key, mc.color)}</div>`
+  return `<div class="tt-tabs" style="flex-wrap:wrap;gap:5px;margin-bottom:10px">${metricTabs}</div>
+    <div class="tt-range-wrap">${rangeBtns}</div>
+    ${chartHtml}`
+}
+
+function switchIGMainTab(tab) {
+  igMainTab = tab
+  const el = document.getElementById('ig-main-content')
+  if (!el || !igData.profile) return
+  el.innerHTML = tab === 'trends'
+    ? renderIGTrendsTab(igData.media)
+    : renderIGOverviewContent(igData.profile, igData.media)
+  document.querySelectorAll('.ig-main-tab').forEach(btn => {
+    const active = btn.dataset.tab === tab
+    btn.classList.toggle('active', active)
+    btn.style.color            = active ? '#E1306C' : ''
+    btn.style.borderBottomColor = active ? '#E1306C' : ''
+  })
+}
+window.switchIGMainTab = switchIGMainTab
+
+function switchIGPostTab(tab) {
+  igPostTab  = tab
+  igPostPage = 0
+  const el = document.getElementById('ig-post-table')
+  if (!el) return
+  if (tab === 'last5') {
+    el.innerHTML = renderIGPostTableRows(igData.media.slice(0, 5), igData.media)
+  } else {
+    const pool = tab === 'all' ? igData.media : igData.media.slice(0, 20)
+    el.innerHTML = renderIGPaginatedTable(pool, igData.media, 0, 5)
+  }
+  document.querySelectorAll('[data-igtab]').forEach(btn => {
+    const active = btn.dataset.igtab === tab
+    btn.classList.toggle('active', active)
+    btn.style.background  = active ? '#E1306C' : ''
+    btn.style.borderColor = active ? '#E1306C' : ''
+    btn.style.color       = active ? '#fff' : ''
+  })
+}
+window.switchIGPostTab = switchIGPostTab
+
+function setIGPostPage(page) {
+  igPostPage = page
+  const el = document.getElementById('ig-post-table')
+  if (!el) return
+  const pool = igPostTab === 'all' ? igData.media : igData.media.slice(0, 20)
+  el.innerHTML = renderIGPaginatedTable(pool, igData.media, page, 5)
+}
+window.setIGPostPage = setIGPostPage
+
+function switchIGChartMetric(metric) {
+  igChartMetric = metric
+  const el = document.getElementById('ig-main-content')
+  if (el) el.innerHTML = renderIGTrendsTab(igData.media)
+}
+window.switchIGChartMetric = switchIGChartMetric
+
+function switchIGChartRange(range) {
+  igChartRange = range
+  const el = document.getElementById('ig-main-content')
+  if (el) el.innerHTML = renderIGTrendsTab(igData.media)
+}
+window.switchIGChartRange = switchIGChartRange
+
+function setIGMonthFilter(value) {
+  igMonthFilter = value
+  const el = document.getElementById('ig-monthly-top')
+  if (el) el.innerHTML = renderIGTopReel(igData.media, value)
+}
+window.setIGMonthFilter = setIGMonthFilter
+
+async function fetchIGProfile(accountId, token) {
+  const fields = 'followers_count,media_count,username,profile_picture_url,biography'
+  const res = await fetch(`${IG_API_BASE}/${accountId}?fields=${fields}&access_token=${token}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`IG profile failed (${res.status}): ${err.error?.message || res.statusText}`)
+  }
+  return res.json()
+}
+
+async function fetchIGMedia(accountId, token) {
+  const fields = 'id,caption,media_type,timestamp,like_count,comments_count,media_url,thumbnail_url'
+  const res = await fetch(`${IG_API_BASE}/${accountId}/media?fields=${fields}&limit=20&access_token=${token}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`IG media failed (${res.status}): ${err.error?.message || res.statusText}`)
+  }
+  const data = await res.json()
+  return data.data || []
+}
+
+async function fetchIGInsights(accountId, token) {
+  try {
+    const res = await fetch(`${IG_API_BASE}/${accountId}/insights?metric=impressions,reach,profile_views&period=day&access_token=${token}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.data || null
+  } catch { return null }
+}
+
+async function initInstagramFromSupabase() {
+  const tokenRow = await sbGetIGToken()
+  const cacheRow = await sbGetIGCache()
+
+  if (cacheRow?.last_fetched_at) igLastFetchedAt = cacheRow.last_fetched_at
+
+  if (tokenRow?.page_access_token && tokenRow?.instagram_account_id) {
+    try {
+      const [profile, media, insights] = await Promise.all([
+        fetchIGProfile(tokenRow.instagram_account_id, tokenRow.page_access_token),
+        fetchIGMedia(tokenRow.instagram_account_id, tokenRow.page_access_token),
+        fetchIGInsights(tokenRow.instagram_account_id, tokenRow.page_access_token)
+      ])
+      igData = { profile, media, insights }
+      igLastFetchedAt = new Date().toISOString()
+      await sbSaveIGCache(profile, media, insights)
+      igState = 'live'
+    } catch (err) {
+      console.error('IG fetch error:', err)
+      if (cacheRow?.profile_data) {
+        igData = { profile: cacheRow.profile_data, media: cacheRow.media_data || [], insights: cacheRow.insights_data || null }
+        igState = 'expired'
+      } else {
+        igData = { profile: null, media: [], insights: null }
+        igState = 'no-data'
+      }
+    }
+  } else if (cacheRow?.profile_data) {
+    igData = { profile: cacheRow.profile_data, media: cacheRow.media_data || [], insights: cacheRow.insights_data || null }
+    igState = 'expired'
+  } else {
+    igState = 'no-data'
+  }
+}
+
+// ─── DATA LAYER ─────────────────────────────────────────────────
+function computeWeekLabel() {
+  const now = new Date()
+  const startOfYear = new Date(now.getFullYear(), 0, 1)
+  const weekNum = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
+  const month = now.toLocaleDateString('en-US', { month: 'long' })
+  return `W${weekNum} ${month}`
+}
+function computeLastUpdated() {
+  return new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+const analyticsData = {
+  week_label:   computeWeekLabel(),
+  last_updated: computeLastUpdated(),
+  platforms: {
+    instagram: {
+      followers: 1362, followers_change: 2.0,
+      avg_views: 580,  avg_views_change: 11.5,
+      posts_this_week: 3, posts_change: -25.0,
+      engagement_rate: 3.3, engagement_change: 6.5,
+      weekly_data: {
+        followers: [1280,1295,1310,1325,1340,1352,1362],
+        views: [420,380,510,490,530,560,580]
+      },
+      goals: [{ label: "3 reels with 1,000+ views", current: 1, target: 3 }]
+    },
+    youtube: {
+      subscribers: 480, subscribers_change: null,
+      avg_views: 44,    avg_views_change: null,
+      videos_this_week: 7, videos_change: null,
+      engagement_rate: 1.6, engagement_change: null,
+      weekly_data: {
+        subscribers: [320, 360, 395, 420, 445, 462, 480],
+        views: [120, 80, 55, 45, 60, 50, 44]
+      },
+      goals: [{ label: "3 videos with 1,000+ views", current: 0, target: 3 }]
+    },
+    tiktok: {
+      followers: 34, followers_change: 9.7,
+      avg_views: 750, avg_views_change: 8.7,
+      videos_this_week: 4, videos_change: -20.0,
+      engagement_rate: 4.6, engagement_change: 4.5,
+      weekly_data: {
+        followers: [22,24,27,29,31,33,34],
+        views: [580,610,650,690,710,730,750]
+      },
+      goals: [{ label: "50 followers", current: 34, target: 50 }]
+    }
+  }
+}
+
+// ─── STATE ──────────────────────────────────────────────────────
+let activePlatform    = 'tiktok'    // currently shown platform
+let ytVideos          = []          // array of video objects from YouTube API
+let ytVideoTab        = 'last5'     // 'last5' | 'last10'
+let ytChartType       = 'bar'       // 'bar' | 'line'
+let ytChartMetric     = 'views'     // metric for line chart
+let ytChartRange      = 'all'       // 'all' | '6m' | '3m'
+let ytMonthFilter     = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` })()
+let ytDataStatus      = 'default'   // 'default' | 'live' | 'cached'
+let ttConnectionState = 'checking'  // 'checking' | 'live' | 'expired' | 'no-data'
+let ttLastFetchedAt   = null        // ISO string from tiktok_cache.last_fetched_at
+let ttOAuthToken      = null        // set after loading from Supabase
+let lastRefreshedTime = null
+let tiktokLiveData    = { user: null, videos: [], error: null }
+let ttActiveTab       = 'last5'
+let ttMainTab         = 'overview'
+let ttChartMetric     = 'views'
+let ttChartRange      = 'all'
+let ttVideoPage       = 0
+let ttMonthFilter     = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` })()
+
+// ─── INSTAGRAM STATE ─────────────────────────────────────────────
+const IG_API_BASE   = 'https://graph.facebook.com/v20.0'
+let igState         = 'checking'   // 'checking' | 'live' | 'expired' | 'no-data'
+let igLastFetchedAt = null
+let igData          = { profile: null, media: [], insights: null }
+let igMainTab       = 'overview'
+let igChartMetric   = 'likes'
+let igChartRange    = 'all'
+let igPostTab       = 'last5'
+let igPostPage      = 0
+let igMonthFilter   = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` })()
+
+// ─── FACEBOOK STATE ───────────────────────────────────────────────
+const FB_API_BASE   = 'https://graph.facebook.com/v20.0'
+let fbState         = 'checking'   // 'checking' | 'live' | 'expired' | 'no-data'
+let fbLastFetchedAt = null
+let fbData          = { profile: null, posts: [], insights: null }
+let fbMainTab       = 'overview'
+let fbChartMetric   = 'likes'
+let fbChartRange    = 'all'
+let fbPostTab       = 'last5'
+let fbPostPage      = 0
+let fbMonthFilter   = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` })()
+
+// ─── TIKTOK OAUTH CONFIG ────────────────────────────────────────
+const TT_CLIENT_KEY   = 'sbawiohwdjglaeadzv'
+const TT_REDIRECT_URI = 'https://anthonyyybm.github.io/claudebm-dashboard/analytics/'
+const TT_TOKEN_PROXY  = 'https://bmtbzcnrlojacvafyrxi.supabase.co/functions/v1/tiktok-token-exchange'
+const TT_API_BASE     = 'https://open.tiktokapis.com/v2'
+
+// ─── PLATFORM CONFIG ────────────────────────────────────────────
+const PLATFORMS = {
+  instagram: { name: 'Instagram', abbr: 'IG', color: '#E1306C' },
+  youtube:   { name: 'YouTube',   abbr: 'YT', color: '#FF0000' },
+  tiktok:    { name: 'TikTok',    abbr: 'TT', color: '#00C2A8' },
+  facebook:  { name: 'Facebook',  abbr: 'FB', color: '#1877F2' }
+}
+
+// ─── HELPERS ────────────────────────────────────────────────────
+function fmtNum(n) {
+  if (n === null || n === undefined) return '—'
+  if (typeof n !== 'number') return String(n)
+  if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'K'
+  return String(n)
+}
+
+function changeEl(v) {
+  if (v === null || v === undefined) return '<div class="a-chg-nil">vs last week</div>'
+  const pos = v >= 0
+  return `<div class="${pos ? 'a-chg-pos' : 'a-chg-neg'}">${pos ? '↑' : '↓'} ${pos ? '+' : ''}${Math.abs(v).toFixed(1)}%</div>`
+}
+
+function sparklineSVG(data, color) {
+  if (!data || data.length < 2) return '<div style="width:80px;height:40px"></div>'
+  const W = 80, H = 40, P = 3
+  const lo = Math.min(...data), hi = Math.max(...data), rng = hi - lo || 1
+  const pts = data.map((v, i) => [
+    P + (i / (data.length - 1)) * (W - P * 2),
+    H - P - ((v - lo) / rng) * (H - P * 2)
+  ])
+  let line = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+  for (let i = 1; i < pts.length; i++) {
+    const cx = ((pts[i-1][0] + pts[i][0]) / 2).toFixed(1)
+    line += ` C${cx},${pts[i-1][1].toFixed(1)} ${cx},${pts[i][1].toFixed(1)} ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`
+  }
+  const area = `${line} L${pts[pts.length-1][0].toFixed(1)},${H} L${pts[0][0].toFixed(1)},${H}Z`
+  return `<svg width="80" height="40" viewBox="0 0 80 40" aria-hidden="true" style="display:block">
+    <path d="${area}" fill="${color}" fill-opacity="0.18"/>
+    <path d="${line}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`
+}
+
+function skeletonVal() {
+  return '<div class="skeleton" style="height:1.6rem;width:55%;margin:6px 0 4px"></div>'
+}
+
+function toPhilippineTime(isoString) {
+  if (!isoString) return '—'
+  try {
+    const d = new Date(isoString)
+    return d.toLocaleString('en-US', {
+      timeZone: 'Asia/Manila',
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    }) + ' PHT'
+  } catch { return isoString }
+}
+
+// ─── COMPONENTS ─────────────────────────────────────────────────
+function metricCard(label, value, change, sparkData, color, isLoading) {
+  const spark   = sparkData ? sparklineSVG(sparkData, color) : '<div style="width:80px;height:40px"></div>'
+  const display = isLoading ? skeletonVal() : (typeof value === 'string' ? value : fmtNum(value))
+  const chg     = isLoading ? '<div class="a-chg-nil">loading…</div>' : changeEl(change)
+  return `<div class="a-metric${isLoading ? '' : ' metric-fade-in'}">
+    <div class="metric-label">${label}</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px">
+      <div>
+        <div class="metric-val">${display}</div>
+        ${chg}
+      </div>
+      <div style="flex-shrink:0;margin-left:8px;align-self:flex-end">${isLoading ? '' : spark}</div>
+    </div>
+  </div>`
+}
+
+function goalsCard(goals, color) {
+  return `<div class="goals-card">
+    <div class="card-title">APRIL GOALS</div>
+    ${goals.map(g => {
+      const pct = Math.min(100, Math.round((g.current / g.target) * 100))
+      return `<div class="goals-row">
+        <div class="goals-meta">
+          <span class="goals-label">${g.label}</span>
+          <span class="goals-progress">${g.current}/${g.target} (${pct}%)</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-bar" style="width:${pct}%;background:${color}"></div>
+        </div>
+      </div>`
+    }).join('')}
+  </div>`
+}
+
+function platformBlock(key, isLoading) {
+  const cfg = PLATFORMS[key]
+  const d   = analyticsData.platforms[key]
+  const c   = cfg.color
+  const isYT = key === 'youtube'
+  const isIG = key === 'instagram'
+  const isTT = key === 'tiktok'
+
+  if (isIG) return instagramBlock(isLoading)
+  if (isTT) return tiktokBlock(isLoading)
+  if (isYT) return youtubeBlock(isLoading)
+  if (key === 'facebook') return facebookBlock(isLoading)
+
+  const fLabel = isYT ? 'SUBSCRIBERS' : 'FOLLOWERS'
+  const fVal   = isYT ? d.subscribers  : d.followers
+  const fChg   = isYT ? d.subscribers_change : d.followers_change
+  const fData  = isYT ? d.weekly_data.subscribers : d.weekly_data.followers
+
+  let statusBadge = ''
+  if (!isLoading && isYT) {
+    if (ytDataStatus === 'live')   statusBadge = '<span class="data-badge-live">● Live</span>'
+    else if (ytDataStatus === 'cached') statusBadge = '<span class="data-badge-cached">Using cached data</span>'
+  }
+
+  return `<div class="platform-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+      <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      ${statusBadge}
+    </div>
+
+    <div class="ag3">
+      ${metricCard(fLabel, fVal, fChg, fData, c, isLoading)}
+      ${metricCard('AVG VIEWS', d.avg_views, d.avg_views_change, d.weekly_data.views, c, isLoading)}
+      ${metricCard('VIDEOS POSTED', d.videos_this_week, d.videos_change, null, c, isLoading)}
+    </div>
+
+    <div class="ag3" style="margin-bottom:14px">
+      ${metricCard('ENGAGEMENT RATE', d.engagement_rate + '%', d.engagement_change, null, c, isLoading)}
+    </div>
+
+    ${goalsCard(d.goals, c)}
+  </div>`
+}
+
+function instagramBlock(isLoading) {
+  const cfg = PLATFORMS.instagram
+  const c   = cfg.color
+
+  if (isLoading) {
+    return `<div class="platform-section">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="platform-badge" style="background:${c}">IG</div>
+        <span style="font-size:17px;font-weight:700;color:var(--text)">Instagram</span>
+      </div>
+      <div class="ag6">${Array(6).fill(`<div class="a-metric">${skeletonVal()}</div>`).join('')}</div>
+    </div>`
+  }
+
+  if (igState === 'no-data' || !igData.profile) {
+    return `<div class="platform-section">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="platform-badge" style="background:${c}">IG</div>
+        <span style="font-size:17px;font-weight:700;color:var(--text)">Instagram</span>
+      </div>
+      <div style="padding:24px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">
+        No Instagram data available. Check <code>instagram_tokens</code> in Supabase.
+      </div>
+    </div>`
+  }
+
+  const profile = igData.profile
+  const media   = igData.media || []
+
+  let statusBanner = ''
+  if (igState === 'live') {
+    const ts = igLastFetchedAt ? toPhilippineTime(igLastFetchedAt) : '—'
+    statusBanner = `<div class="tt-status-live" style="margin-bottom:12px">
+      <span class="data-badge-live" style="margin-left:0">● Live</span>
+      <span style="font-size:11px;color:var(--text2)">Last updated: ${ts}</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--text3)">Token expires in 60 days — update META_PAGE_ACCESS_TOKEN in .env and Supabase to refresh.</span>
+    </div>`
+  } else if (igState === 'expired') {
+    const ts = igLastFetchedAt ? toPhilippineTime(igLastFetchedAt) : 'unknown time'
+    statusBanner = `<div class="tt-status-expired" style="margin-bottom:12px">
+      <span style="font-size:12px;font-weight:600;color:var(--amber)">⚠ Token expired — showing cached data from ${ts}</span>
+      <a href="#" style="margin-left:auto;font-size:11px;color:var(--amber);font-weight:600;text-decoration:none" onclick="showIGReconnectInstructions(event)">Reconnect</a>
+    </div>`
+  }
+
+  const avatarEl = profile.profile_picture_url
+    ? `<img src="${igEscH(profile.profile_picture_url)}" class="tt-avatar" alt="">`
+    : `<div class="tt-avatar" style="background:#E1306C;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">IG</div>`
+
+  const mainContent = igMainTab === 'trends'
+    ? renderIGTrendsTab(media)
+    : renderIGOverviewContent(profile, media)
+
+  return `<div class="platform-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="platform-badge" style="background:${c}">IG</div>
+      <span style="font-size:17px;font-weight:700;color:var(--text)">Instagram</span>
+      ${igState === 'live' ? '<span class="data-badge-live">● Live</span>' : igState === 'expired' ? '<span class="data-badge-cached">Cached</span>' : ''}
+    </div>
+
+    ${statusBanner}
+
+    <div class="tt-profile-card" style="margin-bottom:14px">
+      <div class="tt-profile-left">
+        ${avatarEl}
+        <div>
+          <div class="tt-display-name">@${igEscH(profile.username || 'boostedgranny')}</div>
+          <div class="tt-profile-handle">${igFmtN(profile.followers_count)} followers · ${igFmtN(profile.media_count)} posts</div>
+          ${profile.biography ? `<div style="font-size:10px;color:var(--text3);max-width:320px;line-height:1.4;margin-top:3px">${igEscH(profile.biography)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="tt-main-tabs">
+      <button class="tt-main-tab ig-main-tab${igMainTab==='overview'?' active':''}" data-tab="overview"
+        onclick="switchIGMainTab('overview')"
+        style="${igMainTab==='overview'?'color:#E1306C;border-bottom-color:#E1306C':''}">Overview</button>
+      <button class="tt-main-tab ig-main-tab${igMainTab==='trends'?' active':''}" data-tab="trends"
+        onclick="switchIGMainTab('trends')"
+        style="${igMainTab==='trends'?'color:#E1306C;border-bottom-color:#E1306C':''}">📈 Trends</button>
+    </div>
+
+    <div id="ig-main-content">${mainContent}</div>
+  </div>`
+}
+
+function showIGReconnectInstructions(evt) {
+  evt.preventDefault()
+  alert('To refresh the Instagram token:\n\n1. Go to Meta Business Suite or Graph API Explorer\n2. Generate a new long-lived Page Access Token\n3. Update META_PAGE_ACCESS_TOKEN in .env\n4. Update page_access_token in Supabase instagram_tokens table\n   (account_name = boostedgranny)')
+}
+window.showIGReconnectInstructions = showIGReconnectInstructions
+
+// ─── FACEBOOK API FUNCTIONS ───────────────────────────────────────
+async function fetchFBProfile(pageId, token) {
+  const fields = 'fan_count,followers_count,name,picture'
+  const res = await fetch(`${FB_API_BASE}/${pageId}?fields=${fields}&access_token=${token}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`FB profile failed (${res.status}): ${err.error?.message || res.statusText}`)
+  }
+  return res.json()
+}
+
+async function fetchFBPosts(pageId, token) {
+  const fullFields = 'id,message,created_time,full_picture,likes.summary(true),comments.summary(true),shares'
+  const baseFields = 'id,message,created_time,full_picture,shares'
+  let res = await fetch(`${FB_API_BASE}/${pageId}/posts?fields=${fullFields}&access_token=${token}`)
+  if (!res.ok) {
+    // likes/comments summaries require Advanced Access on pages_read_engagement —
+    // fall back to base fields so posts still render while that's pending App Review
+    res = await fetch(`${FB_API_BASE}/${pageId}/posts?fields=${baseFields}&access_token=${token}`)
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`FB posts failed (${res.status}): ${err.error?.message || res.statusText}`)
+  }
+  const data = await res.json()
+  return data.data || []
+}
+
+async function fetchFBInsights(pageId, token) {
+  try {
+    const res = await fetch(`${FB_API_BASE}/${pageId}/insights?metric=page_impressions,page_reach,page_views_total&period=day&access_token=${token}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.data || null
+  } catch { return null }
+}
+
+async function initFacebookFromSupabase() {
+  const tokenRow = await sbGetFBToken()
+  const cacheRow = await sbGetFBCache()
+
+  if (cacheRow?.last_fetched_at) fbLastFetchedAt = cacheRow.last_fetched_at
+
+  if (tokenRow?.page_access_token && tokenRow?.page_id) {
+    try {
+      const [profile, posts, insights] = await Promise.all([
+        fetchFBProfile(tokenRow.page_id, tokenRow.page_access_token),
+        fetchFBPosts(tokenRow.page_id, tokenRow.page_access_token),
+        fetchFBInsights(tokenRow.page_id, tokenRow.page_access_token)
+      ])
+      fbData = { profile, posts, insights }
+      fbLastFetchedAt = new Date().toISOString()
+      await sbSaveFBCache(profile, posts, insights)
+      fbState = 'live'
+    } catch (err) {
+      console.error('FB fetch error:', err)
+      if (cacheRow?.profile_data) {
+        fbData = { profile: cacheRow.profile_data, posts: cacheRow.posts_data || [], insights: cacheRow.insights_data || null }
+        fbState = 'expired'
+      } else {
+        fbData = { profile: null, posts: [], insights: null }
+        fbState = 'no-data'
+      }
+    }
+  } else if (cacheRow?.profile_data) {
+    fbData = { profile: cacheRow.profile_data, posts: cacheRow.posts_data || [], insights: cacheRow.insights_data || null }
+    fbState = 'expired'
+  } else {
+    fbState = 'no-data'
+  }
+}
+
+// ─── FACEBOOK ANALYTICS HELPERS ──────────────────────────────────
+function fbGroupByMonth(posts) {
+  const map = {}
+  posts.forEach(p => {
+    if (!p.created_time) return
+    const d   = new Date(p.created_time)
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    const lbl = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+    if (!map[key]) map[key] = { key, label: lbl, posts: [], likes: 0, comments: 0, shares: 0, count: 0 }
+    map[key].posts.push(p)
+    map[key].likes    += p.likes?.summary?.total_count || 0
+    map[key].comments += p.comments?.summary?.total_count || 0
+    map[key].shares   += p.shares?.count || 0
+    map[key].count    += 1
+  })
+  return Object.values(map).sort((a, b) => a.key.localeCompare(b.key))
+}
+
+function fbEnrichData(data) {
+  return data.map(m => ({
+    ...m,
+    eng: m.count ? +((m.likes + m.comments + m.shares) / m.count).toFixed(1) : 0,
+    avg: m.count ? Math.round(m.likes / m.count) : 0
+  }))
+}
+
+function getFBChartData(posts, range) {
+  const now     = new Date()
+  const byMonth = fbGroupByMonth(posts)
+  if (range === 'all') return fbEnrichData(byMonth)
+  const n = range === '6m' ? 6 : 3
+  const cutoff = new Date(now)
+  cutoff.setMonth(cutoff.getMonth() - n)
+  const cutKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}`
+  return fbEnrichData(byMonth.filter(m => m.key >= cutKey))
+}
+
+function fbPostEng(p) {
+  return (p.likes?.summary?.total_count || 0) + (p.comments?.summary?.total_count || 0) + (p.shares?.count || 0)
+}
+
+function renderFBTopPost(posts, selectedMonth) {
+  const byMonth = fbGroupByMonth(posts)
+  if (!byMonth.length) return '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text3)">No post data available</div>'
+  const opts = byMonth.slice().reverse().map(m =>
+    `<option value="${m.key}"${m.key === selectedMonth ? ' selected' : ''}>${m.label}</option>`
+  ).join('')
+  const monthData = byMonth.find(m => m.key === selectedMonth)
+  let cardHtml
+  if (!monthData || !monthData.posts.length) {
+    cardHtml = `<div style="padding:14px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">No posts this month</div>`
+  } else {
+    const top = monthData.posts.reduce((a, b) => fbPostEng(b) > fbPostEng(a) ? b : a)
+    const thumb = top.full_picture
+      ? `<img src="${igEscH(top.full_picture)}" style="width:70px;height:70px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)" alt="">`
+      : `<div style="width:70px;height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;color:var(--text3)">📘</div>`
+    const full = top.message || ''
+    const msg  = igEscH(full.substring(0, 70) + (full.length > 70 ? '…' : ''))
+    cardHtml = `<div class="tt-top-video-card" style="border-left-color:#1877F2">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div class="tt-top-video-badge" style="background:#1877F2">🏆 Top Post — ${monthData.label}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:7px;line-height:1.4">${msg || '(no message)'}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text2)">♥ <strong>${igFmtN(top.likes?.summary?.total_count)}</strong> likes</span>
+          <span style="font-size:11px;color:var(--text2)">💬 <strong>${igFmtN(top.comments?.summary?.total_count)}</strong> comments</span>
+          <span style="font-size:11px;color:var(--text2)">🔁 <strong>${igFmtN(top.shares?.count)}</strong> shares</span>
+          ${top.created_time ? `<span style="font-size:11px;color:var(--text3)">${igFmtDate(top.created_time)}</span>` : ''}
+        </div>
+      </div>
+    </div>`
+  }
+  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:700">🏆 Top Post of the Month</div>
+    <select onchange="setFBMonthFilter(this.value)" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;outline:none">${opts}</select>
+  </div>${cardHtml}`
+}
+
+function renderFBPostTableRows(posts, allPosts) {
+  if (!posts || !posts.length) return '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text3)">No posts found</div>'
+  const maxEng = Math.max(...allPosts.map(fbPostEng), 1)
+  return posts.map(p => {
+    const full = p.message || ''
+    const msg  = igEscH(full.substring(0, 80) + (full.length > 80 ? '…' : ''))
+    const thumb = p.full_picture
+      ? `<img src="${igEscH(p.full_picture)}" class="tt-vt-thumb" alt="">`
+      : `<div class="tt-vt-thumb" style="background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3)">📘</div>`
+    const likes    = p.likes?.summary?.total_count || 0
+    const comments = p.comments?.summary?.total_count || 0
+    const shares   = p.shares?.count || 0
+    const barPct   = Math.round((fbPostEng(p) / maxEng) * 100)
+    return `<div class="tt-vt-row">
+      ${thumb}
+      <div class="tt-vt-meta">
+        <div class="tt-vt-title" title="${igEscH(full)}">${msg || '(no message)'}</div>
+        <div class="tt-vt-stats">
+          <span>♥ ${igFmtN(likes)}</span>
+          <span>💬 ${igFmtN(comments)}</span>
+          <span>🔁 ${igFmtN(shares)}</span>
+        </div>
+        <div class="tt-vt-bar-wrap"><div class="tt-vt-bar" style="width:${barPct}%;background:#1877F2"></div></div>
+      </div>
+      <div class="tt-vt-date">${igFmtDate(p.created_time)}</div>
+    </div>`
+  }).join('')
+}
+
+function renderFBPaginatedTable(pool, allPosts, page, pageSize) {
+  const totalPages = Math.ceil(pool.length / pageSize)
+  const rows = renderFBPostTableRows(pool.slice(page * pageSize, (page + 1) * pageSize), allPosts)
+  if (totalPages <= 1) return rows
+  return `${rows}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+    <button class="refresh-btn" style="font-size:11px;padding:3px 10px" onclick="setFBPostPage(${page-1})"${page===0?' disabled':''}>← Prev</button>
+    <span style="font-size:11px;color:var(--text3)">Page ${page+1} of ${totalPages} · ${pool.length} posts</span>
+    <button class="refresh-btn" style="font-size:11px;padding:3px 10px" onclick="setFBPostPage(${page+1})"${page>=totalPages-1?' disabled':''}>Next →</button>
+  </div>`
+}
+
+function renderFBOverviewContent(profile, posts) {
+  const byMonth   = fbGroupByMonth(posts)
+  const mLikes    = byMonth.map(m => m.likes)
+  const mComments = byMonth.map(m => m.comments)
+  const mShares   = byMonth.map(m => m.shares)
+  const mEng      = byMonth.map(m => m.count ? +((m.likes+m.comments+m.shares)/m.count).toFixed(1) : 0)
+  const mAvg      = byMonth.map(m => m.count ? Math.round(m.likes/m.count) : 0)
+
+  const totalLikes    = posts.reduce((s, p) => s + (p.likes?.summary?.total_count || 0), 0)
+  const totalComments = posts.reduce((s, p) => s + (p.comments?.summary?.total_count || 0), 0)
+  const totalShares   = posts.reduce((s, p) => s + (p.shares?.count || 0), 0)
+  const followers     = profile.followers_count || 0
+  const avgLikes      = posts.length ? Math.round(totalLikes / posts.length) : 0
+  const engRate       = followers > 0 ? ((totalLikes + totalComments + totalShares) / followers * 100).toFixed(2) : '0.00'
+
+  function momDelta(arr) {
+    if (arr.length < 2) return null
+    const prev = arr[arr.length-2], cur = arr[arr.length-1]
+    return prev ? (((cur-prev)/prev)*100).toFixed(1) : null
+  }
+  const dL = momDelta(mLikes), dC = momDelta(mComments), dS = momDelta(mShares), dE = momDelta(mEng), dAvg = momDelta(mAvg)
+
+  const tipFollowers = `${igFmtN(followers)} followers. ${posts.length} posts tracked.`
+  const tipLikes     = `${igFmtN(totalLikes)} total likes across ${posts.length} posts.${dL !== null ? ' ' + (dL >= 0 ? `Up ${dL}%` : `Down ${Math.abs(dL)}%`) + ' from last month.' : ''}`
+  const tipComments  = `${igFmtN(totalComments)} total comments.${dC !== null ? ' ' + (dC >= 0 ? `Up ${dC}%` : `Down ${Math.abs(dC)}%`) + ' from last month.' : ''}`
+  const tipShares    = `${igFmtN(totalShares)} total shares.${dS !== null ? ' ' + (dS >= 0 ? `Up ${dS}%` : `Down ${Math.abs(dS)}%`) + ' from last month.' : ''}`
+  const tipAvgLikes  = `${igFmtN(avgLikes)} avg likes per post.${dAvg !== null ? ' ' + (dAvg >= 0 ? `Trending up.` : `Trending down.`) : ''}`
+  const tipEng       = `${engRate}% engagement rate ((likes+comments+shares) / followers).`
+
+  const metrics = `<div class="ag6" style="margin-bottom:14px">
+    <div class="a-metric" data-tooltip="${tipFollowers}">
+      <div class="metric-label">PAGE FOLLOWERS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(followers)}</div><div class="a-chg-nil">page total</div></div>${ttSparkline([], '#1877F2')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipLikes}">
+      <div class="metric-label">TOTAL LIKES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalLikes)}</div>${changeEl(dL)}<div class="metric-sub">${posts.length} posts</div></div>${ttSparkline(mLikes,'#1877F2')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipComments}">
+      <div class="metric-label">TOTAL COMMENTS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalComments)}</div>${changeEl(dC)}<div class="metric-sub">${posts.length} posts</div></div>${ttSparkline(mComments,'#8b5cf6')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipShares}">
+      <div class="metric-label">TOTAL SHARES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(totalShares)}</div>${changeEl(dS)}<div class="metric-sub">${posts.length} posts</div></div>${ttSparkline(mShares,'#f59e0b')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipAvgLikes}">
+      <div class="metric-label">AVG LIKES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${igFmtN(avgLikes)}</div>${changeEl(dAvg)}<div class="metric-sub">per post</div></div>${ttSparkline(mAvg,'#f43f5e')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipEng}">
+      <div class="metric-label">ENGAGEMENT RATE</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div>${changeEl(dE)}<div class="metric-sub">(likes+comments+shares)/followers</div></div>${ttSparkline(mEng,'#3b82f6')}</div>
+    </div>
+  </div>`
+
+  const topPost = posts.length
+    ? `<div id="fb-monthly-top" style="margin-bottom:16px">${renderFBTopPost(posts, fbMonthFilter)}</div>`
+    : ''
+
+  const tableContent = fbPostTab === 'last5'
+    ? renderFBPostTableRows(posts.slice(0, 5), posts)
+    : renderFBPaginatedTable(fbPostTab === 'all' ? posts : posts.slice(0, 20), posts, fbPostPage, 5)
+
+  return `${metrics}${topPost}
+  <div class="tt-tabs">
+    <button class="tt-tab${fbPostTab==='last5'?' active':''}" data-fbtab="last5" onclick="switchFBPostTab('last5')" style="${fbPostTab==='last5'?'background:#1877F2;border-color:#1877F2;color:#fff;':''}">Last 5</button>
+    <button class="tt-tab${fbPostTab==='last20'?' active':''}" data-fbtab="last20" onclick="switchFBPostTab('last20')" style="${fbPostTab==='last20'?'background:#1877F2;border-color:#1877F2;color:#fff;':''}">Last 20</button>
+    <button class="tt-tab${fbPostTab==='all'?' active':''}" data-fbtab="all" onclick="switchFBPostTab('all')" style="${fbPostTab==='all'?'background:#1877F2;border-color:#1877F2;color:#fff;':''}">All Posts</button>
+    <span style="margin-left:auto;font-size:10px;color:var(--text3);align-self:center">${posts.length} total</span>
+  </div>
+  <div id="fb-post-table">${tableContent}</div>`
+}
+
+function renderFBTrendsTab(posts) {
+  const metricCfg = [
+    { key: 'likes',    label: 'Likes',           color: '#1877F2' },
+    { key: 'comments', label: 'Comments',        color: '#8b5cf6' },
+    { key: 'shares',   label: 'Shares',          color: '#f59e0b' },
+    { key: 'eng',      label: 'Avg Engagement',  color: '#3b82f6' },
+    { key: 'count',    label: 'Posts Published', color: '#10b981' },
+    { key: 'avg',      label: 'Avg Likes',       color: '#f43f5e' },
+  ]
+  const rangeCfg = [
+    { key: 'all', label: 'All Time' },
+    { key: '6m',  label: 'Last 6 Mo' },
+    { key: '3m',  label: 'Last 3 Mo' },
+  ]
+  const data   = getFBChartData(posts, fbChartRange)
+  const mc     = metricCfg.find(m => m.key === fbChartMetric) || metricCfg[0]
+  const metricTabs = metricCfg.map(m =>
+    `<button class="tt-tab${fbChartMetric===m.key?' active':''}" onclick="switchFBChartMetric('${m.key}')"
+      style="${fbChartMetric===m.key?`background:${m.color};border-color:${m.color};color:#fff;`:''}">${m.label}</button>`
+  ).join('')
+  const rangeBtns = rangeCfg.map(r =>
+    `<button class="tt-range-btn${fbChartRange===r.key?' active':''}" onclick="switchFBChartRange('${r.key}')">${r.label}</button>`
+  ).join('')
+  const rangeLbl = rangeCfg.find(r => r.key === fbChartRange)?.label || ''
+  const insight  = data.length >= 2 ? generateChartInsight(data, mc.key, mc.label) : ''
+  const legend = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${insight?'5px':'6px'}">
+    <span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);font-weight:600">
+      <span style="width:14px;height:2px;background:${mc.color};border-radius:1px;display:inline-block"></span>${mc.label}
+    </span>
+    <span style="font-size:10px;color:var(--text3)">· ${rangeLbl}</span>
+    <span style="font-size:10px;color:var(--text3)">· ${data.length} data point${data.length!==1?'s':''}</span>
+  </div>${insight?`<p style="font-size:10px;font-style:italic;color:var(--text3);margin:0 0 7px;line-height:1.5">${igEscH(insight)}</p>`:''}`
+  const chartHtml = data.length < 2
+    ? `<div style="padding:20px;text-align:center;font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">Not enough data for this range</div>`
+    : `<div class="tt-chart-wrap">${legend}${renderLineChart(data, mc.key, mc.color)}</div>`
+  return `<div class="tt-tabs" style="flex-wrap:wrap;gap:5px;margin-bottom:10px">${metricTabs}</div>
+    <div class="tt-range-wrap">${rangeBtns}</div>
+    ${chartHtml}`
+}
+
+function switchFBMainTab(tab) {
+  fbMainTab = tab
+  const el = document.getElementById('fb-main-content')
+  if (!el || !fbData.profile) return
+  el.innerHTML = tab === 'trends'
+    ? renderFBTrendsTab(fbData.posts)
+    : renderFBOverviewContent(fbData.profile, fbData.posts)
+  document.querySelectorAll('.fb-main-tab').forEach(btn => {
+    const active = btn.dataset.tab === tab
+    btn.classList.toggle('active', active)
+    btn.style.color             = active ? '#1877F2' : ''
+    btn.style.borderBottomColor = active ? '#1877F2' : ''
+  })
+}
+window.switchFBMainTab = switchFBMainTab
+
+function switchFBPostTab(tab) {
+  fbPostTab  = tab
+  fbPostPage = 0
+  const el = document.getElementById('fb-post-table')
+  if (!el) return
+  if (tab === 'last5') {
+    el.innerHTML = renderFBPostTableRows(fbData.posts.slice(0, 5), fbData.posts)
+  } else {
+    const pool = tab === 'all' ? fbData.posts : fbData.posts.slice(0, 20)
+    el.innerHTML = renderFBPaginatedTable(pool, fbData.posts, 0, 5)
+  }
+  document.querySelectorAll('[data-fbtab]').forEach(btn => {
+    const active = btn.dataset.fbtab === tab
+    btn.classList.toggle('active', active)
+    btn.style.background  = active ? '#1877F2' : ''
+    btn.style.borderColor = active ? '#1877F2' : ''
+    btn.style.color       = active ? '#fff' : ''
+  })
+}
+window.switchFBPostTab = switchFBPostTab
+
+function setFBPostPage(page) {
+  fbPostPage = page
+  const el = document.getElementById('fb-post-table')
+  if (!el) return
+  const pool = fbPostTab === 'all' ? fbData.posts : fbData.posts.slice(0, 20)
+  el.innerHTML = renderFBPaginatedTable(pool, fbData.posts, page, 5)
+}
+window.setFBPostPage = setFBPostPage
+
+function switchFBChartMetric(metric) {
+  fbChartMetric = metric
+  const el = document.getElementById('fb-main-content')
+  if (el) el.innerHTML = renderFBTrendsTab(fbData.posts)
+}
+window.switchFBChartMetric = switchFBChartMetric
+
+function switchFBChartRange(range) {
+  fbChartRange = range
+  const el = document.getElementById('fb-main-content')
+  if (el) el.innerHTML = renderFBTrendsTab(fbData.posts)
+}
+window.switchFBChartRange = switchFBChartRange
+
+function setFBMonthFilter(value) {
+  fbMonthFilter = value
+  const el = document.getElementById('fb-monthly-top')
+  if (el) el.innerHTML = renderFBTopPost(fbData.posts, value)
+}
+window.setFBMonthFilter = setFBMonthFilter
+
+function facebookBlock(isLoading) {
+  const cfg = PLATFORMS.facebook
+  const c   = cfg.color
+
+  if (isLoading) {
+    return `<div class="platform-section">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+        <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      </div>
+      <div class="ag6">${Array(6).fill(`<div class="a-metric">${skeletonVal()}</div>`).join('')}</div>
+    </div>`
+  }
+
+  if (fbState === 'no-data' || !fbData.profile) {
+    return `<div class="platform-section">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+        <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      </div>
+      <div style="padding:24px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">
+        No Facebook data available. Check <code>facebook_tokens</code> in Supabase.
+      </div>
+    </div>`
+  }
+
+  const profile = fbData.profile
+  const posts   = fbData.posts || []
+
+  let statusBanner = ''
+  if (fbState === 'live') {
+    const ts = fbLastFetchedAt ? toPhilippineTime(fbLastFetchedAt) : '—'
+    statusBanner = `<div class="tt-status-live" style="margin-bottom:12px">
+      <span class="data-badge-live" style="margin-left:0">● Live</span>
+      <span style="font-size:11px;color:var(--text2)">Last updated: ${ts}</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--text3)">Facebook token expires in 60 days.</span>
+    </div>`
+  } else if (fbState === 'expired') {
+    const ts = fbLastFetchedAt ? toPhilippineTime(fbLastFetchedAt) : 'unknown time'
+    statusBanner = `<div class="tt-status-expired" style="margin-bottom:12px">
+      <span style="font-size:12px;font-weight:600;color:var(--amber)">⚠ Token expired — showing cached data from ${ts}</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--text3)">Facebook token expires in 60 days — update META_PAGE_ACCESS_TOKEN in .env and Supabase facebook_tokens.</span>
+    </div>`
+  }
+
+  const avatarEl = profile.picture?.data?.url
+    ? `<img src="${igEscH(profile.picture.data.url)}" class="tt-avatar" alt="">`
+    : `<div class="tt-avatar" style="background:${c};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">FB</div>`
+
+  const mainContent = fbMainTab === 'trends'
+    ? renderFBTrendsTab(posts)
+    : renderFBOverviewContent(profile, posts)
+
+  return `<div class="platform-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+      <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      ${fbState === 'live' ? '<span class="data-badge-live">● Live</span>' : fbState === 'expired' ? '<span class="data-badge-cached">Cached</span>' : ''}
+    </div>
+
+    ${statusBanner}
+
+    <div class="tt-profile-card" style="margin-bottom:14px">
+      <div class="tt-profile-left">
+        ${avatarEl}
+        <div>
+          <div class="tt-display-name">${igEscH(profile.name || 'Granny Grit')}</div>
+          <div class="tt-profile-handle">${igFmtN(profile.fan_count)} fans · ${igFmtN(profile.followers_count)} followers</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tt-main-tabs">
+      <button class="tt-main-tab fb-main-tab${fbMainTab==='overview'?' active':''}" data-tab="overview"
+        onclick="switchFBMainTab('overview')"
+        style="${fbMainTab==='overview'?'color:#1877F2;border-bottom-color:#1877F2':''}">Overview</button>
+      <button class="tt-main-tab fb-main-tab${fbMainTab==='trends'?' active':''}" data-tab="trends"
+        onclick="switchFBMainTab('trends')"
+        style="${fbMainTab==='trends'?'color:#1877F2;border-bottom-color:#1877F2':''}">📈 Trends</button>
+    </div>
+
+    <div id="fb-main-content">${mainContent}</div>
+  </div>`
+}
+
+// ─── YOUTUBE HELPERS ─────────────────────────────────────────────
+function ytFmtN(n) {
+  if (!n && n !== 0) return '—'
+  const v = Number(n)
+  if (v >= 1000000) return (v/1000000).toFixed(1).replace(/\.0$/,'')+'M'
+  if (v >= 1000) return (v/1000).toFixed(1).replace(/\.0$/,'')+'K'
+  return String(v)
+}
+
+function ytEscH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+function renderYTBarChart(videos) {
+  if (!videos || videos.length === 0) return '<div class="tt-loading-state">No video data yet.</div>'
+  const W = 500, H = 90, PL = 28, PR = 4, PT = 8, PB = 20
+  const cw = W - PL - PR, ch = H - PT - PB
+  const maxViews = Math.max(...videos.map(v => v.views), 1)
+  const n = videos.length
+  const slotW = cw / n
+  const barW = Math.max(4, slotW - 4)
+
+  const bars = videos.map((v, i) => {
+    const barH = Math.max(2, (v.views / maxViews) * ch)
+    const x = PL + i * slotW + (slotW - barW) / 2
+    const y = PT + ch - barH
+    const fv = ytFmtN(v.views)
+    const dateStr = v.published_at
+      ? new Date(v.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : ''
+    const tipTitle = (v.title || '').substring(0, 28) + ((v.title || '').length > 28 ? '…' : '')
+    const tip = (tipTitle + ' · ' + fv + ' views').replace(/'/g, '&#39;')
+    const cx = (x + barW / 2).toFixed(1)
+    return `<g onmouseover="showChartTip(event,'${tip}')" onmouseout="hideChartTip()" style="cursor:pointer">
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}"
+        fill="#FF0000" fill-opacity="${v.views > 0 ? 0.75 : 0.15}" rx="2"/>
+      <text x="${cx}" y="${(H - PB + 11).toFixed(1)}" text-anchor="middle"
+        font-size="5" fill="var(--text3)" font-family="system-ui">${dateStr}</text>
+    </g>`
+  }).join('')
+
+  const yTicks = [0, 0.5, 1].map(t => {
+    const y = (PT + (1 - t) * ch).toFixed(1)
+    const lbl = ytFmtN(Math.round(maxViews * t))
+    return `<line x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
+            <text x="${PL - 4}" y="${(+y + 2).toFixed(1)}" text-anchor="end" font-size="5" fill="var(--text3)" font-family="system-ui">${lbl}</text>`
+  }).join('')
+
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">
+    ${yTicks}${bars}
+  </svg>`
+}
+
+function renderYTVideoTable(videos) {
+  if (!videos || videos.length === 0) return ''
+  const maxViews = Math.max(...ytVideos.map(v => v.views), 1)
+  return videos.map(v => {
+    const barPct = Math.round((v.views / maxViews) * 100)
+    const title = ytEscH(v.title || '(No title)')
+    const date = v.published_at
+      ? new Date(v.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : ''
+    const thumb = v.thumbnail
+      ? `<img src="${ytEscH(v.thumbnail)}" class="yt-vt-thumb" alt="">`
+      : `<div class="yt-vt-thumb-placeholder">▶</div>`
+    return `<div class="tt-vt-row">
+      ${thumb}
+      <div class="tt-vt-meta">
+        <div class="tt-vt-title" title="${title}">${title}</div>
+        <div class="tt-vt-stats">
+          <span>👁 ${ytFmtN(v.views)}</span>
+          <span>♥ ${ytFmtN(v.likes)}</span>
+          <span>💬 ${ytFmtN(v.comments)}</span>
+        </div>
+        <div class="tt-vt-bar-wrap"><div class="tt-vt-bar" style="width:${barPct}%;background:#FF0000"></div></div>
+      </div>
+      <div class="tt-vt-date">${date}</div>
+    </div>`
+  }).join('')
+}
+
+function ytMomDelta(arr) {
+  if (!arr || arr.length < 2) return null
+  const prev = arr[arr.length - 2], cur = arr[arr.length - 1]
+  return prev ? (((cur - prev) / prev) * 100).toFixed(1) : null
+}
+function ytTrendStr(d) {
+  if (d === null) return ''
+  return +d >= 0 ? `Up ${d}% recently.` : `Down ${Math.abs(d)}% recently.`
+}
+
+function switchYtVideoTab(tab) {
+  ytVideoTab = tab
+  const el = document.getElementById('yt-video-table')
+  if (!el) return
+  el.innerHTML = renderYTVideoTable(ytVideos.slice(0, tab === 'last10' ? 10 : 5))
+  document.querySelectorAll('[data-yttab]').forEach(btn => {
+    const active = btn.dataset.yttab === tab
+    btn.classList.toggle('active', active)
+    btn.style.background  = active ? '#FF0000' : ''
+    btn.style.borderColor = active ? '#FF0000' : ''
+    btn.style.color       = active ? '#fff' : ''
+  })
+}
+window.switchYtVideoTab = switchYtVideoTab
+
+// ─── YOUTUBE GROUP HELPERS ────────────────────────────────────────
+function groupYTByMonth(videos) {
+  const map = {}
+  videos.forEach(v => {
+    if (!v.published_at) return
+    const d   = new Date(v.published_at)
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    const lbl = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+    if (!map[key]) map[key] = { key, label: lbl, videos: [], views: 0, likes: 0, comments: 0, count: 0 }
+    map[key].videos.push(v)
+    map[key].views    += v.views    || 0
+    map[key].likes    += v.likes    || 0
+    map[key].comments += v.comments || 0
+    map[key].count    += 1
+  })
+  return Object.values(map).sort((a, b) => a.key.localeCompare(b.key))
+}
+function enrichYTData(data) {
+  return data.map(m => ({
+    ...m,
+    avg: m.count ? Math.round(m.views / m.count) : 0,
+    eng: m.views > 0 ? +((m.likes + m.comments) / m.views * 100).toFixed(2) : 0
+  }))
+}
+function getYTChartData(videos, range) {
+  const now     = new Date()
+  const byMonth = enrichYTData(groupYTByMonth(videos))
+  if (range === 'all') return byMonth
+  const n = range === '6m' ? 6 : 3
+  const cutoff = new Date(now)
+  cutoff.setMonth(cutoff.getMonth() - n)
+  const cutKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}`
+  return byMonth.filter(m => m.key >= cutKey)
+}
+
+// ─── YOUTUBE TOP VIDEO ───────────────────────────────────────────
+function renderYTTopVideo(videos, selectedMonth) {
+  const byMonth = groupYTByMonth(videos)
+  if (!byMonth.length) return '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text3)">No video data available</div>'
+  const opts = byMonth.slice().reverse().map(m =>
+    `<option value="${m.key}"${m.key === selectedMonth ? ' selected' : ''}>${m.label}</option>`
+  ).join('')
+  const monthData = byMonth.find(m => m.key === selectedMonth)
+  let cardHtml
+  if (!monthData || !monthData.videos.length) {
+    cardHtml = `<div style="padding:14px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">No videos posted this month</div>`
+  } else {
+    const top  = monthData.videos.reduce((a, b) => (b.views||0) > (a.views||0) ? b : a)
+    const date = top.published_at ? new Date(top.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
+    const eng  = top.views > 0 ? ((top.likes + top.comments) / top.views * 100).toFixed(1) : '0.0'
+    const thumb = top.thumbnail
+      ? `<img src="${ytEscH(top.thumbnail)}" style="width:56px;height:78px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)" alt="">`
+      : `<div style="width:56px;height:78px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;color:var(--text3)">▶</div>`
+    cardHtml = `<div class="tt-top-video-card">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div class="tt-top-video-badge">🏆 Top Video — ${monthData.label}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:7px;line-height:1.4">${ytEscH(top.title || '(No title)')}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text2)">👁 <strong>${ytFmtN(top.views)}</strong> views</span>
+          <span style="font-size:11px;color:var(--text2)">♥ <strong>${ytFmtN(top.likes)}</strong> likes</span>
+          <span style="font-size:11px;color:var(--text2)">💬 <strong>${ytFmtN(top.comments)}</strong> comments</span>
+          <span style="font-size:11px;color:var(--text2)">📊 <strong>${eng}%</strong> eng</span>
+          ${date ? `<span style="font-size:11px;color:var(--text3)">${date}</span>` : ''}
+        </div>
+      </div>
+    </div>`
+  }
+  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:700">🏆 Top Video of the Month</div>
+    <select onchange="setYTMonthFilter(this.value)" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;outline:none">${opts}</select>
+  </div>
+  ${cardHtml}`
+}
+function setYTMonthFilter(val) {
+  ytMonthFilter = val
+  const el = document.getElementById('yt-monthly-top')
+  if (el) el.innerHTML = renderYTTopVideo(ytVideos, ytMonthFilter)
+}
+window.setYTMonthFilter = setYTMonthFilter
+
+// ─── YOUTUBE CHART RENDERERS ──────────────────────────────────────
+
+function renderYTLineChartSmall(values, color) {
+  if (!values || values.length < 2) return '<div class="tt-loading-state">Not enough data for trend.</div>'
+  const W = 500, H = 68, PL = 34, PR = 6, PT = 6, PB = 18
+  const cw = W - PL - PR, ch = H - PT - PB
+  const maxV = Math.max(...values, 1)
+  const minV = Math.min(...values, 0)
+  const range = maxV - minV || 1
+  const n = values.length
+  const xOf = i => PL + (i / (n - 1)) * cw
+  const yOf = v => PT + (1 - (v - minV) / range) * ch
+  const pts = values.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ')
+  const baseY = (PT + ch).toFixed(1)
+  const areaPoints = `${PL.toFixed(1)},${baseY} ${pts} ${(PL + cw).toFixed(1)},${baseY}`
+  const dots = values.map((v, i) => {
+    const x = xOf(i).toFixed(1), y = yOf(v).toFixed(1)
+    const daysAgo = n - 1 - i
+    const dt = new Date(); dt.setDate(dt.getDate() - daysAgo)
+    const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const prev = values[i - 1]
+    let pctStr = ''
+    if (i > 0 && prev) {
+      const pct = (((v - prev) / prev) * 100).toFixed(0)
+      pctStr = ` · ${pct >= 0 ? '+' : ''}${pct}% vs prev`
+    }
+    const tip = `${dateStr}: ${ytFmtN(v)}${pctStr}`.replace(/'/g, '&#39;')
+    return `<circle cx="${x}" cy="${y}" r="2.5" fill="${color}" stroke="var(--bg)" stroke-width="1.2"
+      onmouseover="showChartTip(event,'${tip}')" onmouseout="hideChartTip()" style="cursor:pointer"/>`
+  }).join('')
+  const yTicks = [0, 1].map(t => {
+    const y = (PT + (1 - t) * ch).toFixed(1)
+    const lbl = ytFmtN(Math.round(minV + range * t))
+    return `<line x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
+            <text x="${PL - 4}" y="${(+y + 2).toFixed(1)}" text-anchor="end" font-size="5" fill="var(--text3)" font-family="system-ui">${lbl}</text>`
+  }).join('')
+  const xLabels = values.map((v, i) => {
+    if (n > 5 && i % 2 !== 0 && i !== n - 1) return ''
+    const x = xOf(i).toFixed(1)
+    const daysAgo = n - 1 - i
+    const dt = new Date(); dt.setDate(dt.getDate() - daysAgo)
+    const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return `<text x="${x}" y="${H - 3}" text-anchor="middle" font-size="4.5" fill="var(--text3)" font-family="system-ui">${dateStr}</text>`
+  }).join('')
+  const gradId = `yt-lg-${color.replace('#','')}`
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0.01"/>
+      </linearGradient>
+    </defs>
+    ${yTicks}${xLabels}
+    <polygon points="${areaPoints}" fill="url(#${gradId})"/>
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+  </svg>`
+}
+
+// ─── YOUTUBE OVERVIEW + TRENDS ────────────────────────────────────
+
+function renderYTTrendsTab(videos) {
+  const metricCfg = [
+    { key: 'views',    label: 'Views',           color: '#FF0000' },
+    { key: 'likes',    label: 'Likes',            color: '#f43f5e' },
+    { key: 'comments', label: 'Comments',         color: '#8b5cf6' },
+    { key: 'avg',      label: 'Avg Views',        color: '#f59e0b' },
+    { key: 'eng',      label: 'Engagement Rate',  color: '#3b82f6' },
+  ]
+  const rangeCfg = [
+    { key: 'all', label: 'All Time' },
+    { key: '6m',  label: 'Last 6 Mo' },
+    { key: '3m',  label: 'Last 3 Mo' },
+  ]
+  const data = getYTChartData(videos, ytChartRange)
+  const mc   = metricCfg.find(m => m.key === ytChartMetric) || metricCfg[0]
+  const metricTabs = metricCfg.map(m =>
+    `<button class="tt-tab${ytChartMetric === m.key ? ' active' : ''}"
+      onclick="switchYTChartMetric('${m.key}')"
+      style="${ytChartMetric === m.key ? `background:${m.color};border-color:${m.color};color:#fff;` : ''}">${m.label}</button>`
+  ).join('')
+  const rangeBtns = rangeCfg.map(r =>
+    `<button class="tt-range-btn${ytChartRange === r.key ? ' active' : ''}" onclick="switchYTChartRange('${r.key}')">${r.label}</button>`
+  ).join('')
+  const rangeLbl = rangeCfg.find(r => r.key === ytChartRange)?.label || ''
+  const insight  = data.length >= 2 ? generateChartInsight(data, mc.key, mc.label) : ''
+  const legend   = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${insight ? '5px' : '6px'}">
+    <span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);font-weight:600">
+      <span style="width:14px;height:2px;background:${mc.color};border-radius:1px;display:inline-block"></span>
+      ${mc.label}
+    </span>
+    <span style="font-size:10px;color:var(--text3)">·</span>
+    <span style="font-size:10px;color:var(--text3)">${rangeLbl}</span>
+    <span style="font-size:10px;color:var(--text3)">·</span>
+    <span style="font-size:10px;color:var(--text3)">${data.length} data point${data.length !== 1 ? 's' : ''}</span>
+  </div>
+  ${insight ? `<p style="font-size:10px;font-style:italic;color:var(--text3);margin:0 0 7px;line-height:1.5">${ytEscH(insight)}</p>` : ''}`
+  const chartHtml = data.length < 2
+    ? `<div style="padding:20px;text-align:center;font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">Not enough data for this time range</div>`
+    : `<div class="tt-chart-wrap">${legend}${renderLineChart(data, mc.key, mc.color)}</div>`
+  return `<div class="tt-tabs" style="flex-wrap:wrap;gap:5px;margin-bottom:10px">${metricTabs}</div>
+    <div class="tt-range-wrap">${rangeBtns}</div>
+    ${chartHtml}`
+}
+
+function switchYTChartType(type) {
+  ytChartType = type
+  const d  = analyticsData.platforms.youtube
+  const el = document.getElementById('yt-main-content')
+  if (el) el.innerHTML = renderYTOverview(ytVideos, d)
+}
+window.switchYTChartType = switchYTChartType
+
+function switchYTChartMetric(metric) {
+  ytChartMetric = metric
+  const d  = analyticsData.platforms.youtube
+  const el = document.getElementById('yt-main-content')
+  if (el) el.innerHTML = renderYTOverview(ytVideos, d)
+}
+window.switchYTChartMetric = switchYTChartMetric
+
+function switchYTChartRange(range) {
+  ytChartRange = range
+  const d  = analyticsData.platforms.youtube
+  const el = document.getElementById('yt-main-content')
+  if (el) el.innerHTML = renderYTOverview(ytVideos, d)
+}
+window.switchYTChartRange = switchYTChartRange
+
+function renderYTOverview(videos, d) {
+  const byMonth    = enrichYTData(groupYTByMonth(videos))
+  const mViews     = byMonth.map(m => m.views)
+  const mLikes     = byMonth.map(m => m.likes)
+  const mComments  = byMonth.map(m => m.comments)
+  const mAvg       = byMonth.map(m => m.avg)
+  const mEng       = byMonth.map(m => m.eng)
+
+  // Per-video sparklines (oldest → newest)
+  const vVideos    = videos.slice().reverse()
+  const pvViews    = vVideos.map(v => v.views    || 0)
+  const pvLikes    = vVideos.map(v => v.likes    || 0)
+  const pvComments = vVideos.map(v => v.comments || 0)
+  const pvEng      = vVideos.map(v => v.views > 0 ? +((v.likes + v.comments) / v.views * 100).toFixed(2) : 0)
+  const pvAvg      = pvViews  // same as per-video views for avg sparkline
+
+  const totalLikes    = videos.reduce((s, v) => s + (v.likes    || 0), 0)
+  const totalComments = videos.reduce((s, v) => s + (v.comments || 0), 0)
+  const engRate       = d.engagement_rate || 0
+  const sDelta = ytMomDelta(d.weekly_data.subscribers)
+  const vDelta = ytMomDelta(mViews.length    >= 2 ? mViews    : [])
+  const eDelta = ytMomDelta(mEng.length      >= 2 ? mEng      : [])
+  const aDelta = ytMomDelta(mAvg.length      >= 2 ? mAvg      : [])
+  const lDelta = ytMomDelta(mLikes.length    >= 2 ? mLikes    : [])
+  const cDelta = ytMomDelta(mComments.length >= 2 ? mComments : [])
+  const tipSubs     = `${ytFmtN(d.subscribers)} subscribers. ${ytTrendStr(sDelta)} Total across full channel.`
+  const tipViews    = `${ytFmtN(d.total_views)} total views all time. ${ytTrendStr(vDelta)}`
+  const tipLikes    = `${ytFmtN(totalLikes)} likes on recent ${videos.length} videos. Like rate: ${d.total_views > 0 ? ((totalLikes/d.total_views)*100).toFixed(1) : 0}%. Industry avg is 3–5%.`
+  const tipComments = `${ytFmtN(totalComments)} comments on recent ${videos.length} videos. Comments signal strong audience connection.`
+  const tipAvg      = `${ytFmtN(d.avg_views)} avg views/video (7-day). ${ytTrendStr(aDelta)} ${d.avg_views > 1000 ? 'Solid reach.' : 'Focus on stronger hooks in the first 3 seconds.'}`
+  const tipEng      = `${engRate}% engagement rate. ${engRate > 3 ? '✅ Above YouTube average (1–3%).' : engRate > 1 ? 'Within normal range.' : '⚠ Add stronger CTAs and end screens.'} ${ytTrendStr(eDelta)}`
+
+  const metrics = `<div class="ag6" style="margin-bottom:14px">
+    <div class="a-metric" data-tooltip="${tipSubs}">
+      <div class="metric-label">SUBSCRIBERS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.subscribers)}</div>${changeEl(sDelta)}<div class="metric-sub">channel total</div></div>${ttSparkline(d.weekly_data.subscribers,'#22c55e')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipViews}">
+      <div class="metric-label">TOTAL VIEWS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.total_views)}</div>${changeEl(vDelta)}<div class="metric-sub">all time</div></div>${ttSparkline(pvViews.length >= 2 ? pvViews : mViews,'#FF0000')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipLikes}">
+      <div class="metric-label">TOTAL LIKES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(totalLikes)}</div>${changeEl(lDelta)}<div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(pvLikes.length >= 2 ? pvLikes : mLikes,'#f43f5e')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipComments}">
+      <div class="metric-label">TOTAL COMMENTS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(totalComments)}</div>${changeEl(cDelta)}<div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(pvComments.length >= 2 ? pvComments : mComments,'#8b5cf6')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipAvg}">
+      <div class="metric-label">AVG VIEWS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ytFmtN(d.avg_views)}</div>${changeEl(aDelta)}<div class="metric-sub">7-day window</div></div>${ttSparkline(pvAvg.length >= 2 ? pvAvg : d.weekly_data.views,'#f59e0b')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipEng}">
+      <div class="metric-label">ENGAGEMENT RATE</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div>${changeEl(eDelta)}<div class="metric-sub">(likes+comments)/views</div></div>${ttSparkline(pvEng.length >= 2 ? pvEng : mEng,'#3b82f6')}</div>
+    </div>
+  </div>`
+
+  const topVideo = videos.length
+    ? `<div id="yt-monthly-top" style="margin-bottom:16px">${renderYTTopVideo(videos, ytMonthFilter)}</div>`
+    : ''
+
+  // Chart section with Bar/Line type selector
+  let chartSection = ''
+  if (videos.length) {
+    const metricCfg = [
+      { key: 'views',    label: 'Views',           color: '#FF0000' },
+      { key: 'likes',    label: 'Likes',            color: '#f43f5e' },
+      { key: 'comments', label: 'Comments',         color: '#8b5cf6' },
+      { key: 'avg',      label: 'Avg Views',        color: '#f59e0b' },
+      { key: 'eng',      label: 'Engagement',       color: '#3b82f6' },
+    ]
+    const rangeCfg = [
+      { key: 'all', label: 'All Time' },
+      { key: '6m',  label: 'Last 6 Mo' },
+      { key: '3m',  label: 'Last 3 Mo' },
+    ]
+    const typeTabs = `<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:12px">
+      <button class="tt-main-tab${ytChartType==='bar'?' active':''}" onclick="switchYTChartType('bar')" style="${ytChartType==='bar'?'color:#FF0000;border-bottom-color:#FF0000':''}">Bar Chart</button>
+      <button class="tt-main-tab${ytChartType==='line'?' active':''}" onclick="switchYTChartType('line')" style="${ytChartType==='line'?'color:#FF0000;border-bottom-color:#FF0000':''}">Line Chart</button>
+    </div>`
+
+    let chartInner = ''
+    if (ytChartType === 'bar') {
+      chartInner = `<div class="tt-chart-wrap">${renderYTBarChart(videos)}</div>`
+    } else {
+      const mc = metricCfg.find(m => m.key === ytChartMetric) || metricCfg[0]
+      const data = getYTChartData(videos, ytChartRange)
+      const metricTabs = `<div class="tt-tabs" style="flex-wrap:wrap;gap:5px;margin-bottom:10px">${metricCfg.map(m =>
+        `<button class="tt-tab${ytChartMetric === m.key ? ' active' : ''}" onclick="switchYTChartMetric('${m.key}')"
+          style="${ytChartMetric === m.key ? `background:${m.color};border-color:${m.color};color:#fff;` : ''}">${m.label}</button>`
+      ).join('')}</div>`
+      const rangeBtns = `<div class="tt-range-wrap">${rangeCfg.map(r =>
+        `<button class="tt-range-btn${ytChartRange === r.key ? ' active' : ''}" onclick="switchYTChartRange('${r.key}')">${r.label}</button>`
+      ).join('')}</div>`
+      const insight = data.length >= 2 ? generateChartInsight(data, mc.key, mc.label) : ''
+      const legend = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${insight ? '5px' : '6px'}">
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);font-weight:600">
+          <span style="width:14px;height:2px;background:${mc.color};border-radius:1px;display:inline-block"></span>${mc.label}
+        </span>
+        <span style="font-size:10px;color:var(--text3)">· ${rangeCfg.find(r => r.key === ytChartRange)?.label || ''}</span>
+        <span style="font-size:10px;color:var(--text3)">· ${data.length} data point${data.length !== 1 ? 's' : ''}</span>
+      </div>${insight ? `<p style="font-size:10px;font-style:italic;color:var(--text3);margin:0 0 7px;line-height:1.5">${ytEscH(insight)}</p>` : ''}`
+      const lineChart = data.length < 2
+        ? `<div style="padding:20px;text-align:center;font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">Not enough data for this time range</div>`
+        : `<div class="tt-chart-wrap">${legend}${renderLineChart(data, mc.key, mc.color)}</div>`
+      chartInner = metricTabs + rangeBtns + lineChart
+    }
+    chartSection = `<div style="margin-bottom:14px">${typeTabs}${chartInner}</div>`
+  }
+
+  const tabVids = ytVideoTab === 'last10' ? videos.slice(0, 10) : videos.slice(0, 5)
+  const table = `<div class="tt-tabs" style="margin-bottom:8px">
+    <button class="tt-tab${ytVideoTab==='last5'?' active':''}" data-yttab="last5" onclick="switchYtVideoTab('last5')" style="${ytVideoTab==='last5'?'background:#FF0000;border-color:#FF0000;color:#fff;':''}">Last 5</button>
+    <button class="tt-tab${ytVideoTab==='last10'?' active':''}" data-yttab="last10" onclick="switchYtVideoTab('last10')" style="${ytVideoTab==='last10'?'background:#FF0000;border-color:#FF0000;color:#fff;':''}">Last 10</button>
+    <span style="margin-left:auto;font-size:10px;color:var(--text3);align-self:center">${videos.length} videos</span>
+  </div>
+  <div id="yt-video-table">${renderYTVideoTable(tabVids)}</div>`
+
+  return metrics + topVideo + chartSection + table
+}
+
+// ─── OLD RENDERERS (kept for renderYTBarChart) ────────────────────
+function renderYTEngBarChart(videos) {
+  if (!videos || videos.length === 0) return '<div class="tt-loading-state">No video data yet.</div>'
+  const W = 500, H = 95, PL = 32, PR = 4, PT = 8, PB = 22
+  const cw = W - PL - PR, ch = H - PT - PB
+  const engData = videos.map(v => ({
+    eng: v.views > 0 ? parseFloat(((v.likes + v.comments) / v.views * 100).toFixed(2)) : 0,
+    title: v.title, published_at: v.published_at
+  }))
+  const maxEng = Math.max(...engData.map(e => e.eng), 0.1)
+  const n = engData.length
+  const slotW = cw / n, barW = Math.max(4, slotW - 4)
+  const bars = engData.map((e, i) => {
+    const barH = Math.max(2, (e.eng / maxEng) * ch)
+    const x = PL + i * slotW + (slotW - barW) / 2
+    const y = PT + ch - barH
+    const dateStr = e.published_at ? new Date(e.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+    const tipTitle = (e.title || '').substring(0, 28) + ((e.title || '').length > 28 ? '…' : '')
+    const tip = `${tipTitle} · ${e.eng.toFixed(1)}% eng`.replace(/'/g, '&#39;')
+    const cx = (x + barW / 2).toFixed(1)
+    return `<g onmouseover="showChartTip(event,'${tip}')" onmouseout="hideChartTip()" style="cursor:pointer">
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}"
+        fill="#22c55e" fill-opacity="${e.eng > 0 ? 0.78 : 0.15}" rx="2"/>
+      <text x="${cx}" y="${(H - PB + 12).toFixed(1)}" text-anchor="middle" font-size="5" fill="var(--text3)" font-family="system-ui">${dateStr}</text>
+    </g>`
+  }).join('')
+  const yTicks = [0, 0.5, 1].map(t => {
+    const y = (PT + (1 - t) * ch).toFixed(1)
+    const lbl = (maxEng * t).toFixed(1) + '%'
+    return `<line x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
+            <text x="${PL - 4}" y="${(+y + 2).toFixed(1)}" text-anchor="end" font-size="5" fill="var(--text3)" font-family="system-ui">${lbl}</text>`
+  }).join('')
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">
+    ${yTicks}${bars}
+  </svg>`
+}
+
+function renderYTSubsDeltaBarChart(weekly) {
+  if (!weekly || weekly.length < 2) return '<div class="tt-loading-state">Not enough subscriber data.</div>'
+  const W = 500, H = 95, PL = 32, PR = 4, PT = 8, PB = 22
+  const cw = W - PL - PR, ch = H - PT - PB
+  const deltas = weekly.slice(1).map((v, i) => v - weekly[i])
+  const maxD = Math.max(...deltas.map(Math.abs), 1)
+  const n = deltas.length
+  const slotW = cw / n, barW = Math.max(4, slotW - 4)
+  const bars = deltas.map((delta, i) => {
+    const barH = Math.max(2, (Math.abs(delta) / maxD) * ch)
+    const x = PL + i * slotW + (slotW - barW) / 2
+    const y = delta >= 0 ? PT + ch - barH : PT + ch
+    const daysAgo = n - i - 1
+    const dt = new Date(); dt.setDate(dt.getDate() - daysAgo)
+    const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const tip = `${dateStr}: ${delta >= 0 ? '+' : ''}${delta} subs`.replace(/'/g, '&#39;')
+    const color = delta >= 0 ? '#22c55e' : '#f87171'
+    const cx = (x + barW / 2).toFixed(1)
+    return `<g onmouseover="showChartTip(event,'${tip}')" onmouseout="hideChartTip()" style="cursor:pointer">
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}"
+        fill="${color}" fill-opacity="0.78" rx="2"/>
+      <text x="${cx}" y="${(H - PB + 12).toFixed(1)}" text-anchor="middle" font-size="5" fill="var(--text3)" font-family="system-ui">${dateStr}</text>
+    </g>`
+  }).join('')
+  const baseY = (PT + ch).toFixed(1)
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">
+    <line x1="${PL}" y1="${baseY}" x2="${W - PR}" y2="${baseY}" stroke="var(--border)" stroke-width="1"/>
+    ${bars}
+  </svg>`
+}
+
+function youtubeBlock(isLoading) {
+  const cfg = PLATFORMS.youtube
+  const d   = analyticsData.platforms.youtube
+  const c   = cfg.color
+
+  let statusBadge = ''
+  if (!isLoading) {
+    if (ytDataStatus === 'live')   statusBadge = '<span class="data-badge-live">● Live</span>'
+    else if (ytDataStatus === 'cached') statusBadge = '<span class="data-badge-cached">Cached data</span>'
+  }
+
+  const mainContent = isLoading
+    ? `<div class="ag6">${Array(6).fill('<div class="a-metric">' + skeletonVal() + '</div>').join('')}</div>`
+    : renderYTOverview(ytVideos, d)
+
+  return `<div class="platform-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+      <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      ${statusBadge}
+    </div>
+    <div id="yt-main-content">${mainContent}</div>
+  </div>`
+}
+
+// ─── OLD (unused stub — keep renderYTBarChart alive) ──────────────
+
+// ─── TIKTOK HELPERS ─────────────────────────────────────────────
+function ttEscH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+function updateFollowerHistory(count) {
+  const today   = new Date().toISOString().split('T')[0]
+  let history   = JSON.parse(localStorage.getItem('tt_follower_history') || '[]')
+  const last    = history[history.length - 1]
+  if (!last || last.date !== today) {
+    history.push({ date: today, count: Number(count) || 0 })
+    if (history.length > 60) history = history.slice(-60)
+    localStorage.setItem('tt_follower_history', JSON.stringify(history))
+  }
+  return history
+}
+function getFollowerHistory() {
+  return JSON.parse(localStorage.getItem('tt_follower_history') || '[]')
+}
+function ttFmtN(n) {
+  if (!n && n !== 0) return '—'
+  const v = Number(n)
+  if (v >= 1000000) return (v/1000000).toFixed(1).replace(/\.0$/,'')+'M'
+  if (v >= 1000) return (v/1000).toFixed(1).replace(/\.0$/,'')+'K'
+  return String(v)
+}
+function ttFmtDate(ts) {
+  if (!ts) return ''
+  const d = new Date(Number(ts) * 1000)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// ─── TIKTOK STATUS BANNER ────────────────────────────────────────
+function ttStatusBanner() {
+  const reconnectBtn = `<button class="tt-connect-btn" onclick="startTikTokOAuth()">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M34.1 7C33.3 10.4 30 13 26.5 13.2V19.8C29.3 19.6 31.8 18.6 33.8 17v10.3C33.8 33.8 28.6 39 22.1 39c-6.5 0-11.7-5.2-11.7-11.7 0-6.3 5-11.4 11.2-11.7v6.6c-2.8.3-5 2.6-5 5.2 0 2.9 2.3 5.2 5.2 5.2 3 0 5.5-2.5 5.5-5.5V7h6.8z" fill="white"/></svg>
+    Reconnect TikTok
+  </button>`
+  const note = `<span class="tt-status-note">TikTok authorization expires every 24 hours. Reconnect daily to pull fresh data.</span>`
+
+  if (ttConnectionState === 'live') {
+    const ts = ttLastFetchedAt ? toPhilippineTime(ttLastFetchedAt) : '—'
+    return `<div class="tt-status-live">
+      <span class="data-badge-live" style="margin-left:0">● Live</span>
+      <span style="font-size:11px;color:var(--text2)">Last updated: ${ts}</span>
+      <span style="margin-left:auto">${note}</span>
+    </div>`
+  }
+  if (ttConnectionState === 'expired') {
+    const ts = ttLastFetchedAt ? toPhilippineTime(ttLastFetchedAt) : 'unknown time'
+    return `<div class="tt-status-expired">
+      <span style="font-size:12px;font-weight:600;color:var(--amber)">⚠ Showing cached data from ${ts}</span>
+      <span style="margin-left:auto">${note}</span>
+    </div>`
+  }
+  return ''
+}
+
+// ─── TIKTOK CHART / DATA HELPERS ────────────────────────────────
+function groupByMonth(videos) {
+  const map = {}
+  videos.forEach(v => {
+    if (!v.create_time) return
+    const d   = new Date(Number(v.create_time) * 1000)
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    const lbl = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+    if (!map[key]) map[key] = { key, label: lbl, videos: [], views: 0, likes: 0, comments: 0, count: 0 }
+    map[key].videos.push(v)
+    map[key].views    += v.view_count    || 0
+    map[key].likes    += v.like_count    || 0
+    map[key].comments += v.comment_count || 0
+    map[key].count    += 1
+  })
+  return Object.values(map).sort((a, b) => a.key.localeCompare(b.key))
+}
+
+function ttSparkline(values, color, w = 72, h = 32) {
+  if (!values || values.length < 2) return `<div style="width:${w}px;height:${h}px"></div>`
+  const lo = 0, hi = Math.max(...values, 1), P = 2
+  const pts = values.map((v, i) => [
+    P + (i / (values.length - 1)) * (w - P * 2),
+    P + (1 - v / hi) * (h - P * 2)
+  ])
+  let line = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+  for (let i = 1; i < pts.length; i++) {
+    const cx = ((pts[i-1][0] + pts[i][0]) / 2).toFixed(1)
+    line += ` C${cx},${pts[i-1][1].toFixed(1)} ${cx},${pts[i][1].toFixed(1)} ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`
+  }
+  const area = `${line} L${pts[pts.length-1][0].toFixed(1)},${h} L${pts[0][0].toFixed(1)},${h}Z`
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;flex-shrink:0">
+    <path d="${area}" fill="${color}" fill-opacity="0.15"/>
+    <path d="${line}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${pts[pts.length-1][0].toFixed(1)}" cy="${pts[pts.length-1][1].toFixed(1)}" r="2.5" fill="${color}"/>
+  </svg>`
+}
+
+function groupByDay(videos, filterMonth) {
+  const map = {}
+  videos.forEach(v => {
+    if (!v.create_time) return
+    const d    = new Date(Number(v.create_time) * 1000)
+    const mKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+    if (filterMonth && mKey !== filterMonth) return
+    const key  = d.toISOString().split('T')[0]
+    const lbl  = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    if (!map[key]) map[key] = { key, label: lbl, videos: [], views: 0, likes: 0, comments: 0, count: 0 }
+    map[key].views    += v.view_count    || 0
+    map[key].likes    += v.like_count    || 0
+    map[key].comments += v.comment_count || 0
+    map[key].count    += 1
+  })
+  return Object.values(map).sort((a, b) => a.key.localeCompare(b.key))
+}
+
+function enrichData(data) {
+  return data.map(m => ({
+    ...m,
+    avg: m.count ? Math.round(m.views / m.count) : 0,
+    eng: m.views > 0 ? +((m.likes + m.comments) / m.views * 100).toFixed(2) : 0
+  }))
+}
+
+function getChartData(videos, range) {
+  const now = new Date()
+  if (range === 'month') {
+    const curMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+    return enrichData(groupByDay(videos, curMonth))
+  }
+  const byMonth = groupByMonth(videos)
+  if (range === 'all') return enrichData(byMonth)
+  const n = range === '6m' ? 6 : 3
+  const cutoff = new Date(now)
+  cutoff.setMonth(cutoff.getMonth() - n)
+  const cutKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}`
+  return enrichData(byMonth.filter(m => m.key >= cutKey))
+}
+
+function renderLineChart(data, valueKey, color) {
+  if (!data || data.length < 2) return '<div class="tt-loading-state">Not enough data for this range.</div>'
+  const W = 500, H = 80, PL = 24, PR = 4, PT = 6, PB = 16
+  const vals = data.map(m => m[valueKey] || 0)
+  const hi = Math.max(...vals, 1)
+  const cw = W - PL - PR, ch = H - PT - PB
+  const pts = data.map((m, i) => [
+    PL + (i / (data.length - 1)) * cw,
+    PT + (1 - (m[valueKey] || 0) / hi) * ch
+  ])
+  let line = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+  for (let i = 1; i < pts.length; i++) {
+    const cx = ((pts[i-1][0] + pts[i][0]) / 2).toFixed(1)
+    line += ` C${cx},${pts[i-1][1].toFixed(1)} ${cx},${pts[i][1].toFixed(1)} ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`
+  }
+  const area = `${line} L${pts[pts.length-1][0].toFixed(1)},${H-PB} L${pts[0][0].toFixed(1)},${H-PB}Z`
+  const xLabels = data.map((m, i) =>
+    `<text x="${pts[i][0].toFixed(1)}" y="${H-PB+11}" text-anchor="middle" font-size="5" fill="var(--text3)" font-family="system-ui">${m.label}</text>`
+  ).join('')
+  const yTicks = [0, 0.5, 1].map(t => {
+    const y = (PT + (1 - t) * ch).toFixed(1)
+    const v = Math.round(hi * t)
+    const lbl = v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(1)+'K' : String(v)
+    return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
+            <text x="${PL-3}" y="${(+y+2).toFixed(1)}" text-anchor="end" font-size="5" fill="var(--text3)" font-family="system-ui">${lbl}</text>`
+  }).join('')
+  const dots = pts.map((pt, i) => {
+    const v = data[i][valueKey] || 0
+    const fv = valueKey === 'eng' ? v.toFixed(2)+'%' : (v >= 1000 ? (v/1000).toFixed(1)+'K' : String(v))
+    const tip = (data[i].label + ': ' + fv).replace(/'/g, '&#39;')
+    return `<g onmouseover="showChartTip(event,'${tip}')" onmouseout="hideChartTip()" style="cursor:pointer">
+      <circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="7" fill="transparent"/>
+      <circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="2.5" fill="${color}" stroke="var(--surface2)" stroke-width="1.5"/>
+    </g>`
+  }).join('')
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">
+    ${yTicks}
+    <path d="${area}" fill="${color}" fill-opacity="0.1"/>
+    <path d="${line}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${dots}
+    ${xLabels}
+  </svg>`
+}
+
+function renderMonthlyTopVideoInner(videos, selectedMonth) {
+  const byMonth = groupByMonth(videos)
+  if (byMonth.length === 0) {
+    return '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text3)">No video data available</div>'
+  }
+  const opts = byMonth.slice().reverse().map(m =>
+    `<option value="${m.key}"${m.key === selectedMonth ? ' selected' : ''}>${m.label}</option>`
+  ).join('')
+  const monthData = byMonth.find(m => m.key === selectedMonth)
+  let cardHtml
+  if (!monthData || monthData.videos.length === 0) {
+    cardHtml = `<div style="padding:14px;text-align:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">No videos posted this month</div>`
+  } else {
+    const top = monthData.videos.reduce((a, b) => (b.view_count||0) > (a.view_count||0) ? b : a)
+    const thumb = top.cover_image_url
+      ? `<img src="${ttEscH(top.cover_image_url)}" style="width:56px;height:78px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)" alt="">`
+      : `<div style="width:56px;height:78px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;color:var(--text3)">▶</div>`
+    cardHtml = `<div class="tt-top-video-card">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div class="tt-top-video-badge">🏆 Top Video — ${monthData.label}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:7px;line-height:1.4">${ttEscH(top.title || top.video_description || '(No title)')}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text2)">👁 <strong>${ttFmtN(top.view_count)}</strong> views</span>
+          <span style="font-size:11px;color:var(--text2)">♥ <strong>${ttFmtN(top.like_count)}</strong> likes</span>
+          <span style="font-size:11px;color:var(--text2)">💬 <strong>${ttFmtN(top.comment_count)}</strong> comments</span>
+          ${top.create_time ? `<span style="font-size:11px;color:var(--text3)">${ttFmtDate(top.create_time)}</span>` : ''}
+        </div>
+      </div>
+    </div>`
+  }
+  return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:700">🏆 Top Video of the Month</div>
+      <select onchange="setTikTokMonthFilter(this.value)" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;outline:none">${opts}</select>
+    </div>
+    ${cardHtml}`
+}
+
+function generateChartInsight(data, valueKey, metricLabel) {
+  if (!data || data.length < 2) return ''
+  const vals  = data.map(m => m[valueKey] || 0)
+  const n     = vals.length
+  const first = vals[0], last = vals[n - 1]
+  const maxVal = Math.max(...vals), maxIdx = vals.lastIndexOf(maxVal)
+  const minVal = Math.min(...vals), minIdx = vals.indexOf(minVal)
+  const isEng  = valueKey === 'eng'
+  const fmt = v => isEng ? v.toFixed(1) + '%' : (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(1)+'K' : String(Math.round(v)))
+  const avg   = vals.reduce((a, b) => a + b, 0) / n
+  const overallPct = first > 0 ? Math.round((last - first) / first * 100) : 0
+  const peakedMid  = maxIdx > 0 && maxIdx < n - 1 && maxVal > avg * 1.3
+  const dipMid     = minIdx > 0 && minIdx < n - 1 && minVal < avg * 0.6
+  const recentUp   = n >= 2 && last > vals[n - 2] * 1.15
+  const recentDown = n >= 2 && last < vals[n - 2] * 0.85
+
+  let text = ''
+  if (peakedMid && last < maxVal * 0.75) {
+    const dropPct = Math.round((maxVal - last) / maxVal * 100)
+    text = `Peaked at ${fmt(maxVal)} in ${data[maxIdx].label}, then declined ${dropPct}% through ${data[n-1].label}.`
+    if (recentUp) text += ' Slight recovery in the most recent period.'
+  } else if (dipMid && last > minVal * 1.3) {
+    text = `Dipped to ${fmt(minVal)} in ${data[minIdx].label} but has since recovered to ${fmt(last)}.`
+  } else if (overallPct >= 50) {
+    text = `Strong upward trend — up ${overallPct}% from ${data[0].label} to ${data[n-1].label}.`
+    if (recentDown) text += ' Momentum slowing in the latest period.'
+  } else if (overallPct >= 15) {
+    text = `Gradual growth of ${overallPct}% over this period.`
+    if (recentUp) text += ' Growth is accelerating recently.'
+  } else if (overallPct <= -50) {
+    text = `Sharp decline of ${Math.abs(overallPct)}% since ${data[0].label}.`
+    if (recentUp) text += ' Most recent period shows early signs of recovery.'
+  } else if (overallPct <= -15) {
+    text = `Declining trend, down ${Math.abs(overallPct)}% over this period.`
+    if (recentUp) text += ' Latest period bucked the trend — worth watching.'
+  } else {
+    const dir = overallPct >= 0 ? `up ${overallPct}%` : `down ${Math.abs(overallPct)}%`
+    text = `Relatively stable over this period — ${dir} overall.`
+  }
+  if (!text.includes(data[maxIdx].label) && maxVal > avg * 1.5) {
+    text += ` Best period: ${data[maxIdx].label} (${fmt(maxVal)}).`
+  }
+  return text
+}
+
+function renderTrendsTab(videos) {
+  const metricCfg = [
+    { key: 'views',    label: 'Views',          color: '#00C2A8' },
+    { key: 'likes',    label: 'Likes',           color: '#f43f5e' },
+    { key: 'comments', label: 'Comments',        color: '#8b5cf6' },
+    { key: 'avg',      label: 'Average Views',   color: '#f59e0b' },
+    { key: 'eng',      label: 'Engagement Rate', color: '#3b82f6' },
+  ]
+  const rangeCfg = [
+    { key: 'all',   label: 'All Time' },
+    { key: '6m',    label: 'Last 6 Mo' },
+    { key: '3m',    label: 'Last 3 Mo' },
+    { key: 'month', label: 'This Month' },
+  ]
+  const data    = getChartData(videos, ttChartRange)
+  const mc      = metricCfg.find(m => m.key === ttChartMetric) || metricCfg[0]
+  const metricTabs = metricCfg.map(m =>
+    `<button class="tt-tab${ttChartMetric === m.key ? ' active' : ''}" data-metric="${m.key}" onclick="switchTikTokChartMetric('${m.key}')">${m.label}</button>`
+  ).join('')
+  const rangeBtns = rangeCfg.map(r =>
+    `<button class="tt-range-btn${ttChartRange === r.key ? ' active' : ''}" onclick="switchTikTokChartRange('${r.key}')">${r.label}</button>`
+  ).join('')
+  const rangeLbl = rangeCfg.find(r => r.key === ttChartRange)?.label || ''
+  const insight  = data.length >= 2 ? generateChartInsight(data, mc.key, mc.label) : ''
+  const legend = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${insight ? '5px' : '6px'}">
+    <span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);font-weight:600">
+      <span style="width:14px;height:2px;background:${mc.color};border-radius:1px;display:inline-block"></span>
+      ${mc.label}
+    </span>
+    <span style="font-size:10px;color:var(--text3)">·</span>
+    <span style="font-size:10px;color:var(--text3)">${rangeLbl}</span>
+    <span style="font-size:10px;color:var(--text3)">·</span>
+    <span style="font-size:10px;color:var(--text3)">${data.length} data point${data.length !== 1 ? 's' : ''}</span>
+  </div>
+  ${insight ? `<p style="font-size:10px;font-style:italic;color:var(--text3);margin:0 0 7px;line-height:1.5">${ttEscH(insight)}</p>` : ''}`
+  const chartHtml = data.length < 2
+    ? `<div style="padding:20px;text-align:center;font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">Not enough data for this time range</div>`
+    : `<div class="tt-chart-wrap">${legend}${renderLineChart(data, mc.key, mc.color)}</div>`
+  return `<div class="tt-tabs" style="flex-wrap:wrap;gap:5px;margin-bottom:10px">${metricTabs}</div>
+    <div class="tt-range-wrap">${rangeBtns}</div>
+    ${chartHtml}`
+}
+
+function renderOverviewContent(user, videos) {
+  const byMonth       = groupByMonth(videos)
+  const totalViews    = videos.reduce((s, v) => s + (v.view_count    || 0), 0)
+  const totalLikes    = videos.reduce((s, v) => s + (v.like_count    || 0), 0)
+  const totalComments = videos.reduce((s, v) => s + (v.comment_count || 0), 0)
+  const avgViews      = videos.length ? Math.round(totalViews / videos.length) : 0
+  const engRate       = totalViews > 0 ? ((totalLikes + totalComments) / totalViews * 100).toFixed(2) : '0.00'
+  const mViews    = byMonth.map(m => m.views)
+  const mLikes    = byMonth.map(m => m.likes)
+  const mComments = byMonth.map(m => m.comments)
+  const mAvg      = byMonth.map(m => m.count ? Math.round(m.views / m.count) : 0)
+  const mEng      = byMonth.map(m => m.views > 0 ? +((m.likes+m.comments)/m.views*100).toFixed(2) : 0)
+  function momDelta(arr) {
+    if (arr.length < 2) return null
+    const prev = arr[arr.length-2], cur = arr[arr.length-1]
+    return prev ? (((cur-prev)/prev)*100).toFixed(1) : null
+  }
+  function trendLine(d) { return d === null ? '' : d >= 0 ? `Up ${d}% from last month.` : `Down ${Math.abs(d)}% from last month.` }
+  const dv = momDelta(mViews), de = momDelta(mEng), da = momDelta(mAvg), dl = momDelta(mLikes), dc = momDelta(mComments)
+  const fHistory   = getFollowerHistory()
+  const mFollowers = fHistory.length >= 2 ? fHistory.map(h => h.count) : []
+  const df = mFollowers.length >= 2 ? momDelta(mFollowers) : null
+  const fTrendNote = fHistory.length >= 2 ? ` Tracking since ${fHistory[0].date}.` : ' Sparkline builds as you revisit.'
+  const tipFollowers = `${ttFmtN(user.follower_count)} total followers.${fTrendNote} Keep posting daily to accelerate growth.`
+  const tipViews     = `${ttFmtN(totalViews)} views across ${videos.length} videos. ${trendLine(dv)}`
+  const tipLikes     = `Like rate: ${totalViews > 0 ? ((totalLikes/totalViews)*100).toFixed(1) : 0}% of views. Industry avg is 3–5%.`
+  const tipComments  = `Comment rate: ${totalViews > 0 ? ((totalComments/totalViews)*100).toFixed(2) : 0}% of views. Comments signal strong audience connection.`
+  const tipAvg       = `${ttFmtN(avgViews)} avg views/video. ${trendLine(da)} ${avgViews > 1000 ? 'Solid performance.' : 'Hook the first 3 seconds harder.'}`
+  const tipEng       = `${engRate}% engagement. ${+engRate > 5 ? '🔥 Top tier.' : +engRate > 2 ? '✅ Above average.' : '⚠ Add stronger CTAs.'} ${trendLine(de)}`
+  const tableContent = ttActiveTab === 'last5'
+    ? renderVideoTableRows(videos.slice(0, 5), videos)
+    : renderPaginatedTable(ttActiveTab === 'all' ? videos : videos.slice(0, 20), videos, ttVideoPage, 5)
+
+  return `<div class="ag6" style="margin-bottom:14px">
+    <div class="a-metric" data-tooltip="${tipFollowers}">
+      <div class="metric-label">FOLLOWERS</div>
+      <div class="tt-metric-inner">
+        <div><div class="metric-val" style="margin-top:4px">${ttFmtN(user.follower_count)}</div>${changeEl(df)}<div class="metric-sub">${mFollowers.length >= 2 ? mFollowers.length + ' day history' : 'account total'}</div></div>
+        ${mFollowers.length >= 2 ? ttSparkline(mFollowers, '#00C2A8') : ''}
+      </div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipViews}">
+      <div class="metric-label">TOTAL VIEWS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalViews)}</div>${changeEl(dv)}<div class="metric-sub">all ${videos.length} videos</div></div>${ttSparkline(mViews,'#00C2A8')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipLikes}">
+      <div class="metric-label">TOTAL LIKES</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalLikes)}</div>${changeEl(dl)}<div class="metric-sub">all videos</div></div>${ttSparkline(mLikes,'#f43f5e')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipComments}">
+      <div class="metric-label">TOTAL COMMENTS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(totalComments)}</div>${changeEl(dc)}<div class="metric-sub">all videos</div></div>${ttSparkline(mComments,'#8b5cf6')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipAvg}">
+      <div class="metric-label">AVG VIEWS</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${ttFmtN(avgViews)}</div>${changeEl(da)}<div class="metric-sub">${videos.length} videos</div></div>${ttSparkline(mAvg,'#f59e0b')}</div>
+    </div>
+    <div class="a-metric" data-tooltip="${tipEng}">
+      <div class="metric-label">ENGAGEMENT RATE</div>
+      <div class="tt-metric-inner"><div><div class="metric-val" style="margin-top:4px">${engRate}%</div>${changeEl(de)}<div class="metric-sub">(likes+comments)/views</div></div>${ttSparkline(mEng,'#3b82f6')}</div>
+    </div>
+  </div>
+  <div id="tt-monthly-top" style="margin-bottom:16px">${renderMonthlyTopVideoInner(videos, ttMonthFilter)}</div>
+  <div class="tt-tabs">
+    <button class="tt-tab${ttActiveTab==='last5'?' active':''}" data-tab="last5" onclick="switchTikTokVideoTab('last5')">Last 5</button>
+    <button class="tt-tab${ttActiveTab==='last20'?' active':''}" data-tab="last20" onclick="switchTikTokVideoTab('last20')">Last 20</button>
+    <button class="tt-tab${ttActiveTab==='all'?' active':''}" data-tab="all" onclick="switchTikTokVideoTab('all')">All Videos</button>
+    <span style="margin-left:auto;font-size:10px;color:var(--text3);align-self:center">${videos.length} total</span>
+  </div>
+  <div id="tt-video-table">${tableContent}</div>`
+}
+
+function renderVideoTableRows(videos, allVideos) {
+  if (!videos || videos.length === 0) {
+    return '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text3)">No videos found</div>'
+  }
+  const maxViews = Math.max(...allVideos.map(v => v.view_count || 0), 1)
+  return videos.map(v => {
+    const title  = ttEscH(v.title || v.video_description || '(No title)')
+    const barPct = Math.round(((v.view_count || 0) / maxViews) * 100)
+    const thumb  = v.cover_image_url
+      ? `<img src="${ttEscH(v.cover_image_url)}" class="tt-vt-thumb" alt="">`
+      : `<div class="tt-vt-thumb" style="background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3)">▶</div>`
+    return `<div class="tt-vt-row">
+      ${thumb}
+      <div class="tt-vt-meta">
+        <div class="tt-vt-title" title="${title}">${title}</div>
+        <div class="tt-vt-stats">
+          <span>👁 ${ttFmtN(v.view_count)}</span>
+          <span>♥ ${ttFmtN(v.like_count)}</span>
+          <span>💬 ${ttFmtN(v.comment_count)}</span>
+        </div>
+        <div class="tt-vt-bar-wrap"><div class="tt-vt-bar" style="width:${barPct}%"></div></div>
+      </div>
+      <div class="tt-vt-date">${ttFmtDate(v.create_time)}</div>
+    </div>`
+  }).join('')
+}
+
+function renderPaginatedTable(pool, allVideos, page, pageSize) {
+  const totalPages = Math.ceil(pool.length / pageSize)
+  const rows = renderVideoTableRows(pool.slice(page * pageSize, (page + 1) * pageSize), allVideos)
+  if (totalPages <= 1) return rows
+  return `${rows}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+    <button class="refresh-btn" style="font-size:11px;padding:3px 10px" onclick="setTikTokVideoPage(${page-1})"${page===0?' disabled':''}>← Prev</button>
+    <span style="font-size:11px;color:var(--text3)">Page ${page+1} of ${totalPages} · ${pool.length} videos</span>
+    <button class="refresh-btn" style="font-size:11px;padding:3px 10px" onclick="setTikTokVideoPage(${page+1})"${page>=totalPages-1?' disabled':''}>Next →</button>
+  </div>`
+}
+
+function setTikTokVideoPage(page) {
+  ttVideoPage = page
+  const el = document.getElementById('tt-video-table')
+  if (!el) return
+  const pool = ttActiveTab === 'all' ? tiktokLiveData.videos : tiktokLiveData.videos.slice(0, 20)
+  el.innerHTML = renderPaginatedTable(pool, tiktokLiveData.videos, page, 5)
+}
+window.setTikTokVideoPage = setTikTokVideoPage
+
+function switchTikTokVideoTab(tab) {
+  ttActiveTab = tab
+  ttVideoPage = 0
+  const el = document.getElementById('tt-video-table')
+  if (el) {
+    if (tab === 'last5') {
+      el.innerHTML = renderVideoTableRows(tiktokLiveData.videos.slice(0, 5), tiktokLiveData.videos)
+    } else {
+      const pool = tab === 'all' ? tiktokLiveData.videos : tiktokLiveData.videos.slice(0, 20)
+      el.innerHTML = renderPaginatedTable(pool, tiktokLiveData.videos, 0, 5)
+    }
+  }
+  document.querySelectorAll('[data-tab="last5"],[data-tab="last20"],[data-tab="all"]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab)
+  })
+}
+window.switchTikTokVideoTab = switchTikTokVideoTab
+
+function switchTikTokMainTab(tab) {
+  ttMainTab = tab
+  const el = document.getElementById('tt-main-content')
+  if (!el || !tiktokLiveData.user) { renderDashboard(false); return }
+  el.innerHTML = tab === 'trends'
+    ? renderTrendsTab(tiktokLiveData.videos)
+    : renderOverviewContent(tiktokLiveData.user, tiktokLiveData.videos)
+  document.querySelectorAll('.tt-main-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab)
+  })
+}
+window.switchTikTokMainTab = switchTikTokMainTab
+
+function switchTikTokChartMetric(metric) {
+  ttChartMetric = metric
+  const el = document.getElementById('tt-main-content')
+  if (el) el.innerHTML = renderTrendsTab(tiktokLiveData.videos)
+}
+window.switchTikTokChartMetric = switchTikTokChartMetric
+
+function switchTikTokChartRange(range) {
+  ttChartRange = range
+  const el = document.getElementById('tt-main-content')
+  if (el) el.innerHTML = renderTrendsTab(tiktokLiveData.videos)
+}
+window.switchTikTokChartRange = switchTikTokChartRange
+
+function setTikTokMonthFilter(value) {
+  ttMonthFilter = value
+  const el = document.getElementById('tt-monthly-top')
+  if (el) el.innerHTML = renderMonthlyTopVideoInner(tiktokLiveData.videos, value)
+}
+window.setTikTokMonthFilter = setTikTokMonthFilter
+
+function showChartTip(evt, text) {
+  let tip = document.getElementById('tt-chart-tip')
+  if (!tip) {
+    tip = document.createElement('div')
+    tip.id = 'tt-chart-tip'
+    tip.style.cssText = 'position:fixed;background:rgba(22,27,34,.97);color:#e6edf3;font-size:10px;line-height:1.4;padding:5px 9px;border-radius:5px;pointer-events:none;z-index:9999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:opacity .1s'
+    document.body.appendChild(tip)
+  }
+  tip.textContent = text
+  tip.style.opacity = '1'
+  tip.style.left = (evt.clientX + 14) + 'px'
+  tip.style.top  = (evt.clientY - 36) + 'px'
+}
+window.showChartTip = showChartTip
+
+function hideChartTip() {
+  const tip = document.getElementById('tt-chart-tip')
+  if (tip) tip.style.opacity = '0'
+}
+window.hideChartTip = hideChartTip
+
+// ─── TIKTOK BLOCK ────────────────────────────────────────────────
+function tiktokBlock(isLoading) {
+  const cfg = PLATFORMS.tiktok
+  const d   = analyticsData.platforms.tiktok
+  const c   = cfg.color
+
+  // Full analytics dashboard (connected OR showing expired cache)
+  if (tiktokLiveData.user && !isLoading) {
+    const user    = tiktokLiveData.user
+    const videos  = tiktokLiveData.videos
+    const byMonth = groupByMonth(videos)
+
+    const avatarEl = user.avatar_url
+      ? `<img src="${ttEscH(user.avatar_url)}" class="tt-avatar" alt="">`
+      : `<div class="tt-avatar tt-avatar-placeholder">TT</div>`
+
+    const errorBanner = tiktokLiveData.error
+      ? `<div class="tt-error-state" style="margin-bottom:12px;border-radius:8px">
+           <div style="font-weight:700;margin-bottom:4px">⚠ TikTok connection failed</div>
+           <div style="font-size:11px;opacity:.85;word-break:break-word">${ttEscH(tiktokLiveData.error)}</div>
+           <div style="margin-top:8px;font-size:11px;color:var(--text2)">
+             <strong>Sandbox checklist:</strong>
+             1) Your TikTok account must be added as a <em>Sandbox User</em> in the TikTok Developer Portal under your app.
+             2) The redirect URI <code style="background:var(--surface2);padding:1px 4px;border-radius:3px">${TT_REDIRECT_URI}</code> must be registered exactly (including trailing slash).
+             3) The Edge Function <code style="background:var(--surface2);padding:1px 4px;border-radius:3px">tiktok-token-exchange</code> must be deployed to Supabase.
+           </div>
+         </div>`
+      : ''
+
+    const actionBtn = ttConnectionState === 'live'
+      ? `<button class="refresh-btn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="disconnectTikTok()">Disconnect</button>`
+      : `<button class="tt-connect-btn" style="margin-left:auto" onclick="startTikTokOAuth()">
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M34.1 7C33.3 10.4 30 13 26.5 13.2V19.8C29.3 19.6 31.8 18.6 33.8 17v10.3C33.8 33.8 28.6 39 22.1 39c-6.5 0-11.7-5.2-11.7-11.7 0-6.3 5-11.4 11.2-11.7v6.6c-2.8.3-5 2.6-5 5.2 0 2.9 2.3 5.2 5.2 5.2 3 0 5.5-2.5 5.5-5.5V7h6.8z" fill="white"/></svg>
+          Reconnect TikTok
+        </button>`
+
+    const mainContent = ttMainTab === 'trends'
+      ? renderTrendsTab(videos)
+      : renderOverviewContent(user, videos)
+
+    return `<div class="platform-section">
+      ${errorBanner}
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+        <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+        ${actionBtn}
+      </div>
+
+      ${ttStatusBanner()}
+
+      <div class="tt-profile-card" style="margin-bottom:14px">
+        <div class="tt-profile-left">
+          ${avatarEl}
+          <div>
+            <div class="tt-display-name">${ttEscH(user.display_name || 'TikTok Account')}</div>
+            <div class="tt-profile-handle">${videos.length} videos · ${byMonth.length} month${byMonth.length !== 1 ? 's' : ''} of data</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tt-main-tabs">
+        <button class="tt-main-tab${ttMainTab==='overview'?' active':''}" data-tab="overview" onclick="switchTikTokMainTab('overview')">Overview</button>
+        <button class="tt-main-tab${ttMainTab==='trends'?' active':''}" data-tab="trends" onclick="switchTikTokMainTab('trends')">📈 Trends</button>
+      </div>
+
+      <div id="tt-main-content">${mainContent}</div>
+    </div>`
+  }
+
+  // ── No data / connect state ──────────────────────────────────
+  const connectBtn = isLoading ? '' :
+    `<button class="tt-connect-btn" style="margin-left:auto" onclick="startTikTokOAuth()">
+      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M34.1 7C33.3 10.4 30 13 26.5 13.2V19.8C29.3 19.6 31.8 18.6 33.8 17v10.3C33.8 33.8 28.6 39 22.1 39c-6.5 0-11.7-5.2-11.7-11.7 0-6.3 5-11.4 11.2-11.7v6.6c-2.8.3-5 2.6-5 5.2 0 2.9 2.3 5.2 5.2 5.2 3 0 5.5-2.5 5.5-5.5V7h6.8z" fill="white"/></svg>
+      Connect TikTok
+    </button>`
+
+  return `<div class="platform-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="platform-badge" style="background:${c}">${cfg.abbr}</div>
+      <span style="font-size:17px;font-weight:700;color:var(--text)">${cfg.name}</span>
+      ${connectBtn}
+    </div>
+    <div class="ag3">
+      ${metricCard('FOLLOWERS', d.followers, d.followers_change, d.weekly_data.followers, c, isLoading)}
+      ${metricCard('AVG VIEWS', d.avg_views, d.avg_views_change, d.weekly_data.views, c, isLoading)}
+      ${metricCard('VIDEOS POSTED', d.videos_this_week, d.videos_change, null, c, isLoading)}
+    </div>
+    <div class="ag3">
+      ${metricCard('ENGAGEMENT RATE', d.engagement_rate + '%', d.engagement_change, null, c, isLoading)}
+    </div>
+  </div>`
+}
+
+function socialTopCard(isLoading) {
+  const yt = analyticsData.platforms.youtube
+  const tt = analyticsData.platforms.tiktok
+
+  const igActive = activePlatform === 'instagram'
+  const ytActive = activePlatform === 'youtube'
+  const ttActive = activePlatform === 'tiktok'
+  const fbActive = activePlatform === 'facebook'
+
+  return `<div class="social-top-card">
+    <div class="social-top-header">
+      <span class="social-top-title">Social Media Overview</span>
+      <span class="last-refreshed" id="last-refreshed-inline">${lastRefreshedTime ? 'Updated ' + lastRefreshedTime : ''}</span>
+    </div>
+    <div class="social-platforms-row">
+      <div class="social-platform-cell${ytActive ? ' active' : ''}" onclick="setActivePlatform('youtube')">
+        <div class="social-cell-badge" style="background:#FF0000">YT</div>
+        <div class="social-cell-info">
+          <div class="social-cell-name">YouTube</div>
+          <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : fmtNum(yt.subscribers)}</div>
+          <div class="social-cell-sub">subscribers${ytDataStatus === 'live' ? ' · live' : ''}</div>
+        </div>
+      </div>
+      <div class="social-platform-cell${ttActive ? ' active' : ''}" onclick="setActivePlatform('tiktok')">
+        <div class="social-cell-badge" style="background:#00C2A8">TT</div>
+        <div class="social-cell-info">
+          <div class="social-cell-name">TikTok</div>
+          <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : fmtNum(tiktokLiveData.user?.follower_count ?? tt.followers)}</div>
+          <div class="social-cell-sub">followers${tiktokLiveData.user ? (ttConnectionState === 'live' ? ' · live' : ' · cached') : ''}</div>
+        </div>
+      </div>
+      <div class="social-platform-cell${igActive ? ' active' : ''}" onclick="setActivePlatform('instagram')">
+        <div class="social-cell-badge" style="background:#E1306C">IG</div>
+        <div class="social-cell-info">
+          <div class="social-cell-name">Instagram</div>
+          <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : igFmtN(igData.profile?.followers_count)}</div>
+          <div class="social-cell-sub">followers${igState === 'live' ? ' · live' : igState === 'expired' ? ' · cached' : ''}</div>
+        </div>
+      </div>
+      <div class="social-platform-cell${fbActive ? ' active' : ''}" onclick="setActivePlatform('facebook')">
+        <div class="social-cell-badge" style="background:#1877F2">FB</div>
+        <div class="social-cell-info">
+          <div class="social-cell-name">Facebook</div>
+          <div class="social-cell-val">${isLoading ? '<div class="skeleton" style="height:1.2rem;width:50px"></div>' : igFmtN(fbData.profile?.followers_count)}</div>
+          <div class="social-cell-sub">followers${fbState === 'live' ? ' · live' : fbState === 'expired' ? ' · cached' : ''}</div>
+        </div>
+      </div>
+    </div>
+  </div>`
+}
+
+// ─── RENDER ─────────────────────────────────────────────────────
+function renderDashboard(isLoading) {
+  const d = analyticsData
+
+  document.getElementById('analytics-root').innerHTML = `
+    <div class="analytics-header">
+      <div>
+        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:3px">Social Media Analytics</div>
+        <div style="font-size:13px;color:var(--text2)">Weekly Review — ${d.week_label} &nbsp;·&nbsp; Updated ${d.last_updated}</div>
+      </div>
+      <div class="analytics-header-right">
+        <span class="last-refreshed" id="last-refreshed-label">${lastRefreshedTime ? 'Last fetched: ' + lastRefreshedTime : ''}</span>
+        <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()">
+          <span class="theme-toggle-icon">${document.body.classList.contains('dark') ? '🌙' : '☀️'}</span>
+          <span class="theme-toggle-label">${document.body.classList.contains('dark') ? 'Dark' : 'Light'}</span>
+        </button>
+        <button class="refresh-btn" onclick="refreshAnalytics()" id="refresh-btn">
+          <span class="refresh-icon">↻</span> Refresh
+        </button>
+      </div>
+    </div>
+
+    ${socialTopCard(isLoading)}
+
+    <div class="card" style="margin-bottom:20px">
+      ${platformBlock(activePlatform, isLoading)}
+    </div>
+  `
+}
+
+function setActivePlatform(platform) {
+  activePlatform = platform
+  renderDashboard(false)
+}
+window.setActivePlatform = setActivePlatform
+
+function summaryCfgCards() {
+  const d  = analyticsData
+  const ig = d.platforms.instagram
+  const yt = d.platforms.youtube
+  const tt = d.platforms.tiktok
+  const ytSubs = tiktokLiveData.user ? tt.followers : tt.followers
+  const totalFollowers = (ig.followers || 0) + yt.subscribers + tt.followers
+  const totalPosts     = ig.posts_this_week + yt.videos_this_week + tt.videos_this_week
+  const bestPlatform   = [
+    { name: 'Instagram', eng: ig.engagement_rate },
+    { name: 'YouTube',   eng: yt.engagement_rate },
+    { name: 'TikTok',    eng: tt.engagement_rate }
+  ].reduce((a, b) => b.eng > a.eng ? b : a)
+
+  const cfg = [
+    { label: 'TOTAL FOLLOWERS',   value: totalFollowers.toLocaleString(), sub: 'all platforms combined',       bc: 'var(--accent)' },
+    { label: 'CONTENT PUBLISHED', value: String(totalPosts),              sub: 'posts this week',              bc: '#1d4ed8' },
+    { label: 'BEST PLATFORM',     value: bestPlatform.name,               sub: bestPlatform.eng + '% engagement', bc: '#00C2A8' },
+    { label: 'WEEK',              value: d.week_label,                    sub: 'current review period',        bc: 'var(--amber)' }
+  ]
+
+  return cfg.map(c => `
+    <div class="summary-card" style="border-left:3px solid ${c.bc}">
+      <div class="metric-label">${c.label}</div>
+      <div class="metric-val" style="margin-top:4px">${c.value}</div>
+      <div class="metric-sub">${c.sub}</div>
+    </div>`).join('')
+}
+
+function updateLastRefreshed() {
+  const now = new Date()
+  const pht = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 8 * 3600000)
+  lastRefreshedTime = pht.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) + ' PHT'
+  const el  = document.getElementById('last-refreshed-label')
+  const el2 = document.getElementById('last-refreshed-inline')
+  if (el)  el.textContent  = 'Last fetched: ' + lastRefreshedTime
+  if (el2) el2.textContent = 'Updated ' + lastRefreshedTime
+}
+
+function showLoadingState() {
+  renderDashboard(true)
+  const btn = document.getElementById('refresh-btn')
+  if (btn) btn.classList.add('spinning')
+}
+
+// ─── TIKTOK OAUTH FUNCTIONS ─────────────────────────────────────
+function startTikTokOAuth() {
+  const state = crypto.randomUUID()
+  sessionStorage.setItem('tt_state', state)
+  const params = new URLSearchParams({
+    client_key:    TT_CLIENT_KEY,
+    scope:         'user.info.basic,user.info.stats,video.list',
+    response_type: 'code',
+    redirect_uri:  TT_REDIRECT_URI,
+    state
+  })
+  window.location.href = `https://www.tiktok.com/v2/auth/authorize/?${params}`
+}
+window.startTikTokOAuth = startTikTokOAuth
+
+async function disconnectTikTok() {
+  await sbDeleteToken()
+  ttOAuthToken      = null
+  ttConnectionState = tiktokLiveData.user ? 'expired' : 'no-data'
+  ttActiveTab   = 'last5'
+  ttMainTab     = 'overview'
+  ttChartMetric = 'views'
+  ttChartRange  = 'all'
+  ttVideoPage   = 0
+  renderDashboard(false)
+}
+window.disconnectTikTok = disconnectTikTok
+
+async function exchangeTikTokCode(code) {
+  const res = await fetch(TT_TOKEN_PROXY, {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'apikey':        SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ code, redirect_uri: TT_REDIRECT_URI })
+  })
+  if (!res.ok) {
+    const txt = await res.text().catch(() => res.statusText)
+    throw new Error(`Token exchange failed (${res.status}): ${txt}`)
+  }
+  const data = await res.json()
+  if (data.error) throw new Error(`${data.error}: ${data.detail || ''}`)
+  return data
+}
+
+async function fetchTikTokUserInfo(token) {
+  const headers = { Authorization: `Bearer ${token}` }
+  const fields = 'open_id,display_name,avatar_url,follower_count,following_count,likes_count,video_count'
+  const res = await fetch(`${TT_API_BASE}/user/info/?fields=${fields}`, { headers })
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => res.text())
+    throw new Error(`User info failed (${res.status}): ${JSON.stringify(errBody)}`)
+  }
+  const data = await res.json()
+  return data.data?.user || {}
+}
+
+async function fetchAllTikTokVideos(token) {
+  const fields  = 'id,title,video_description,cover_image_url,view_count,like_count,comment_count,create_time'
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+  let allVideos = [], cursor = 0, hasMore = true
+  while (hasMore) {
+    const res = await fetch(`${TT_API_BASE}/video/list/?fields=${fields}`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ max_count: 20, cursor })
+    })
+    if (!res.ok) throw new Error(`Video list failed (${res.status})`)
+    const data = await res.json()
+    if (data.error && data.error.code !== 'ok') throw new Error(data.error.message)
+    const page = data.data?.videos || []
+    allVideos = allVideos.concat(page)
+    hasMore   = data.data?.has_more === true
+    cursor    = data.data?.cursor   || 0
+    const el = document.getElementById('tt-loading-msg')
+    if (el) el.textContent = `Loading TikTok analytics... ${allVideos.length} videos`
+    if (!hasMore || page.length === 0) break
+  }
+  return allVideos.sort((a, b) => (b.create_time || 0) - (a.create_time || 0))
+}
+
+async function handleTikTokCallback(code) {
+  try {
+    const tokenData = await exchangeTikTokCode(code)
+    if (!tokenData.access_token) throw new Error('No access_token in response')
+
+    // Save token to Supabase
+    await sbSaveToken(tokenData.access_token, tokenData.open_id || null)
+    ttOAuthToken = tokenData.access_token
+
+    // Fetch fresh data
+    const [user, allVideos] = await Promise.all([
+      fetchTikTokUserInfo(tokenData.access_token),
+      fetchAllTikTokVideos(tokenData.access_token)
+    ])
+
+    // Save to cache
+    await sbSaveCache(user, allVideos)
+    ttLastFetchedAt = new Date().toISOString()
+
+    updateFollowerHistory(user.follower_count)
+    tiktokLiveData.user   = user
+    tiktokLiveData.videos = allVideos
+    tiktokLiveData.error  = null
+    ttConnectionState     = 'live'
+  } catch (err) {
+    console.error('TikTok OAuth callback error:', err)
+    await sbDeleteToken()
+    ttOAuthToken         = null
+    tiktokLiveData.error = err.message
+    ttConnectionState    = 'no-data'
+  }
+}
+
+// ─── INIT TIKTOK FROM SUPABASE ───────────────────────────────────
+async function initTikTokFromSupabase() {
+  const tokenRow = await sbGetToken()
+  const cacheRow = await sbGetCache()
+
+  // Update last fetched timestamp from cache if available
+  if (cacheRow?.last_fetched_at) {
+    ttLastFetchedAt = cacheRow.last_fetched_at
+  }
+
+  if (tokenRow && !isTokenExpired(tokenRow)) {
+    // Token valid — fetch fresh data
+    ttOAuthToken = tokenRow.access_token
+    try {
+      const [user, allVideos] = await Promise.all([
+        fetchTikTokUserInfo(tokenRow.access_token),
+        fetchAllTikTokVideos(tokenRow.access_token)
+      ])
+      await sbSaveCache(user, allVideos)
+      ttLastFetchedAt = new Date().toISOString()
+      updateFollowerHistory(user.follower_count)
+      tiktokLiveData.user   = user
+      tiktokLiveData.videos = allVideos
+      tiktokLiveData.error  = null
+      ttConnectionState     = 'live'
+    } catch (err) {
+      console.error('TikTok live fetch error:', err)
+      tiktokLiveData.error = err.message
+      // Fall back to cache if available
+      if (cacheRow?.user_data) {
+        tiktokLiveData.user   = cacheRow.user_data
+        tiktokLiveData.videos = cacheRow.videos_data || []
+      }
+      ttConnectionState = 'expired'
+    }
+  } else if (cacheRow?.user_data) {
+    // No valid token — load from cache
+    ttOAuthToken          = null
+    tiktokLiveData.user   = cacheRow.user_data
+    tiktokLiveData.videos = cacheRow.videos_data || []
+    tiktokLiveData.error  = null
+    ttConnectionState     = 'expired'
+    if (cacheRow.user_data?.follower_count) {
+      updateFollowerHistory(cacheRow.user_data.follower_count)
+    }
+  } else {
+    // No token, no cache
+    ttOAuthToken      = null
+    ttConnectionState = 'no-data'
+  }
+}
+
+// ─── LIVE DATA LOAD ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  renderDashboard(true)  // show skeletons immediately
+
+  const urlParams = new URLSearchParams(window.location.search)
+  const ttCode    = urlParams.get('code')
+  const ttError   = urlParams.get('error')
+  const ttErrDesc = urlParams.get('error_description')
+
+  if (ttError) {
+    history.replaceState({}, '', window.location.pathname)
+    tiktokLiveData.error  = `TikTok denied authorization: ${ttError}${ttErrDesc ? ' — ' + ttErrDesc : ''}`
+    ttConnectionState     = 'no-data'
+    await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase(), initFacebookFromSupabase()])
+  } else if (ttCode) {
+    history.replaceState({}, '', window.location.pathname)
+    document.getElementById('analytics-root').innerHTML =
+      `<div class="tt-loader-wrap">
+         <div class="tt-spinner"></div>
+         <div class="tt-loader-msg" id="tt-loading-msg">Connecting to TikTok...</div>
+         <div class="tt-loader-sub">Fetching all videos — this may take a moment</div>
+       </div>`
+    await Promise.all([handleTikTokCallback(ttCode), initInstagramFromSupabase(), initFacebookFromSupabase()])
+  } else {
+    await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase(), initFacebookFromSupabase()])
+  }
+
+  showLoadingState()
+  const data = await loadAllAnalytics()
+
+  if (data.youtube.success) {
+    analyticsData.platforms.youtube.subscribers      = data.youtube.subscribers
+    analyticsData.platforms.youtube.avg_views        = data.youtube.avg_views
+    analyticsData.platforms.youtube.videos_this_week = data.youtube.videos_this_week
+    analyticsData.platforms.youtube.engagement_rate  = data.youtube.engagement_rate
+    analyticsData.platforms.youtube.total_views      = data.youtube.total_views
+    ytVideos     = data.youtube.videos || []
+    ytDataStatus = 'live'
+  } else {
+    ytDataStatus = 'cached'
+  }
+
+  // Override TikTok followers with live/cached value if available
+  if (tiktokLiveData.user?.follower_count != null) {
+    analyticsData.platforms.tiktok.followers = tiktokLiveData.user.follower_count
+  }
+
+  renderDashboard(false)
+  updateLastRefreshed()
+})
+
+async function refreshAnalytics() {
+  const btn = document.getElementById('refresh-btn')
+  if (btn) { btn.classList.add('spinning'); btn.disabled = true }
+
+  await Promise.all([initTikTokFromSupabase(), initInstagramFromSupabase(), initFacebookFromSupabase()])
+
+  showLoadingState()
+  const data = await loadAllAnalytics()
+
+  if (data.youtube.success) {
+    analyticsData.platforms.youtube.subscribers      = data.youtube.subscribers
+    analyticsData.platforms.youtube.avg_views        = data.youtube.avg_views
+    analyticsData.platforms.youtube.videos_this_week = data.youtube.videos_this_week
+    analyticsData.platforms.youtube.engagement_rate  = data.youtube.engagement_rate
+    analyticsData.platforms.youtube.total_views      = data.youtube.total_views
+    ytVideos     = data.youtube.videos || []
+    ytDataStatus = 'live'
+  } else {
+    ytDataStatus = 'cached'
+  }
+
+  if (tiktokLiveData.user?.follower_count != null) {
+    analyticsData.platforms.tiktok.followers = tiktokLiveData.user.follower_count
+  }
+
+  renderDashboard(false)
+  updateLastRefreshed()
+}
+
+// ─── LIVE TIME ──────────────────────────────────────────────────
+function tick() {
+  const now = new Date()
+  const pht = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 8 * 3600000)
+  document.getElementById('time-display').textContent =
+    pht.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) + ' PHT'
+}
+tick()
+setInterval(tick, 1000)
+</script>
+</body>
+</html>
